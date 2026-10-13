@@ -28,6 +28,12 @@ data class Cliente(
      * Mega" per elencare e scaricare i file della cartella, senza login. Vuoto se non impostato.
      */
     val linkMega: String = "",
+    /**
+     * Nome della cartella del cliente sul NAS dello studio (dentro la cartella delle pratiche
+     * impostata nelle Impostazioni), memorizzato la prima volta che la si trova o la si sceglie
+     * (v3.78). Vuoto finché non è stata usata la sezione "documenti dal NAS".
+     */
+    val cartellaNas: String = "",
     val dataCreazione: Long = System.currentTimeMillis(),
     val ultimaModifica: Long = dataCreazione
 ) {
@@ -51,6 +57,7 @@ data class Cliente(
         o.put("subalterno", subalterno)
         o.put("note", note)
         o.put("linkMega", linkMega)
+        o.put("cartellaNas", cartellaNas)
         o.put("dataCreazione", dataCreazione)
         o.put("ultimaModifica", ultimaModifica)
         return o
@@ -116,6 +123,8 @@ data class Cliente(
                 note = o.optString("note"),
                 // Assente nelle schede salvate prima della v3.59: resta vuoto.
                 linkMega = o.optString("linkMega", ""),
+                // Assente nelle schede salvate prima della v3.78: resta vuoto.
+                cartellaNas = o.optString("cartellaNas", ""),
                 dataCreazione = o.optLong("dataCreazione"),
                 // Le schede salvate prima di questo campo non hanno una data di
                 // ultima modifica: si usa la data di creazione come riferimento.

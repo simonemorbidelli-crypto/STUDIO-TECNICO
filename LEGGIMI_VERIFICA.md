@@ -1,4 +1,4 @@
-# SchedaCliente v3.77 — pacchetto per la verifica
+# SchedaCliente v3.78 — pacchetto per la verifica
 
 App Android nativa (Kotlin) per lo studio del Geom. Simone Morbidelli: schede cliente,
 planimetrie con calcolo superfici, perizia unità (OMI), documenti Mega con parere AI,
@@ -8,9 +8,9 @@ ripartizione bollette, "ruota del caffè" e altro.
 
 | Percorso | Cosa contiene |
 |---|---|
-| `SchedaCliente-v3.77-debug.apk` | APK di debug già compilato (installabile) |
+| `SchedaCliente-v3.78-debug.apk` | APK di debug già compilato (installabile) |
 | `sorgenti/` | Progetto Gradle completo (senza cartelle `build/` e senza `local.properties`) |
-| `sorgenti/storia-git.bundle` | Storia git completa (commit dalla v3.64 "buon punto di partenza" alla v3.77) |
+| `sorgenti/storia-git.bundle` | Storia git completa (commit dalla v3.64 "buon punto di partenza" alla v3.78) |
 | `anteprime/` | Immagini prodotte dai test (risultati del riconoscimento vani sulle planimetrie catastali) |
 
 ## Come compilare e far girare i test
@@ -21,7 +21,7 @@ Requisiti: JDK 17 (provato anche con JDK 21), Android SDK (compileSdk 34), Gradl
 cd sorgenti
 echo "sdk.dir=/percorso/android-sdk" > local.properties
 gradle testDebugUnitTest      # test (Robolectric 4.13, rendering NATIVE)
-gradle assembleDebug          # APK in app/build/outputs/apk/debug/SchedaCliente-v3.77-debug.apk
+gradle assembleDebug          # APK in app/build/outputs/apk/debug/SchedaCliente-v3.78-debug.apk
 ```
 
 Per recuperare la storia git: `git clone storia-git.bundle schedacliente-git`.
@@ -48,6 +48,8 @@ Note:
 | CorrezioniRevisioneTest | 6 | ID univoci, guardie doppio salvataggio, centroide |
 | RilevamentoInterruzioneTest | 4 | "Interrompi"/"Salta locale" durante il rilevamento, conferma automatica sospesa in secondo piano |
 | ParereMegaTest | 9 | lettura cartelle Mega pubbliche, preparazione documenti, DOCX |
+| NasStudioTest | 8 | NAS dello studio: percorso, ricerca cartella cliente, elenco/lettura/scarico via SMB, errori (5 prove richiedono un NAS di prova, vedi sotto) |
+| ParereNasSchermataTest | 4 | schermata documenti dal NAS: cartella trovata e memorizzata, scelta da elenco, cartella rinominata (richiedono il NAS di prova) |
 | PeriziaTest | 7 | coefficienti superficie commerciale, parsing OMI |
 | RilevatoreScalaBluTest | 4 | scala grafica blu sul bordo delle planimetrie |
 | SuperficieViewTest | 3 | vista planimetria, zoom, annulla |
@@ -125,3 +127,32 @@ spazi chiusi di altre proprietà dentro la pianta (es. "altri sub.") vengono pro
 - **Pulsanti arancioni** con testo su due righe ("CALCOLA AREE LOCALI (DA QUOTE SCRITTE)", "RILEVA
   LOCALI AUTOMATICAMENTE (SCALA + VERTICI)"): altezza minima invece di fissa, la seconda riga non è
   più tagliata.
+
+## Novità v3.78: documenti dal NAS dello studio
+
+- **Impostazioni → NAS dello studio**: cartella delle pratiche come in Esplora risorse
+  (es. `\\192.168.1.20\Pratiche`), utente e password del NAS (cifrati come la chiave AI),
+  pulsante "Salva e prova il collegamento".
+- **Scheda cliente → "Parere / relazione dai documenti del NAS"** (e voce nel menu principale):
+  la cartella del cliente si cerca per cognome e nome (maiuscole, accenti, trattini e ordine delle
+  parole non contano); se ce n'è una sola si apre subito, altrimenti si sceglie da un elenco con
+  ricerca (★ = compatibili). La scelta resta memorizzata nella scheda (campo `cartellaNas`); se
+  la cartella viene rinominata o spostata, l'app chiede di nuovo. Menu ⋮ → "Cambia cartella sul NAS".
+- Poi stessa schermata di Mega: navigazione cartelle, spunta dei file, parere/relazione in Word.
+- **Solo lettura** (l'app non scrive né cancella sul NAS). Protocollo SMB2/SMB3 con la libreria
+  `com.hierynomus:smbj:0.15.0` (porta con sé BouncyCastle per l'accesso NTLM).
+- **Rete**: funziona sul Wi-Fi dello studio; fuori studio serve una VPN accesa sul telefono.
+  Il NAS non va esposto su Internet (NAS326 fuori supporto: firmware da tenere all'ultima
+  versione, almeno V5.21(AAZF.17)C0 per le CVE-2024-29972/29973/29974; installata la AAZF.18).
+
+### Come provare il NAS con un server di prova (Samba)
+Le prove di collegamento si attivano con variabili d'ambiente (senza, vengono saltate):
+
+```bash
+export LC_ALL=C.UTF-8   # nomi di file con accenti
+export NAS_PROVA_PERCORSO='\\127.0.0.1\Pratiche' NAS_PROVA_UTENTE=studio NAS_PROVA_PASSWORD='...' NAS_PROVA_DISCO=/srv/nas
+gradle testDebugUnitTest
+```
+Il server di prova usato: Samba 4.19 con `server max protocol = SMB2_10` (come il NAS326) e
+cartelle `Pratiche/Rossi Mario/{Catasto,Corrispondenza,Foto sopralluogo}`, `Rossi Giuseppe`,
+`Bianchi Luca - Via Roma 12`, `De Santis Anna`, `Lucà Niccolò/Atti`, `.recycle`; provato anche con SMB3.

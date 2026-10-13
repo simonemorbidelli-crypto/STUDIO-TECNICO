@@ -123,6 +123,118 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- NAS DELLO STUDIO (v3.78): cartella delle pratiche per il parere/relazione dai documenti -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="NAS dello studio"
+                        android:textColor="@color/primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:textColor="@color/text_primary"
+                        android:lineSpacingExtra="3dp"
+                        android:text="Cartella del NAS che contiene le pratiche, una cartella per cliente (come la vedi da Esplora risorse, es. \\\\192.168.1.20\\Pratiche). Usa l'indirizzo IP del NAS. Funziona sul Wi-Fi dello studio; fuori studio solo con la VPN accesa sul telefono. L'app legge soltanto: non modifica né cancella nulla sul NAS. Utente e password restano cifrati su questo telefono." />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="Cartella delle pratiche (es. \\\\192.168.1.20\\Pratiche)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etNasPercorso"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textUri|textNoSuggestions"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="Utente del NAS">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etNasUtente"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text|textNoSuggestions"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        app:endIconMode="password_toggle"
+                        android:hint="Password del NAS">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etNasPassword"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textPassword"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSalvaNas"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="16dp"
+                        android:text="SALVA E PROVA IL COLLEGAMENTO"
+                        android:textColor="@android:color/white"
+                        app:backgroundTint="@color/primary"
+                        app:cornerRadius="12dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRimuoviNas"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="10dp"
+                        android:text="RIMUOVI I DATI DEL NAS"
+                        android:textColor="@color/text_secondary"
+                        app:backgroundTint="@color/card_background"
+                        app:strokeColor="@color/text_secondary"
+                        app:strokeWidth="1dp"
+                        app:cornerRadius="12dp" />
+
+                    <ProgressBar
+                        android:id="@+id/progressNas"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:layout_marginTop="10dp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvStatoNas"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- TIPI DI PRATICA PERSONALIZZABILI -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"

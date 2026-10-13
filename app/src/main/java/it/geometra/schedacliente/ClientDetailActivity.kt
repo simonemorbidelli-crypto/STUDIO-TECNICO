@@ -76,6 +76,9 @@ class ClientDetailActivity : AppCompatActivity() {
             append("Cartella Mega\n")
             append(if (cliente.linkMega.isBlank()) "— (link non impostato)" else cliente.linkMega).append("\n\n")
 
+            append("Cartella sul NAS\n")
+            append(cliente.cartellaNas.ifBlank { "— (verrà cercata per nome)" }).append("\n\n")
+
             append("Scheda creata il\n")
             append(cliente.dataFormattata())
         }
@@ -87,6 +90,14 @@ class ClientDetailActivity : AppCompatActivity() {
             startActivity(
                 android.content.Intent(this, ParereMegaActivity::class.java)
                     .putExtra(ParereMegaActivity.EXTRA_CLIENTE_ID, cliente.id)
+            )
+        }
+
+        binding.btnParereNas.setOnClickListener {
+            startActivity(
+                android.content.Intent(this, ParereMegaActivity::class.java)
+                    .putExtra(ParereMegaActivity.EXTRA_CLIENTE_ID, cliente.id)
+                    .putExtra(ParereMegaActivity.EXTRA_ORIGINE, ParereMegaActivity.ORIGINE_NAS)
             )
         }
 

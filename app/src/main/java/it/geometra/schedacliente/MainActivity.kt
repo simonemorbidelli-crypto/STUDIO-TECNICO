@@ -269,6 +269,15 @@ class MainActivity : AppCompatActivity() {
             ) {
                 chiediLinkMega()
             },
+            VoceMenuPrincipale(
+                android.R.drawable.ic_menu_upload,
+                "Documenti NAS dello studio →\nparere / relazione con l'AI"
+            ) {
+                startActivity(
+                    Intent(this, ParereMegaActivity::class.java)
+                        .putExtra(ParereMegaActivity.EXTRA_ORIGINE, ParereMegaActivity.ORIGINE_NAS)
+                )
+            },
             VoceMenuPrincipale(android.R.drawable.ic_menu_preferences, "Impostazioni") {
                 startActivity(Intent(this, SettingsActivity::class.java))
             }
@@ -667,6 +676,8 @@ class MainActivity : AppCompatActivity() {
             subalterno = binding.etSubalterno.text?.toString()?.trim() ?: "",
             note = binding.etNote.text?.toString()?.trim() ?: "",
             linkMega = linkMega,
+            // Non è nel modulo: si conserva quella già memorizzata (altrimenti modificando la scheda andrebbe persa).
+            cartellaNas = inModifica?.cartellaNas ?: "",
             dataCreazione = inModifica?.dataCreazione ?: System.currentTimeMillis(),
             ultimaModifica = System.currentTimeMillis()
         )

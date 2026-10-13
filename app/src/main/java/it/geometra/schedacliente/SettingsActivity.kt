@@ -44,6 +44,8 @@ class SettingsActivity : AppCompatActivity() {
             aggiornaStato()
         }
 
+        impostaSezioneNas()
+
         tipiPratica.addAll(TipiPraticaStore.leggiTipi(this))
         disegnaElencoTipi()
 
@@ -70,6 +72,67 @@ class SettingsActivity : AppCompatActivity() {
             disegnaElencoTipi()
             Toast.makeText(this, "Elenco tipi di pratica ripristinato", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // NAS dello studio (v3.78)
+    // ---------------------------------------------------------------------
+
+    private fun impostaSezioneNas() {
+        val dati = NasCredenzialiStore.leggi(this)
+        binding.etNasPercorso.setText(dati.percorso)
+        binding.etNasUtente.setText(dati.utente)
+        binding.etNasPassword.setText(dati.password)
+        binding.tvStatoNas.text = if (NasCredenzialiStore.accesso(this) != null)
+            "NAS impostato: ${dati.percorso}" else "NAS non impostato."
+
+        binding.btnSalvaNas.setOnClickListener {
+            val percorsoTesto = binding.etNasPercorso.text?.toString()?.trim().orEmpty()
+            val utente = binding.etNasUtente.text?.toString()?.trim().orEmpty()
+            val password = binding.etNasPassword.text?.toString().orEmpty()
+            val percorso = NasStudio.analizzaPercorso(percorsoTesto)
+            if (percorso == null) {
+                binding.etNasPercorso.error = "Scrivi indirizzo e cartella condivisa, es. \\\\192.168.1.20\\Pratiche"
+                return@setOnClickListener
+            }
+            if (utente.isEmpty()) {
+                binding.etNasUtente.error = "Serve l'utente del NAS"
+                return@setOnClickListener
+            }
+            // Si salva sempre (anche se ora il NAS non è raggiungibile, es. fuori studio), poi si prova.
+            NasCredenzialiStore.salva(this, percorso.toString(), utente, password)
+            binding.etNasPercorso.setText(percorso.toString())
+            provaNas(NasStudio.Accesso(percorso, utente, password))
+        }
+
+        binding.btnRimuoviNas.setOnClickListener {
+            NasCredenzialiStore.rimuovi(this)
+            binding.etNasPercorso.setText(""); binding.etNasUtente.setText(""); binding.etNasPassword.setText("")
+            binding.tvStatoNas.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+            binding.tvStatoNas.text = "Dati del NAS rimossi da questo telefono."
+        }
+    }
+
+    private fun provaNas(accesso: NasStudio.Accesso) {
+        binding.btnSalvaNas.isEnabled = false
+        binding.progressNas.visibility = View.VISIBLE
+        binding.tvStatoNas.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+        binding.tvStatoNas.text = "Salvato. Provo a collegarmi a ${accesso.percorso}…"
+        Thread {
+            val esito = try {
+                val n = NasStudio.prova(accesso)
+                true to "✅ Collegamento riuscito: $n cartelle di pratiche in ${accesso.percorso}."
+            } catch (e: Exception) {
+                false to "⚠️ Salvato, ma il collegamento non è riuscito: ${e.message}"
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                binding.btnSalvaNas.isEnabled = true
+                binding.progressNas.visibility = View.GONE
+                binding.tvStatoNas.setTextColor(if (esito.first) ContextCompat.getColor(this, R.color.primary) else android.graphics.Color.parseColor("#B3261E"))
+                binding.tvStatoNas.text = esito.second
+            }
+        }.start()
     }
 
     private fun aggiornaStato() {

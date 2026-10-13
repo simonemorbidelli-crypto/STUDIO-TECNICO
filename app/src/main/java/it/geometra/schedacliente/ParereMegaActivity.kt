@@ -35,12 +35,21 @@ import java.util.Locale
  *    scheda e passa all'AI i dati della pratica;
  *  - dal menu principale con un link incollato al momento ([EXTRA_LINK]): nessuna scheda
  *    associata, i dati della pratica vengono ricavati dai documenti.
+ *
+ * v3.78: con [EXTRA_ORIGINE] = [ORIGINE_NAS] i documenti si leggono invece dal NAS dello studio
+ * ([NasStudio]): la cartella del cliente si cerca per nome (cognome e nome) nella cartella delle
+ * pratiche impostata nelle Impostazioni; se ce n'è più d'una, o nessuna, la si sceglie da un
+ * elenco con ricerca, e la scelta resta memorizzata nella scheda cliente.
  */
 class ParereMegaActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_CLIENTE_ID = "cliente_id"
         const val EXTRA_LINK = "link_mega"
+        const val EXTRA_ORIGINE = "origine"
+        const val ORIGINE_MEGA = "mega"
+        const val ORIGINE_NAS = "nas"
+        private const val MENU_CAMBIA_CARTELLA = 1
 
         /** Stima prudente della dimensione massima dei file selezionati (la richiesta all'API ha un limite di 32 MB, in base64). */
         private const val BYTE_SELEZIONE_MAX = 22L * 1024 * 1024
@@ -48,7 +57,13 @@ class ParereMegaActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityParereMegaBinding
     private var cliente: Cliente? = null
-    private lateinit var link: String
+    private var link: String = ""
+
+    /** Documenti dal NAS dello studio invece che da Mega (v3.78). */
+    private var modoNas = false
+    private var accessoNas: NasStudio.Accesso? = null
+    /** Cartella del cliente sul NAS (nome dentro la cartella delle pratiche); null finché non è stata trovata o scelta. */
+    private var cartellaNas: String? = null
 
     private var contenuto: MegaCartellaPubblica.Contenuto? = null
     private var cartellaCorrente: String = ""
@@ -76,8 +91,41 @@ class ParereMegaActivity : AppCompatActivity() {
         binding.toolbar.setNavigationOnClickListener { finish() }
         onBackPressedDispatcher.addCallback(this, indietroRisaleCartella)
 
+        modoNas = intent.getStringExtra(EXTRA_ORIGINE) == ORIGINE_NAS
         val linkLibero = intent.getStringExtra(EXTRA_LINK)
-        if (linkLibero != null) {
+        if (modoNas) {
+            binding.toolbar.title = "Parere / relazione dal NAS"
+            accessoNas = NasCredenzialiStore.accesso(this)
+            if (accessoNas == null) {
+                val dialog = android.app.AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
+                    .setTitle("NAS dello studio non impostato")
+                    .setMessage("Nelle Impostazioni inserisci la cartella delle pratiche sul NAS (es. \\\\192.168.1.20\\Pratiche), utente e password del NAS.")
+                    .setPositiveButton("Vai alle Impostazioni") { _, _ -> startActivity(Intent(this, SettingsActivity::class.java)); finish() }
+                    .setNegativeButton("Annulla") { _, _ -> finish() }
+                    .setOnCancelListener { finish() }
+                    .show()
+                dialog.rendiPulsantiLeggibili(this)
+                return
+            }
+            val id = intent.getLongExtra(EXTRA_CLIENTE_ID, -1L)
+            if (id != -1L) {
+                val trovato = ClienteStore(this).caricaTutti().find { it.id == id }
+                if (trovato == null) {
+                    Toast.makeText(this, "Scheda cliente non trovata", Toast.LENGTH_SHORT).show()
+                    finish()
+                    return
+                }
+                cliente = trovato
+                cartellaNas = trovato.cartellaNas.takeIf { it.isNotBlank() }
+                binding.tvNomeCliente.text = trovato.nomeCompleto()
+                binding.tvDatiPratica.text = EsportatoreDocx.datiPratica(trovato).drop(1)
+                    .joinToString("\n") { (etichetta, valore) -> "$etichetta: $valore" }
+                    .ifBlank { "Nessun dato immobile nella scheda" }
+            } else {
+                binding.tvNomeCliente.text = "NAS dello studio (senza scheda cliente)"
+                binding.tvDatiPratica.text = "I dati della pratica verranno ricavati dai documenti; nel Word restano da compilare quelli mancanti."
+            }
+        } else if (linkLibero != null) {
             link = linkLibero
             binding.tvNomeCliente.text = "Cartella Mega (senza scheda cliente)"
             binding.tvDatiPratica.text = "I dati della pratica verranno ricavati dai documenti; nel Word restano da compilare quelli mancanti."
@@ -97,7 +145,7 @@ class ParereMegaActivity : AppCompatActivity() {
                 .ifBlank { "Nessun dato immobile nella scheda" }
         }
 
-        binding.btnRiprovaCartella.setOnClickListener { caricaCartella() }
+        binding.btnRiprovaCartella.setOnClickListener { if (modoNas && cartellaNas == null) cercaCartellaNas() else caricaCartella() }
         binding.btnSelezionaNessuno.setOnClickListener {
             selezionati.clear()
             disegnaElencoFile()
@@ -117,13 +165,16 @@ class ParereMegaActivity : AppCompatActivity() {
     // ---------------------------------------------------------------------
 
     private fun caricaCartella() {
-        binding.tvStatoCartella.text = "Leggo la cartella Mega…"
+        if (modoNas && cartellaNas == null) { cercaCartellaNas(); return }
+        val nas = accessoNas.takeIf { modoNas }
+        val cartellaCliente = cartellaNas
+        binding.tvStatoCartella.text = if (nas != null) "Leggo la cartella \"$cartellaCliente\" sul NAS…" else "Leggo la cartella Mega…"
         binding.tvStatoCartella.setTextColor(Color.parseColor("#2B2B2B"))
         binding.progressCartella.visibility = View.VISIBLE
         binding.btnRiprovaCartella.visibility = View.GONE
         Thread {
             try {
-                val letto = MegaCartellaPubblica.leggiContenuto(link)
+                val letto = if (nas != null) NasStudio.leggiContenuto(nas, cartellaCliente!!) else MegaCartellaPubblica.leggiContenuto(link)
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
                     contenuto = letto
@@ -136,13 +187,154 @@ class ParereMegaActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
+                    // Cartella memorizzata nella scheda ma non più presente (rinominata/spostata): si ricerca.
+                    if (nas != null && e is NasStudio.ErroreNas && e.cartellaNonTrovata) {
+                        cartellaNas = null
+                        binding.progressCartella.visibility = View.GONE
+                        cercaCartellaNas("La cartella \"$cartellaCliente\" non c'è più sul NAS (rinominata o spostata?): scegli quella giusta.")
+                        return@runOnUiThread
+                    }
                     binding.progressCartella.visibility = View.GONE
-                    binding.tvStatoCartella.text = "⚠️ ${e.message ?: "Impossibile leggere la cartella Mega"}"
+                    binding.tvStatoCartella.text = "⚠️ ${e.message ?: if (nas != null) "Impossibile leggere la cartella sul NAS" else "Impossibile leggere la cartella Mega"}"
                     binding.tvStatoCartella.setTextColor(Color.parseColor("#B3261E"))
                     binding.btnRiprovaCartella.visibility = View.VISIBLE
                 }
             }
         }.start()
+    }
+
+    // ---------------------------------------------------------------------
+    // NAS: ricerca e scelta della cartella del cliente
+    // ---------------------------------------------------------------------
+
+    /**
+     * Elenca le cartelle delle pratiche sul NAS e cerca quella del cliente per nome. Se ce n'è
+     * una sola compatibile la usa subito; altrimenti (più d'una, nessuna, oppure [nota] non nulla
+     * cioè scelta richiesta esplicitamente) la fa scegliere da un elenco.
+     */
+    private fun cercaCartellaNas(nota: String? = null) {
+        val nas = accessoNas ?: return
+        binding.tvStatoCartella.text = "Cerco la cartella del cliente sul NAS…"
+        binding.tvStatoCartella.setTextColor(Color.parseColor("#2B2B2B"))
+        binding.progressCartella.visibility = View.VISIBLE
+        binding.btnRiprovaCartella.visibility = View.GONE
+        Thread {
+            try {
+                val tutte = NasStudio.elencaCartelle(nas)
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    binding.progressCartella.visibility = View.GONE
+                    val c = cliente
+                    val proposte = if (c != null) NasStudio.cartellePerCliente(tutte, c.cognome, c.nome) else emptyList()
+                    when {
+                        tutte.isEmpty() -> mostraErroreCartella("Nella cartella delle pratiche sul NAS (${nas.percorso}) non ci sono cartelle.")
+                        proposte.size == 1 && nota == null -> usaCartellaNas(proposte[0])
+                        else -> scegliCartellaNas(tutte, proposte, nota)
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    binding.progressCartella.visibility = View.GONE
+                    mostraErroreCartella(e.message ?: "Impossibile leggere il NAS")
+                }
+            }
+        }.start()
+    }
+
+    private fun mostraErroreCartella(messaggio: String) {
+        binding.tvStatoCartella.text = "⚠️ $messaggio"
+        binding.tvStatoCartella.setTextColor(Color.parseColor("#B3261E"))
+        binding.btnRiprovaCartella.visibility = View.VISIBLE
+    }
+
+    /** Usa la cartella [nome] per questo cliente: la memorizza nella scheda e ne legge il contenuto. */
+    private fun usaCartellaNas(nome: String) {
+        cartellaNas = nome
+        selezionati.clear()
+        contenuto = null
+        cliente?.let { c ->
+            if (c.cartellaNas != nome) {
+                val aggiornato = c.copy(cartellaNas = nome)
+                try {
+                    ClienteStore(this).aggiorna(aggiornato)
+                    cliente = aggiornato
+                } catch (e: Exception) {
+                    // Non è grave: si userà la cartella solo per questa volta.
+                    Toast.makeText(this, "Cartella non memorizzata nella scheda: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        caricaCartella()
+    }
+
+    /** Elenco delle cartelle con un campo di ricerca; le cartelle compatibili col cliente in cima, con ★. */
+    private fun scegliCartellaNas(tutte: List<String>, proposte: List<String>, nota: String?) {
+        val ordinate = proposte + tutte.filter { it !in proposte }
+        val c = cliente
+        val messaggio = nota ?: when {
+            c == null -> "Scegli la cartella della pratica."
+            proposte.isEmpty() -> "Non ho trovato una cartella con il nome di ${c.nomeCompleto()}: scegli quella giusta (puoi cercare scrivendo)."
+            else -> "Ho trovato più cartelle compatibili con ${c.nomeCompleto()} (★): scegli quella giusta."
+        }
+        val visibili = ArrayList(ordinate)
+        fun etichetta(nome: String) = if (nome in proposte) "★ $nome" else nome
+        val adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_list_item_1, ArrayList(visibili.map { etichetta(it) }))
+        val campo = com.google.android.material.textfield.TextInputEditText(this).apply {
+            hint = "Cerca una cartella…"
+            setSingleLine()
+        }
+        val elenco = android.widget.ListView(this).apply {
+            this.adapter = adapter
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(340))
+        }
+        val contenitore = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(4), dp(20), 0)
+            addView(campo)
+            addView(elenco)
+        }
+        campo.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val cerca = NasStudio.normalizza(s?.toString().orEmpty())
+                visibili.clear()
+                visibili.addAll(ordinate.filter { cerca.isEmpty() || NasStudio.normalizza(it).contains(cerca) })
+                adapter.clear()
+                adapter.addAll(visibili.map { etichetta(it) })
+            }
+        })
+        var scelta = false
+        val dialog = android.app.AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
+            .setTitle("Cartella sul NAS")
+            .setMessage(messaggio)
+            .setView(contenitore)
+            .setNegativeButton("Annulla", null)
+            .setOnDismissListener {
+                if (!scelta && cartellaNas == null) mostraErroreCartella("Nessuna cartella scelta. Premi \"Riprova\" per scegliere la cartella del cliente.")
+            }
+            .show()
+        dialog.rendiPulsantiLeggibili(this)
+        elenco.setOnItemClickListener { _, _, posizione, _ ->
+            val nome = visibili.getOrNull(posizione) ?: return@setOnItemClickListener
+            scelta = true
+            dialog.dismiss()
+            usaCartellaNas(nome)
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
+        if (modoNas) menu.add(0, MENU_CAMBIA_CARTELLA, 0, "Cambia cartella sul NAS")
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
+        if (item.itemId == MENU_CAMBIA_CARTELLA) {
+            if (!inGenerazione) cercaCartellaNas("Scegli la cartella da usare.")
+            return true
+        }
+        return super.onOptionsItemSelected(item)
     }
 
     private fun apriCartella(handle: String) {
@@ -345,7 +537,7 @@ class ParereMegaActivity : AppCompatActivity() {
                 val scartati = ArrayList<String>()
                 scelti.forEachIndexed { i, file ->
                     avanzamento("Scarico ${i + 1} di ${scelti.size}: ${file.nome}")
-                    val dati = MegaCartellaPubblica.scarica(link, file)
+                    val dati = if (modoNas) NasStudio.scarica(accessoNas!!, cartellaNas!!, file) else MegaCartellaPubblica.scarica(link, file)
                     try {
                         blocchi += PreparatoreDocumenti.prepara(this, file.nome, dati)
                     } catch (e: PreparatoreDocumenti.DocumentoNonLeggibile) {
@@ -428,7 +620,7 @@ class ParereMegaActivity : AppCompatActivity() {
 
     private fun nomeFile(tipo: GeneratoreParereAi.TipoDocumento): String {
         val prefisso = if (tipo == GeneratoreParereAi.TipoDocumento.PARERE) "Parere" else "Relazione"
-        val base = cliente?.nomeCompleto() ?: contenuto?.radice?.nome ?: "Mega"
+        val base = cliente?.nomeCompleto() ?: contenuto?.radice?.nome ?: if (modoNas) "NAS" else "Mega"
         val nome = base.replace(Regex("[^A-Za-z0-9À-ÿ]+"), "_").trim('_').take(40)
         val data = SimpleDateFormat("yyyyMMdd_HHmm", Locale.ITALY).format(Date())
         return "${prefisso}_${nome}_$data.docx"

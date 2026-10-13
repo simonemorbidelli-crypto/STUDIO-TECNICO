@@ -9,8 +9,8 @@ android {
         applicationId "it.geometra.schedacliente"
         minSdk 24
         targetSdk 34
-        versionCode 77
-        versionName "3.77"
+        versionCode 78
+        versionName "3.78"
     }
 
     // Keystore di debug fissa (invece di quella generata automaticamente, diversa a ogni
@@ -94,6 +94,10 @@ dependencies {
     // all'API Drive sono fatte "a mano" via HTTP in DriveUploader.kt, per non appesantire
     // l'app con le librerie client complete di Google.
     implementation 'com.google.android.gms:play-services-auth:21.2.0'
+    // Lettura delle cartelle delle pratiche sul NAS dello studio (condivisione Windows/SMB2-3, es.
+    // Zyxel NAS326) per il parere/relazione dai documenti (v3.78). Porta con sé BouncyCastle, usato
+    // per l'accesso NTLM (su Android manca l'algoritmo MD4 nel provider di sistema).
+    implementation 'com.hierynomus:smbj:0.15.0'
 
     // Solo per i test sul computer (non entrano nell'APK): rendering di controllo delle
     // grafiche della ruota e del riepilogo FDM.

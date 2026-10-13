@@ -68,6 +68,15 @@
                 android:visibility="gone"
                 android:text="Per usarlo, modifica la scheda (tieni premuto sul cliente nella lista) e incolla il link della cartella Mega." />
 
+            <!-- v3.78: parere / relazione dai documenti della cartella del cliente sul NAS dello studio
+                 (cercata per nome; serve il NAS impostato nelle Impostazioni). -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnParereNas"
+                style="@style/PulsanteRuotaPrimario"
+                android:layout_marginTop="12dp"
+                app:backgroundTint="@color/primary"
+                android:text="🗄️  Parere / relazione dai documenti del NAS" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnElimina"
                 android:layout_width="match_parent"
