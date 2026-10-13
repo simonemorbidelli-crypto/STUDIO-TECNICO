@@ -42,6 +42,8 @@ class SuperficieView @JvmOverloads constructor(
     var bitmap: Bitmap? = null
         set(value) {
             field = value
+            // Mipmap: riducendo la scansione grande (4000 px) a schermo non si "sfarfalla" e il pizzico resta fluido.
+            try { value?.setHasMipMap(true) } catch (e: Exception) { /* non essenziale */ }
             // L'altezza della vista dipende ora dalla proporzione del bitmap
             // (vedi onMeasure): quando cambia bisogna rimisurare la vista,
             // non solo ridisegnarla, altrimenti l'altezza resterebbe quella
@@ -359,27 +361,29 @@ class SuperficieView @JvmOverloads constructor(
     }
     // v3.77: linea gialla più spessa (in dp) con un bordo scuro sotto: prima, sottile e senza bordo,
     // sulla carta bianca del foglio si vedeva poco.
+    // v3.82: linea e pallini della scala semitrasparenti, così sotto si vedono i segni del reticolo
+    // catastale (parametri) e la linea blu di fondo su cui sono stati rilevati.
     private val paintScalaEvidenziataBordo = Paint().apply {
-        color = Color.parseColor("#C1440E")
+        color = Color.argb(110, 0xC1, 0x44, 0x0E)
         strokeWidth = dp(6f)
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         isAntiAlias = true
     }
     private val paintScalaEvidenziata = Paint().apply {
-        color = Color.parseColor("#FFD600")
+        color = Color.argb(105, 0xFF, 0xD6, 0x00)
         strokeWidth = dp(3.5f)
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         isAntiAlias = true
     }
     private val paintScalaEvidenziataPunti = Paint().apply {
-        color = Color.parseColor("#FFD600")
+        color = Color.argb(80, 0xFF, 0xD6, 0x00)
         style = Paint.Style.FILL
         isAntiAlias = true
     }
     private val paintScalaEvidenziataPuntiBordo = Paint().apply {
-        color = Color.parseColor("#C1440E")
+        color = Color.argb(150, 0xC1, 0x44, 0x0E)
         style = Paint.Style.STROKE
         strokeWidth = dp(2f)
         isAntiAlias = true
@@ -436,6 +440,9 @@ class SuperficieView @JvmOverloads constructor(
         }
     }
 
+    /** Disegno dell'immagine con filtro bilineare: durante il pizzico l'ingrandimento è continuo, non a gradini di pixel. */
+    private val paintImmagine = Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+
     private fun aggiornaMatrice() {
         val bmp = bitmap ?: return
         if (width == 0 || height == 0) return
@@ -483,7 +490,7 @@ class SuperficieView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val bmp = bitmap ?: return
-        canvas.drawBitmap(bmp, matriceVista, null)
+        canvas.drawBitmap(bmp, matriceVista, paintImmagine)
 
         for (locale in locali) {
             val path = creaPath(locale.verticiPx)
@@ -541,8 +548,8 @@ class SuperficieView @JvmOverloads constructor(
             canvas.drawLine(pts[0].x, pts[0].y, pts[1].x, pts[1].y, paintScalaEvidenziataBordo)
             canvas.drawLine(pts[0].x, pts[0].y, pts[1].x, pts[1].y, paintScalaEvidenziata)
             pts.forEach {
-                canvas.drawCircle(it.x, it.y, dp(7f), paintScalaEvidenziataPunti)
-                canvas.drawCircle(it.x, it.y, dp(7f), paintScalaEvidenziataPuntiBordo)
+                canvas.drawCircle(it.x, it.y, dp(6f), paintScalaEvidenziataPunti)
+                canvas.drawCircle(it.x, it.y, dp(6f), paintScalaEvidenziataPuntiBordo)
             }
             etichettaScala?.let { testo ->
                 // A metà della linea, spostata di lato quanto basta per non coprirla.
@@ -599,7 +606,7 @@ class SuperficieView @JvmOverloads constructor(
         canvas.clipPath(percorsoCerchio)
         canvas.drawCircle(centroLenteX, centroLenteY, raggio, paintLenteSfondo)
         val dstRect = RectF(centroLenteX - raggio, centroLenteY - raggio, centroLenteX + raggio, centroLenteY + raggio)
-        canvas.drawBitmap(bmp, srcRect, dstRect, null)
+        canvas.drawBitmap(bmp, srcRect, dstRect, paintImmagine)
         canvas.restore()
 
         canvas.drawCircle(centroLenteX, centroLenteY, raggio, paintLenteBordoEsterno)
@@ -649,6 +656,12 @@ class SuperficieView @JvmOverloads constructor(
         // Il pizzico (zoom) e lo scorrimento a due dita sono sempre attivi, indipendentemente
         // dalla modalità corrente, così si può ingrandire la planimetria anche solo per guardarla meglio.
         rilevatoreZoom.onTouchEvent(event)
+
+        // Pizzico: il genitore (la pagina che scorre) non deve rubare il gesto a metà, altrimenti lo
+        // zoom si interrompe e riparte "a scatti".
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN || event.pointerCount > 1) {
+            parent?.requestDisallowInterceptTouchEvent(true)
+        }
 
         if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
             // Un secondo dito è appena arrivato: non è più un tocco singolo per inserire/spostare un punto.

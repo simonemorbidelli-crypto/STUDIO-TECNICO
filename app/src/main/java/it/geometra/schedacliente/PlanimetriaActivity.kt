@@ -1954,10 +1954,20 @@ class PlanimetriaActivity : AppCompatActivity() {
         return Rect(left.toInt(), top.toInt(), left.toInt() + larghezza, top.toInt() + altezza)
     }
 
+    private val PAUSA_VERTICE_MS = 70L
+    private val DURATA_CONFERMA_AUTOMATICA_MS = 1500L
+
     private fun avviaAnimazioneVertici(proposta: PropostaLocaleAi, generazione: Int) {
         if (isFinishing || isDestroyed || generazione != generazioneElaborazioneLocale) return
         binding.tvIstruzioneTocco.text = "Rilevamento vertici: \"${proposta.nome}\"..."
         aggiornaBarraSchermoIntero()
+        // v3.82: UN solo zoom per locale, che inquadra tutto il vano (prima uno zoom su ogni vertice).
+        if (proposta.verticiPx.size >= 2) {
+            val minP = PointF(proposta.verticiPx.minOf { it.x }, proposta.verticiPx.minOf { it.y })
+            val maxP = PointF(proposta.verticiPx.maxOf { it.x }, proposta.verticiPx.maxOf { it.y })
+            val centro = PointF((minP.x + maxP.x) / 2f, (minP.y + maxP.y) / 2f)
+            binding.superficieView.zoomCentratoSu(centro, zoomPerInquadrare(minP, maxP).coerceIn(1f, 6f))
+        }
         binding.superficieView.invalidate()
 
         var indice = 0
@@ -1970,35 +1980,30 @@ class PlanimetriaActivity : AppCompatActivity() {
             } else if (indice >= proposta.verticiPx.size) {
                 binding.superficieView.disegnaCorrenteChiuso = true
                 binding.superficieView.invalidate()
+                // v3.82: pausa finale ridotta (prima 200 + 250 ms) e niente ritorno alla vista
+                // intera: il vano resta inquadrato mentre si decide se confermarlo.
                 handlerPrincipale.postDelayed({
                     if (isFinishing || isDestroyed || generazione != generazioneElaborazioneLocale) return@postDelayed
-                    // Zoom finale indietro per mostrare il locale completo prima di chiedere la conferma.
-                    binding.superficieView.azzeraZoom()
-                    handlerPrincipale.postDelayed({ chiediCorrezioneManuale(proposta, generazione) }, 250)
-                }, 200)
+                    chiediCorrezioneManuale(proposta, generazione)
+                }, 120)
             } else {
-                // Zoom centrato esattamente sullo spigolo prima di mostrare il punto: così si
-                // vede con precisione se coincide con lo spigolo reale disegnato, non solo un
-                // puntino su una vista rimpicciolita.
-                // Tempi di questa animazione dimezzati rispetto a prima (su richiesta esplicita
-                // dell'utente, per velocizzare il rilevamento anche a scapito della precisione):
-                // è solo una pausa visiva, non incide sulla precisione dei vertici individuati.
-                val punto = PointF(proposta.verticiPx[indice].x, proposta.verticiPx[indice].y)
-                binding.superficieView.zoomCentratoSu(punto)
+                // v3.82: niente più zoom avanti e indietro su OGNI vertice (circa 0,3 s ciascuno, quasi
+                // 2 s per locale solo di animazione): i vertici compaiono in sequenza veloce sulla vista
+                // intera e la verifica si fa sul locale completo (e col dialogo "Sposta manualmente").
                 handlerPrincipale.postDelayed({
                     if (isFinishing || isDestroyed || generazione != generazioneElaborazioneLocale) return@postDelayed
-                    binding.superficieView.puntiLocaleCorrente.add(punto)
+                    binding.superficieView.puntiLocaleCorrente.add(PointF(proposta.verticiPx[indice].x, proposta.verticiPx[indice].y))
                     binding.superficieView.invalidate()
                     indice++
-                    handlerPrincipale.postDelayed({ passoSuccessivo() }, 150)
-                }, 150)
+                    passoSuccessivo()
+                }, PAUSA_VERTICE_MS)
             }
         }
         passoSuccessivo()
     }
 
     /**
-     * Chiede se correggere il locale appena rilevato. Se entro 3 secondi non si preme nulla, il
+     * Chiede se correggere il locale appena rilevato. Se entro 1,5 secondi (v3.82, prima 3) non si preme nulla, il
      * locale si considera confermato così com'è e si passa al successivo (conto alla rovescia
      * visibile sul pulsante "Conferma così"). Qualunque pulsante premuto ferma il conto.
      */
@@ -2015,7 +2020,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             .show()
         dialog.rendiPulsantiLeggibili(this)
         val pulsanteConferma = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-        val durataMs = 3000L
+        val durataMs = DURATA_CONFERMA_AUTOMATICA_MS
         // CORREZIONE v3.76: il tempo conta solo mentre l'app è in primo piano. Prima il conto
         // continuava anche con l'app in secondo piano (telefonata, cambio app, schermo spento) e al
         // ritorno si trovavano tutti i locali confermati da soli, senza averli visti.
