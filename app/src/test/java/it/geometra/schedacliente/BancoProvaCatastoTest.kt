@@ -8,6 +8,8 @@ import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.Rect
 import org.json.JSONArray
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -32,12 +34,22 @@ class BancoProvaCatastoTest {
         return abs(s) / 2
     }
 
+    /**
+     * Vani contornati sui muri per planimetria (con scala) alla v3.75: soglie minime. Se una modifica
+     * all'analisi ne fa perdere anche uno solo, il test fallisce e indica quale planimetria è peggiorata.
+     */
+    private val minimiPerCaso = mapOf(
+        "t1a" to 12, "t2a" to 12, "t2b" to 5, "t3a" to 3, "t4a" to 8, "t4b" to 4,
+        "t5a" to 6, "t6a" to 8, "t6b" to 2, "t7a" to 6, "t7b" to 4
+    )
+
     @Test
     fun bancoDiProva() {
-        val testo = javaClass.classLoader!!.getResourceAsStream("catasto/casi.json")?.bufferedReader()?.readText() ?: return
+        val testo = javaClass.classLoader!!.getResourceAsStream("catasto/casi.json")?.bufferedReader()?.readText() ?: error("banco di prova mancante: catasto/casi.json")
         val casi = JSONArray(testo)
         val filtro = System.getenv("CASO")
-        var precisi = 0; var agganciati = 0; var falliti = 0
+        var precisi = 0; var agganciati = 0; var falliti = 0; var precisiSenzaScala = 0; var vaniTotali = 0
+        val precisiPerCaso = HashMap<String, Int>()
         for (c in 0 until casi.length()) {
             val caso = casi.getJSONObject(c)
             val id = caso.getString("id")
@@ -45,6 +57,7 @@ class BancoProvaCatastoTest {
             val bmp = BitmapFactory.decodeStream(javaClass.classLoader!!.getResourceAsStream("catasto/$id.png"))
                 .copy(Bitmap.Config.ARGB_8888, true)
             val vani = caso.getJSONArray("vani")
+            vaniTotali += vani.length()
             for (modo in listOf("scala", "noscala")) {
                 val mpp = if (modo == "scala") caso.getDouble("mpp") else null
                 val seg = AnalizzatoreVani(bmp, Rect(0, 0, bmp.width, bmp.height), mpp)
@@ -72,7 +85,7 @@ class BancoProvaCatastoTest {
                     val nome = vano.getString("nome")
                     if (pol != null && area(pol) / attesa in 0.6..1.45) {
                         disegna(pol, Color.RED); trovati += pol
-                        if (modo == "scala") precisi++
+                        if (modo == "scala") { precisi++; precisiPerCaso[id] = (precisiPerCaso[id] ?: 0) + 1 } else precisiSenzaScala++
                         println("BANCO $id/$modo $nome: OK[${esito.metodo}] ${pol.size} vertici, area/attesa=${"%.2f".format(area(pol) / attesa)}")
                     } else {
                         // come l'app: stima AI (qui un rettangolo attorno al seme) riportata sui muri
@@ -99,12 +112,22 @@ class BancoProvaCatastoTest {
             }
         }
         println("BANCO TOTALE (con scala): precisi=$precisi agganciati=$agganciati falliti=$falliti")
+        println("BANCO TOTALE (senza scala): precisi=$precisiSenzaScala")
+        // Con la variabile d'ambiente CASO si prova una sola planimetria: niente soglie globali.
+        if (filtro.isNullOrBlank()) {
+            assertEquals("numero di vani del banco di prova cambiato", 79, vaniTotali)
+            assertTrue("vani contornati sui muri (con scala): $precisi su 79, attesi almeno 70", precisi >= 70)
+            assertTrue("vani contornati sui muri (senza scala): $precisiSenzaScala su 79, attesi almeno 70", precisiSenzaScala >= 70)
+            val peggiorati = minimiPerCaso.filter { (id, minimo) -> (precisiPerCaso[id] ?: 0) < minimo }
+                .map { (id, minimo) -> "$id: ${precisiPerCaso[id] ?: 0} invece di almeno $minimo" }
+            assertTrue("planimetrie peggiorate: $peggiorati", peggiorati.isEmpty())
+        }
     }
 
     /** Stessa pianta (t6a) disegnata sopra carta millimetrata nera: i vani devono uscire uguali. */
     @Test
     fun cartaMillimetrata() {
-        val testo = javaClass.classLoader!!.getResourceAsStream("catasto/casi.json")?.bufferedReader()?.readText() ?: return
+        val testo = javaClass.classLoader!!.getResourceAsStream("catasto/casi.json")?.bufferedReader()?.readText() ?: error("banco di prova mancante: catasto/casi.json")
         val casi = JSONArray(testo)
         val caso = (0 until casi.length()).map { casi.getJSONObject(it) }.first { it.getString("id") == "t6a" }
         val orig = BitmapFactory.decodeStream(javaClass.classLoader!!.getResourceAsStream("catasto/t6a.png")).copy(Bitmap.Config.ARGB_8888, true)
@@ -136,6 +159,7 @@ class BancoProvaCatastoTest {
             if (e != null) { ok++; val p = e.vertici; for (i in p.indices) { val a = p[i]; val b = p[(i + 1) % p.size]; c2.drawLine(a.x, a.y, b.x, b.y, pen) } }
         }
         println("MM trovati $ok su ${vani.length()}")
+        assertTrue("carta millimetrata: $ok vani su ${vani.length()}, attesi almeno 8", ok >= 8)
         java.io.FileOutputStream("build/anteprime/banco_millimetrata.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 }

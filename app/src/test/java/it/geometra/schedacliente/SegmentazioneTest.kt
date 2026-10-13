@@ -134,7 +134,7 @@ class SegmentazioneTest {
     /** Screenshot reale (ingresso a L con portafinestra sul terrazzo): anteprima di controllo. */
     @Test
     fun ingressoReale() {
-        val stream = javaClass.classLoader!!.getResourceAsStream("ingresso_l.jpg") ?: return
+        val stream = javaClass.classLoader!!.getResourceAsStream("ingresso_l.jpg") ?: error("immagine di prova mancante: ingresso_l.jpg")
         val letta = android.graphics.BitmapFactory.decodeStream(stream)
         // Toglie la sovrapposizione verde disegnata dall'app nello screenshot (contorni e campiture):
         // l'analisi vera lavora sull'immagine originale, senza.
@@ -161,6 +161,8 @@ class SegmentazioneTest {
         val ingr = seg.poligonoDaPunto(P(500f, 1350f), 600.0 * 1000.0 * k * k)
         println("INGRESSO: ${ingr?.size} " + ingr?.joinToString { "(${it.x.toInt()},${it.y.toInt()})" })
         disegna(ingr, Color.RED)
+        assertNotNull("ingresso a L: contorno non trovato", ingr)
+        assertTrue("ingresso a L: attesa forma a L (almeno 6 vertici), trovati ${ingr!!.size}", ingr.size >= 6)
         // stima AI spostata come nello screenshot (fondo a 1645 invece di ~1715)
         val ai = listOf(P(420f, 675f), P(810f, 675f), P(810f, 1645f), P(195f, 1645f), P(195f, 1125f), P(300f, 1125f), P(300f, 900f), P(420f, 900f))
         val agg = seg.agganciaAiMuri(ai)
@@ -171,8 +173,8 @@ class SegmentazioneTest {
         java.io.FileOutputStream("build/anteprime/ingresso_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    private fun screenshotPulito(nome: String): Bitmap? {
-        val stream = javaClass.classLoader!!.getResourceAsStream(nome) ?: return null
+    private fun screenshotPulito(nome: String): Bitmap {
+        val stream = javaClass.classLoader!!.getResourceAsStream(nome) ?: error("immagine di prova mancante: $nome")
         val bmp = android.graphics.BitmapFactory.decodeStream(stream).copy(Bitmap.Config.ARGB_8888, true)
         val px = IntArray(bmp.width * bmp.height)
         bmp.getPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
@@ -184,7 +186,7 @@ class SegmentazioneTest {
     /** Negozio a L con vetrina larga su strada e ripostiglio sopra: anteprima di controllo. */
     @Test
     fun negozioReale() {
-        val bmp = screenshotPulito("negozio.jpg") ?: return
+        val bmp = screenshotPulito("negozio.jpg")
         val k = bmp.width / 923f
         fun P(x: Float, y: Float) = PointF(x * k, y * k)
         // Toglie l'etichetta "ripost. - ripostiglio" disegnata dall'app (testo bianco con ombra scura).
@@ -199,12 +201,15 @@ class SegmentazioneTest {
         val agg = seg.agganciaAiMuri(ai)
         println("NEGOZIO aggancio: " + agg.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" })
         val rip = seg.poligonoDaPunto(P(530f, 690f))
+        assertNotNull("negozio a L: contorno non trovato", pol)
+        assertTrue("negozio a L: area lontana dalla stima", area(pol!!) / areaAi in 0.8..1.25)
         println("RIPOST: " + rip?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" })
         val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
         val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 5f }
         fun disegna(p: List<PointF>?, col: Int) { if (p == null) return; pen.color = col
             for (i in p.indices) { val a = p[i]; val b = p[(i + 1) % p.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) } }
         disegna(pol, Color.RED); disegna(agg, Color.BLUE); disegna(rip, Color.MAGENTA)
+        assertNotNull("ripostiglio del negozio non trovato", rip)
         java.io.File("build/anteprime").mkdirs()
         java.io.FileOutputStream("build/anteprime/negozio_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
@@ -212,7 +217,7 @@ class SegmentazioneTest {
     /** Appartamento con molte porte (disimpegno centrale): anteprima di controllo. */
     @Test
     fun porteReale() {
-        val bmp = screenshotPulito("porte.jpg") ?: return
+        val bmp = screenshotPulito("porte.jpg")
         val k = bmp.width / 923f
         fun P(x: Float, y: Float) = PointF(x * k, y * k)
         // via le etichette dell'app (testo bianco con ombra) nei vani
@@ -229,19 +234,23 @@ class SegmentazioneTest {
             "rip" to P(600f, 1080f), "cucina" to P(480f, 1320f), "L7" to P(790f, 1250f), "wc" to P(850f, 960f), "scala" to P(180f, 1380f))
         val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
         val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 5f; color = Color.RED }
+        val trovati = HashSet<String>()
         semi.forEach { (nome, p) ->
             val pol = seg.poligonoDaPunto(p)
+            if (pol != null) trovati += nome
             println("PORTE $nome: ${pol?.size} " + (pol?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" } ?: ""))
             if (pol != null) for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) }
         }
         java.io.File("build/anteprime").mkdirs()
+        val attesi = listOf("L1", "L8", "L4", "rip", "cucina")
+        assertTrue("appartamento con molte porte: attesi $attesi, trovati $trovati", trovati.containsAll(attesi))
         java.io.FileOutputStream("build/anteprime/porte_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     /** Piano inferiore piccolo dentro un foglio con due piante: anteprima di controllo. */
     @Test
     fun pianoSottoReale() {
-        val bmp = screenshotPulito("piano_sotto.jpg") ?: return
+        val bmp = screenshotPulito("piano_sotto.jpg")
         val k = bmp.width / 923f
         fun P(x: Float, y: Float) = PointF(x * k, y * k)
         val bianco = Paint().apply { color = Color.WHITE }
@@ -256,19 +265,23 @@ class SegmentazioneTest {
             "legnaia" to P(350f, 1620f), "scala" to P(480f, 1660f))
         val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
         val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 4f; color = Color.RED }
+        val trovati = HashSet<String>()
         semi.forEach { (nome, p) ->
             val pol = seg.poligonoDaPunto(p)
+            if (pol != null) trovati += nome
             println("SOTTO $nome: ${pol?.size} " + (pol?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" } ?: ""))
             if (pol != null) for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) }
         }
         java.io.File("build/anteprime").mkdirs()
+        val attesiSotto = listOf("cantina", "loc1", "loc2", "legnaia")
+        assertTrue("piano inferiore: attesi $attesiSotto, trovati $trovati", trovati.containsAll(attesiSotto))
         java.io.FileOutputStream("build/anteprime/sotto_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     /** PDF catastale reale (garage a comune) reso a 4000 px come nell'app. */
     @Test
     fun garagePdf() {
-        val stream = javaClass.classLoader!!.getResourceAsStream("pdf_garage.png") ?: return
+        val stream = javaClass.classLoader!!.getResourceAsStream("pdf_garage.png") ?: error("immagine di prova mancante: pdf_garage.png")
         val bmp = android.graphics.BitmapFactory.decodeStream(stream).copy(Bitmap.Config.ARGB_8888, true)
         println("GARAGE zone: " + RilevatoreZoneDisegno.zone(bmp).joinToString())
         val regione = Rect(900, 1050, 2200, 2200)
@@ -278,6 +291,7 @@ class SegmentazioneTest {
         val s = 1300f / 900f
         fun P(x: Float, y: Float) = PointF(900 + x * s, 1050 + y * s)
         val pol = seg.poligonoDaPunto(P(110f, 380f))
+        assertNotNull("garage del PDF: contorno non trovato", pol)
         println("GARAGE: " + pol?.joinToString { "(${((it.x - 900) / s).toInt()},${((it.y - 1050) / s).toInt()})" })
         val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
         val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 6f; color = Color.RED }
@@ -289,7 +303,7 @@ class SegmentazioneTest {
     /** Foglio con due piante (screenshot v3.70): pianta superiore e inferiore. */
     @Test
     fun duePianiReale() {
-        val bmp = screenshotPulito("due_piani.jpg") ?: return
+        val bmp = screenshotPulito("due_piani.jpg")
         val k = bmp.width / 923f
         fun P(x: Float, y: Float) = PointF(x * k, y * k)
         // etichette dell'app: si cancellano le zone di testo bianco con ombra (approssimate)
@@ -298,28 +312,33 @@ class SegmentazioneTest {
         println("ZONE2: " + RilevatoreZoneDisegno.zone(bmp).joinToString { "(${(it.left / k).toInt()},${(it.top / k).toInt()})-(${(it.right / k).toInt()},${(it.bottom / k).toInt()})" })
         val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
         val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 4f; color = Color.RED }
-        fun prova(regione: Rect, semi: Map<String, PointF>) {
+        fun prova(regione: Rect, semi: Map<String, PointF>): Set<String> {
+            val trovati = HashSet<String>()
             val seg = SegmentazionePlanimetria(bmp, regione, null)
             println("DUE utilizzabile=${seg.utilizzabile} frazione=${seg.frazioneMuri}")
             semi.forEach { (nome, p) ->
                 val pol = seg.poligonoDaPunto(p)
+                if (pol != null) trovati += nome
                 println("DUE $nome: ${pol?.size} " + (pol?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" } ?: ""))
                 if (pol != null) for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) }
             }
+            return trovati
         }
-        prova(Rect((100 * k).toInt(), (460 * k).toInt(), (900 * k).toInt(), (980 * k).toInt()), linkedMapOf(
+        val sopra = prova(Rect((100 * k).toInt(), (460 * k).toInt(), (900 * k).toInt(), (980 * k).toInt()), linkedMapOf(
             "L1" to P(220f, 600f), "L2" to P(400f, 600f), "wc" to P(205f, 705f), "disimp" to P(350f, 712f), "L9" to P(495f, 700f),
             "rip" to P(310f, 752f), "L6" to P(215f, 840f), "cucina" to P(370f, 870f), "scala" to P(500f, 850f)))
-        prova(Rect((100 * k).toInt(), (1320 * k).toInt(), (900 * k).toInt(), (1800 * k).toInt()), linkedMapOf(
+        val sotto = prova(Rect((100 * k).toInt(), (1320 * k).toInt(), (900 * k).toInt(), (1800 * k).toInt()), linkedMapOf(
             "cantina" to P(390f, 1380f), "L1" to P(380f, 1555f), "legnaia" to P(380f, 1690f), "scala" to P(500f, 1700f)))
         java.io.File("build/anteprime").mkdirs()
+        assertTrue("due piani, pianta superiore: trovati $sopra", sopra.containsAll(listOf("L1", "L2", "L9")))
+        assertTrue("due piani, pianta inferiore: trovati $sotto", sotto.containsAll(listOf("cantina", "L1", "legnaia")))
         java.io.FileOutputStream("build/anteprime/due_piani.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     /** PDF reale con due piante (II P. e P.T.), reso a 4000 px come nell'app. */
     @Test
     fun pdfDuePiani() {
-        val stream = javaClass.classLoader!!.getResourceAsStream("pdf_due_piani.png") ?: return
+        val stream = javaClass.classLoader!!.getResourceAsStream("pdf_due_piani.png") ?: error("immagine di prova mancante: pdf_due_piani.png")
         val bmp = android.graphics.BitmapFactory.decodeStream(stream).copy(Bitmap.Config.ARGB_8888, true)
         val zone = RilevatoreZoneDisegno.zone(bmp)
         println("PDF2 zone: " + zone.joinToString())
@@ -327,6 +346,7 @@ class SegmentazioneTest {
         val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 5f }
         fun disegna(pol: List<PointF>?, col: Int) { if (pol == null) return; pen.color = col
             for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) } }
+        val esiti = HashMap<String, Double?>()
         fun prova(nome: String, stima: Rect, semi: Map<String, PointF>) {
             val m = (maxOf(bmp.width, bmp.height) * 0.01f).toInt()
             val agg = RilevatoreZoneDisegno.agganciaRiquadro(stima, zone, m)
@@ -345,6 +365,7 @@ class SegmentazioneTest {
                     "cantina" to 147.0 * 160, "portico" to 177.0 * 85, "portico2" to 111.0 * 85, "legnaia" to 174.0 * 193)
                 val pol = seg.poligonoDaPunto(PointF(p.x + 900, p.y + (if (nome == "su") 1050 else 2030)), attese[n])
                 println("PDF2 $nome/$n: ${pol?.size} " + (pol?.joinToString { "(${it.x.toInt() - 900},${it.y.toInt() - (if (nome == "su") 1050 else 2030)})" } ?: ""))
+                esiti["$nome/$n"] = pol?.let { area(it) / attese.getValue(n) }
                 disegna(pol, Color.RED); pol?.let { trovati += it }
             }
             seg.vaniChiusiMancanti(trovati).forEach { println("PDF2 $nome mancante: " + it.joinToString { p -> "(${p.x.toInt() - 900},${p.y.toInt() - (if (nome == "su") 1050 else 2030)})" }); disegna(it, Color.BLUE) }
@@ -355,6 +376,10 @@ class SegmentazioneTest {
         prova("giu", Rect(1130, 2060, 1500, 2600), linkedMapOf("cantina" to PointF(360f, 160f), "portico" to PointF(350f, 275f),
             "portico2" to PointF(500f, 275f), "legnaia" to PointF(350f, 450f), "scala" to PointF(500f, 450f)))
         java.io.File("build/anteprime").mkdirs()
+        println("PDF2 rapporti area/attesa: " + esiti.toSortedMap().entries.joinToString { (k, v) -> "$k=${v?.let { "%.2f".format(it) }}" })
+        val attesiPdf = listOf("A", "B", "wc", "dis", "L9", "rip", "cuc", "C").map { "su/$it" } + listOf("giu/cantina", "giu/legnaia", "giu/portico", "giu/portico2")
+        val fuori = attesiPdf.filter { v -> esiti[v]?.let { it in 0.6..1.45 } != true }
+        assertTrue("PDF a due piante: vani non misurati o con area fuori tolleranza: $fuori", fuori.isEmpty())
         java.io.FileOutputStream("build/anteprime/pdf2_su.png").use { Bitmap.createBitmap(out, 900, 1050, 1000, 600).compress(Bitmap.CompressFormat.PNG, 100, it) }
         java.io.FileOutputStream("build/anteprime/pdf2_giu.png").use { Bitmap.createBitmap(out, 900, 2030, 1000, 620).compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
