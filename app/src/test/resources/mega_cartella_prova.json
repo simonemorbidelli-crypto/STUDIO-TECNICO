@@ -1,0 +1,56 @@
+{
+ "shareKeyB64": "qfBsAfrCAxa4HyJlkzuX9w",
+ "link": "https://mega.nz/folder/LiNkHaNd#qfBsAfrCAxa4HyJlkzuX9w",
+ "nodes": [
+  {
+   "h": "rOoTnOdE",
+   "p": "oWnErXyZ",
+   "t": 1,
+   "a": "DoJv4YN8s_CLqNOgIg-RfQbox2RGnjyRetKBnfxJAvw",
+   "k": "rOoTnOdE:LCrfGGv6dY6av1zWGNM1zg",
+   "ts": 1
+  },
+  {
+   "h": "sUbCaTaS",
+   "p": "rOoTnOdE",
+   "t": 1,
+   "a": "M3t9bmKwd5Lxy5NCd6uVWhOk1NnXUD5-57jVbvuWEnI",
+   "k": "rOoTnOdE:M92vZgAoxcsTUJA8Bm9igw",
+   "ts": 1
+  },
+  {
+   "h": "fIlEvIsU",
+   "p": "sUbCaTaS",
+   "t": 0,
+   "s": 141,
+   "a": "n6-MGUjmD3-VaJ3Z-JqwxO8WuMofEfUF6GuihOIB7kI",
+   "k": "xXxXxXxX:GJJFbN5rB40Zp5FHgXwOKDvK28mbfUNQMcoYXe76XMI/rOoTnOdE:RBO3UUmJ0k1EdKY3d7_FC-Qh1AVVZAXk-SOSfYQJIPc",
+   "ts": 1
+  },
+  {
+   "h": "fIlEnOtA",
+   "p": "rOoTnOdE",
+   "t": 0,
+   "s": 46,
+   "a": "NN_fsfx1VXAuOri_TW_mWonG1QiQh9A457nT5ZyJxffAuYafYoOz5ChJXuE_n_fY",
+   "k": "xXxXxXxX:3ysrrgVyeIjnz9XoD0feeXxnNfexTMoOCMpeu0G_gUo/rOoTnOdE:uWovbkPAdWSrnwp_DUIOPMiCtLFzMRyD_OBIiXWPT-E",
+   "ts": 1
+  }
+ ],
+ "encrypted": {
+  "fIlEvIsU": "QII8Bc/2SMUuzm645LEbVU5Jk5lfnim3ssTxpj6//kBsHOP5llunMenU6uu+amjzKGoXkVtlU+SU8RxGCjZXwDiejJrztZLfp62YmXeHv3Mg6KIoPNkhEEv6/THa+83w59u0l0+MMj/AM0RRYP+XR7nHY5e1keQpWlq7mJs/vjHRE8jlN4Bt9fquux0N",
+  "fIlEnOtA": "S6qNl7RD2+h8Davl8EsPny3cq6e5xtDM0sbda96HuQWK/CYjtZyEo9cWEY22FA=="
+ },
+ "expected": [
+  {
+   "h": "fIlEvIsU",
+   "name": "visura catastale.pdf",
+   "plainB64": "JVBERi0xLjQgY29udGVudXRvIGRpIHByb3ZhIGRlbGxhIHZpc3VyYSB4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4"
+  },
+  {
+   "h": "fIlEnOtA",
+   "name": "nota è àccentata.txt",
+   "plainB64": "VGVzdG8gZGVsbGEgbm90YSBjb24gYWNjZW50aTogcGVyY2jDqSwgY2l0dMOgLg=="
+  }
+ ]
+}

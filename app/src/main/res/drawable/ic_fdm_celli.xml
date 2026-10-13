@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona della categoria "celli" del registro FDM: un uomo (calvo, tuta arancione) dietro le
+     sbarre di una cella. Sostituisce l'emoji del lucchetto. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Fondo della cella -->
+    <path android:fillColor="#D9DEE5" android:pathData="M3,2h18v20h-18z" />
+
+    <!-- Corpo (tuta arancione) -->
+    <path android:fillColor="#E0782A"
+        android:pathData="M5.2,22 C5.2,16.6 8.1,14.2 12,14.2 C15.9,14.2 18.8,16.6 18.8,22 Z" />
+    <!-- Collo -->
+    <path android:fillColor="#E8B07E" android:pathData="M10.6,12.2h2.8v2.6h-2.8z" />
+    <!-- Testa calva -->
+    <path android:fillColor="#F1C28F"
+        android:pathData="M12,4.6 C14.2,4.6 15.8,6.3 15.8,8.6 C15.8,10.9 14.2,12.8 12,12.8 C9.8,12.8 8.2,10.9 8.2,8.6 C8.2,6.3 9.8,4.6 12,4.6 Z" />
+    <!-- Riflesso sulla testa -->
+    <path android:fillColor="#FADDB8"
+        android:pathData="M10.4,6.2 C10.9,5.7 11.6,5.5 12.2,5.6 C11.6,6 11.1,6.5 10.9,7.1 Z" />
+    <!-- Occhi -->
+    <path android:fillColor="#3A2A1E" android:pathData="M10.6,8.8m-0.55,0a0.55,0.55 0,1 1,1.1 0a0.55,0.55 0,1 1,-1.1 0" />
+    <path android:fillColor="#3A2A1E" android:pathData="M13.4,8.8m-0.55,0a0.55,0.55 0,1 1,1.1 0a0.55,0.55 0,1 1,-1.1 0" />
+    <!-- Bocca -->
+    <path android:fillColor="#00000000" android:strokeColor="#8A4B3B" android:strokeWidth="0.5"
+        android:strokeLineCap="round" android:pathData="M11,11 Q12,10.5 13,11" />
+
+    <!-- Sbarre verticali -->
+    <path android:fillColor="#4A4F57" android:pathData="M4.6,2h1.5v20h-1.5z" />
+    <path android:fillColor="#4A4F57" android:pathData="M8.9,2h1.5v20h-1.5z" />
+    <path android:fillColor="#4A4F57" android:pathData="M13.6,2h1.5v20h-1.5z" />
+    <path android:fillColor="#4A4F57" android:pathData="M17.9,2h1.5v20h-1.5z" />
+    <!-- Traverse orizzontali -->
+    <path android:fillColor="#3A3F47" android:pathData="M3,2h18v1.6h-18z" />
+    <path android:fillColor="#3A3F47" android:pathData="M3,20.4h18v1.6h-18z" />
+    <!-- Luce sulle sbarre -->
+    <path android:fillColor="#7A818C" android:pathData="M4.75,3.6h0.4v16.8h-0.4z" />
+    <path android:fillColor="#7A818C" android:pathData="M9.05,3.6h0.4v16.8h-0.4z" />
+    <path android:fillColor="#7A818C" android:pathData="M13.75,3.6h0.4v16.8h-0.4z" />
+    <path android:fillColor="#7A818C" android:pathData="M18.05,3.6h0.4v16.8h-0.4z" />
+</vector>

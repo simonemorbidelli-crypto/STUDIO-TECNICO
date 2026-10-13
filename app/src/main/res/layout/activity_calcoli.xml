@@ -1,0 +1,535 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Calcoli utili"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollCalcoli"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- MENU -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Scegli un calcolo"
+                        android:textColor="@color/primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="10dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMenuArea"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:textAllCaps="false"
+                        android:text="📐  Area di un poligono da coordinate"
+                        app:strokeColor="@color/primary"
+                        android:textColor="@color/primary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMenuDistanza"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:textAllCaps="false"
+                        android:text="📍  Distanza e azimut tra due punti"
+                        app:strokeColor="@color/primary"
+                        android:textColor="@color/primary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMenuPendenza"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:textAllCaps="false"
+                        android:text="⛰️  Pendenza (dislivello / distanza)"
+                        app:strokeColor="@color/primary"
+                        android:textColor="@color/primary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMenuImu"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:textAllCaps="false"
+                        android:text="🏠  Rendita catastale → base imponibile IMU"
+                        app:strokeColor="@color/primary"
+                        android:textColor="@color/primary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMenuCompravendita"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:textAllCaps="false"
+                        android:text="📄  Valore catastale per compravendita (prezzo-valore)"
+                        app:strokeColor="@color/primary"
+                        android:textColor="@color/primary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMenuUsufrutto"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAllCaps="false"
+                        android:text="⚖️  Usufrutto e nuda proprietà"
+                        app:strokeColor="@color/primary"
+                        android:textColor="@color/primary" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PANNELLO: AREA POLIGONO -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/panelArea"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Area di un poligono da coordinate" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:text="Inserisci un vertice per riga, nel formato Est,Nord (almeno 3 vertici, un punto per riga). Esempio: 1630123.45,4845678.90" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="Coordinate dei vertici">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etCoordinate"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textMultiLine"
+                            android:minLines="4"
+                            android:gravity="top" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCalcolaArea"
+                        style="@style/PulsanteCalcola"
+                        android:text="CALCOLA AREA" />
+
+                    <TextView
+                        android:id="@+id/tvRisultatoArea"
+                        style="@style/TestoRisultatoCalcolo" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PANNELLO: DISTANZA E AZIMUT -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/panelDistanza"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Distanza e azimut tra due punti" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:text="Coordinate piane (Est, Nord) dei due punti." />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="10dp">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:hint="Est punto 1">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etE1"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="numberDecimal|numberSigned" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <View android:layout_width="8dp" android:layout_height="1dp" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:hint="Nord punto 1">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etN1"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="numberDecimal|numberSigned" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="6dp">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:hint="Est punto 2">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etE2"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="numberDecimal|numberSigned" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <View android:layout_width="8dp" android:layout_height="1dp" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:hint="Nord punto 2">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etN2"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="numberDecimal|numberSigned" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCalcolaDistanza"
+                        style="@style/PulsanteCalcola"
+                        android:text="CALCOLA DISTANZA E AZIMUT" />
+
+                    <TextView
+                        android:id="@+id/tvRisultatoDistanza"
+                        style="@style/TestoRisultatoCalcolo" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PANNELLO: PENDENZA -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/panelPendenza"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Pendenza" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="Dislivello (m)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etDislivello"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal|numberSigned" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="Distanza planimetrica (m)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etDistanzaPlanimetrica"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCalcolaPendenza"
+                        style="@style/PulsanteCalcola"
+                        android:text="CALCOLA PENDENZA" />
+
+                    <TextView
+                        android:id="@+id/tvRisultatoPendenza"
+                        style="@style/TestoRisultatoCalcolo" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PANNELLO: IMU -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/panelImu"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Rendita catastale → base imponibile IMU" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:text="Formula: rendita catastale × 1,05 × moltiplicatore di categoria. Verifica sempre l'aliquota deliberata dal Comune per l'anno in corso." />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="Rendita catastale (€)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etRenditaImu"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        style="@style/TestoEtichettaCampo"
+                        android:text="Categoria catastale" />
+
+                    <Spinner
+                        android:id="@+id/spinnerCategoriaImu"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@android:drawable/btn_dropdown" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="Aliquota IMU del Comune (%)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etAliquotaImu"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCalcolaImu"
+                        style="@style/PulsanteCalcola"
+                        android:text="CALCOLA" />
+
+                    <TextView
+                        android:id="@+id/tvRisultatoImu"
+                        style="@style/TestoRisultatoCalcolo" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PANNELLO: COMPRAVENDITA (PREZZO-VALORE) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/panelCompravendita"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Valore catastale per compravendita (&#8220;prezzo-valore&#8221;)" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:text="Valido per acquisti da privato con richiesta di tassazione sul valore catastale anziché sul prezzo (art. 1, co. 497, L. 266/2005). Non si applica se il venditore è impresa con IVA." />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="Rendita catastale o reddito dominicale (€)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etRenditaCompravendita"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        style="@style/TestoEtichettaCampo"
+                        android:text="Tipo di immobile" />
+
+                    <Spinner
+                        android:id="@+id/spinnerTipoCompravendita"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@android:drawable/btn_dropdown" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCalcolaCompravendita"
+                        style="@style/PulsanteCalcola"
+                        android:text="CALCOLA VALORE CATASTALE" />
+
+                    <TextView
+                        android:id="@+id/tvRisultatoCompravendita"
+                        style="@style/TestoRisultatoCalcolo" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PANNELLO: USUFRUTTO -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/panelUsufrutto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:layout_marginBottom="20dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Usufrutto vitalizio e nuda proprietà" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:text="Coefficienti per fasce d'età in vigore (tasso di legge 2,5% ai sensi dell'art. 7, c. 1-ter, D.Lgs. 346/1990, applicabile anche se il tasso legale ordinario è inferiore). Verifica sempre il coefficiente aggiornato prima di un atto, specie per età superiori a 99 anni." />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="Valore della piena proprietà (€)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etValorePienaProprieta"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="Età dell'usufruttuario (anni compiuti)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etEtaUsufruttuario"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:maxLength="3" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCalcolaUsufrutto"
+                        style="@style/PulsanteCalcola"
+                        android:text="CALCOLA" />
+
+                    <TextView
+                        android:id="@+id/tvRisultatoUsufrutto"
+                        style="@style/TestoRisultatoCalcolo" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

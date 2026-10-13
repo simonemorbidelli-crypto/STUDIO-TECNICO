@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sfondo per l'anteprima della planimetria importata.
+
+    CORREZIONE (ottobre 2026): prima si usava "bg_risultato_calcolo", che ha
+    gli angoli arrotondati (10dp). L'ImageView non ritaglia mai il contenuto
+    sulla forma dello sfondo, quindi l'immagine importata (un rettangolo con
+    angoli vivi) finiva sempre per sporgere oltre la curva degli angoli
+    arrotondati: visivamente sembrava che la cornice del disegno catastale
+    venisse "tagliata" proprio in corrispondenza degli angoli del riquadro.
+    Questo sfondo ha angoli SEMPRE vivi (nessun <corners>), così il riquadro
+    combacia esattamente con il rettangolo dell'immagine e la sua cornice
+    resta sempre intera e visibile per tutta la lunghezza, su tutti i lati.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/background" />
+    <stroke android:width="1dp" android:color="@color/primary" />
+</shape>

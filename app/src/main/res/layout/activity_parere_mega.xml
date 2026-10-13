@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Parere / relazione da Mega"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Pratica -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvNomeCliente"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+
+                    <TextView
+                        android:id="@+id/tvDatiPratica"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textSize="14sp"
+                        android:textColor="#3A4540" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- File della cartella -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="1 · SCEGLI I DOCUMENTI DA FAR LEGGERE ALL'AI"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:textColor="@color/primary" />
+
+            <TextView
+                android:id="@+id/tvStatoCartella"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary"
+                android:text="Leggo la cartella Mega…" />
+
+            <ProgressBar
+                android:id="@+id/progressCartella"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:indeterminate="true" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRiprovaCartella"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"
+                android:text="↻  Riprova" />
+
+            <LinearLayout
+                android:id="@+id/rigaSelezione"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSelezionaNessuno"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0"
+                    android:textAllCaps="false"
+                    android:textColor="@color/primary"
+                    android:text="Deseleziona tutti" />
+
+            </LinearLayout>
+
+            <!-- Percorso della cartella aperta, es. "📂 Pratica Rossi › Catasto" -->
+            <TextView
+                android:id="@+id/tvPercorso"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/listaFile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/tvRiepilogoSelezione"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:padding="10dp"
+                android:background="@drawable/bg_risultato_calcolo"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:visibility="gone" />
+
+            <!-- Tipo di documento -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:text="2 · COSA DEVE SCRIVERE"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:textColor="@color/primary" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggleTipo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                app:checkedButton="@+id/btnTipoParere">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTipoParere"
+                    style="@style/PulsanteFiltroBar"
+                    android:text="Parere tecnico" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTipoRelazione"
+                    style="@style/PulsanteFiltroBar"
+                    android:text="Relazione tecnica" />
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="Cosa deve valutare? (facoltativo)"
+                app:helperText="Es.: verifica la conformità catastale rispetto alla planimetria">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etRichiesta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:minLines="3"
+                    android:gravity="top" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Generazione -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnGenera"
+                style="@style/PulsanteRuotaPrimario"
+                android:layout_marginTop="20dp"
+                android:enabled="false"
+                android:text="✍️  Genera bozza in Word" />
+
+            <TextView
+                android:id="@+id/tvAvanzamento"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary"
+                android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/progressGenerazione"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:indeterminate="true"
+                android:visibility="gone" />
+
+            <!-- Risultato -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardRisultato"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#E9F2EA"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/primary"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvRisultato"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnApri"
+                        style="@style/PulsanteRuotaPrimario"
+                        android:layout_marginTop="12dp"
+                        app:backgroundTint="@color/primary"
+                        android:text="📄  Apri in Word" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSalvaCopia"
+                        style="@style/PulsanteRuotaSecondario"
+                        android:layout_marginTop="10dp"
+                        android:text="💾  Salva una copia in…" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCondividi"
+                        style="@style/PulsanteRuotaSecondario"
+                        android:layout_marginTop="10dp"
+                        android:text="📤  Condividi" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

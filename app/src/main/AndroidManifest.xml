@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Necessari per la dettatura vocale assistita da AI delle pratiche:
+         il microfono per il riconoscimento vocale, internet per interpretare
+         il testo tramite l'API di Claude (solo se l'utente ha inserito una
+         propria chiave API nelle Impostazioni). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Per scattare direttamente la foto di una planimetria dalla sezione "Aree locali". -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.SchedaCliente"
+        android:supportsRtl="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ClientDetailActivity"
+            android:exported="false"
+            android:label="@string/client_detail_title" />
+
+        <!-- Parere / relazione con l'AI dai documenti della cartella Mega. configChanges: la
+             generazione (download + attesa dell'AI) non deve ripartire ruotando il telefono. -->
+        <activity
+            android:name=".ParereMegaActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="Impostazioni" />
+
+        <activity
+            android:name=".CalcoliActivity"
+            android:exported="false"
+            android:label="Calcoli utili" />
+
+        <activity
+            android:name=".RuotaCaffeActivity"
+            android:exported="false"
+            android:label="Dove prendere il caffè oggi" />
+
+        <activity
+            android:name=".BollettaEnergiaListaActivity"
+            android:exported="false"
+            android:label="Ripartizione Bolletta Energia Elettrica" />
+
+        <activity
+            android:name=".BollettaEnergiaFormActivity"
+            android:exported="false"
+            android:label="Bolletta energia elettrica" />
+
+        <!-- screenOrientation="portrait": questa schermata tiene in memoria la planimetria
+             caricata e tutti i locali tracciati, senza salvarli/ripristinarli automaticamente
+             a ogni cambio di configurazione. Senza questo blocco, ruotando il telefono in
+             orizzontale Android distrugge e ricrea l'Activity da zero (comportamento di
+             sistema standard per qualunque rotazione, non un errore occasionale): il risultato
+             era la perdita totale del lavoro in corso, con il ritorno alla schermata iniziale
+             di caricamento. Bloccare l'orientamento in verticale elimina la causa alla radice,
+             in una schermata comunque pensata per l'uso verticale (nessun layout orizzontale
+             dedicato). -->
+        <activity
+            android:name=".PlanimetriaActivity"
+            android:exported="false"
+            android:label="Aree locali da planimetria"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@android:color/black">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/primary"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:id="@+id/tvIstruzioneSchermoIntero"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:text="Tocca sulla planimetria. Pizzica con due dita per ingrandire." />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSaltaLocaleSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:text="Salta locale"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/btnAdattaZoom"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_crop"
+            android:contentDescription="Adatta zoom"
+            app:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/btnChiudiSchermoIntero"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:contentDescription="Chiudi schermo intero"
+            app:tint="@android:color/white" />
+
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/contenitoreSuperficie"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@android:color/black" />
+
+    <LinearLayout
+        android:id="@+id/containerStrumentiModificaSchermoIntero"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/card_background"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:visibility="gone">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAggiungiVerticeSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="4dp"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:text="+ Vertice" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRimuoviVerticeSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:text="− Vertice" />
+
+        <!-- Annulla l'ultima modifica ai vertici (aggiunta, rimozione o spostamento), anche più volte. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAnnullaVerticeSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:enabled="false"
+            android:text="↶ Annulla" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/card_background"
+        android:padding="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnInterrompiRilevamentoSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="@color/button_salva"
+            android:text="Interrompi rilevamento"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAnnullaUltimoPuntoSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:text="Annulla ultimo punto" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAnnullaModificaSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:text="Annulla modifiche"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnChiudiLocaleSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="@color/button_salva"
+            android:text="Chiudi locale"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnConfermaModificaSchermoIntero"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="@color/button_salva"
+            android:text="Conferma modifiche"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</LinearLayout>

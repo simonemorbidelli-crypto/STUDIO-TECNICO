@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Scheda Cliente</string>
+    <string name="client_detail_title">Dettaglio Cliente</string>
+</resources>

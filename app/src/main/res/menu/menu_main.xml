@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_salva_cloud"
+        android:title="Salva backup su Drive o cloud"
+        android:icon="@android:drawable/ic_menu_upload"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_esporta"
+        android:title="Condividi backup (email, WhatsApp...)"
+        android:icon="@android:drawable/ic_menu_share"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_importa"
+        android:title="Importa backup (da file o da Drive/cloud)"
+        android:icon="@android:drawable/ic_menu_add"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_calcoli"
+        android:title="Calcoli utili"
+        android:icon="@android:drawable/ic_menu_edit"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_ruota_caffe"
+        android:title="Dove prendere il caffè oggi senza vedere FDM"
+        android:icon="@android:drawable/ic_menu_rotate"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_planimetria"
+        android:title="Aree locali da planimetria"
+        android:icon="@android:drawable/ic_menu_gallery"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_impostazioni"
+        android:title="Impostazioni"
+        android:icon="@android:drawable/ic_menu_preferences"
+        app:showAsAction="never" />
+
+</menu>

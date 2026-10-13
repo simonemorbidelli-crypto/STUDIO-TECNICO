@@ -1,0 +1,102 @@
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'it.geometra.schedacliente'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "it.geometra.schedacliente"
+        minSdk 24
+        targetSdk 34
+        versionCode 64
+        versionName "3.64"
+    }
+
+    // Keystore di debug fissa (invece di quella generata automaticamente, diversa a ogni
+    // nuovo ambiente di build): serve perché il client OAuth di Google Cloud Console per il
+    // salvataggio su Drive è registrato su una precisa "impronta" (SHA-1) del certificato di
+    // firma. Con la keystore automatica, ogni build in un ambiente nuovo avrebbe un'impronta
+    // diversa e romperebbe l'accesso a Drive già configurato.
+    signingConfigs {
+        debug {
+            storeFile file('schedacliente-debug.keystore')
+            storePassword 'schedacliente123'
+            keyAlias 'schedacliente'
+            keyPassword 'schedacliente123'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
+    // Nome dell'APK con la versione dentro (es. SchedaCliente-v3.55-debug.apk), invece del
+    // generico app-debug.apk: così le build consegnate si distinguono a colpo d'occhio.
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "SchedaCliente-v${variant.versionName}-${variant.buildType.name}.apk"
+        }
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    // Cifratura della chiave API salvata sul telefono (EncryptedSharedPreferences).
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+    // OCR on-device per leggere automaticamente i dati dalla foto/PDF di una bolletta
+    // (sezione "Ripartizione Bolletta Energia Elettrica"): il riconoscimento testo gira
+    // sul telefono, non manda l'immagine a un server. CORREZIONE (ottobre 2026): usata la
+    // variante "unbundled" (play-services-mlkit-...) invece di "com.google.mlkit:text-recognition":
+    // quella bundled porta con sé il modello di riconoscimento per tutte le architetture di
+    // processore dentro l'APK stesso, facendolo arrivare a quasi 50 MB (da ~8 MB) e superando
+    // il limite di invio dell'APK in questa chat. Con questa variante il modello viene invece
+    // scaricato una sola volta tramite Google Play Services al primo utilizzo (serve una
+    // connessione quella prima volta), poi il riconoscimento funziona sul telefono anche offline:
+    // stesse classi/stesso codice, cambia solo da dove arriva il modello.
+    implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.1'
+    // Lettura del tag EXIF "Orientation" delle foto, per ruotare correttamente le foto scattate
+    // in verticale (il sensore della fotocamera è orizzontale: senza questo, una foto verticale
+    // viene letta/mostrata ruotata di 90°, sia nell'anteprima che nell'OCR).
+    implementation 'androidx.exifinterface:exifinterface:1.3.7'
+    // Accesso a Google Drive dell'utente (salvataggio del riepilogo del sondaggio FDM e
+    // generazione del link condivisibile): usata solo per l'accesso (login Google + permesso
+    // "drive.file", cioè solo i file creati dall'app stessa) — le chiamate vere e proprie
+    // all'API Drive sono fatte "a mano" via HTTP in DriveUploader.kt, per non appesantire
+    // l'app con le librerie client complete di Google.
+    implementation 'com.google.android.gms:play-services-auth:21.2.0'
+
+    // Solo per i test sul computer (non entrano nell'APK): rendering di controllo delle
+    // grafiche della ruota e del riepilogo FDM.
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.13'
+}

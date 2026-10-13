@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Dove prendere il caffè oggi"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:padding="16dp">
+
+            <!-- ===== Filtro bar ===== -->
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggleFiltroBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                app:checkedButton="@+id/btnFiltroTutti">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnFiltroTutti"
+                    style="@style/PulsanteFiltroBar"
+                    android:text="Tutti i bar" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnFiltroAperti"
+                    style="@style/PulsanteFiltroBar"
+                    android:text="🕒 Aperti entro 30′" />
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <TextView
+                android:id="@+id/tvInfoFiltro"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:textSize="13sp"
+                android:textColor="#3A4540"
+                android:text="" />
+
+            <!-- ===== Ruota ===== -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:paddingTop="26dp">
+
+                <it.geometra.schedacliente.RuotaFortunaView
+                    android:id="@+id/ruota"
+                    android:layout_width="match_parent"
+                    android:layout_height="340dp"
+                    android:layout_gravity="center" />
+
+                <it.geometra.schedacliente.PuntatoreRuotaView
+                    android:layout_width="44dp"
+                    android:layout_height="58dp"
+                    android:layout_gravity="center_horizontal|top"
+                    android:layout_marginTop="-26dp" />
+
+            </FrameLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <TextView
+                    android:id="@+id/tvRisultato"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp"
+                    android:gravity="center"
+                    android:textSize="18sp"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold"
+                    android:text="Fai girare la ruota!" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnGira"
+                style="@style/PulsanteRuotaPrimario"
+                android:layout_marginTop="14dp"
+                android:minHeight="60dp"
+                android:textSize="18sp"
+                android:text="🎡  Gira la ruota" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnModificaElenco"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="10dp"
+                android:text="✏️  Modifica elenco bar" />
+
+            <!-- ===== Sondaggio condiviso (Claude) ===== -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="📊 Sondaggio avvistamenti FDM"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Gira la ruota per aprire la finestra di 15 minuti. Il link di sola visualizzazione si può condividere sempre."
+                        android:textSize="14sp"
+                        android:textColor="#3A4540" />
+
+                    <TextView
+                        android:id="@+id/tvCountdownSondaggio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center"
+                        android:padding="10dp"
+                        android:background="@drawable/bg_risultato_calcolo"
+                        android:text="Fai girare la ruota per attivare il sondaggio (15 minuti)"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/primary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnApriSondaggio"
+                        style="@style/PulsanteRuotaPrimario"
+                        android:layout_marginTop="12dp"
+                        android:enabled="false"
+                        android:text="Apri il sondaggio" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCondividiSondaggio"
+                        style="@style/PulsanteRuotaSecondario"
+                        android:layout_marginTop="10dp"
+                        android:text="📤  Condividi link su WhatsApp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ===== Registro locale ===== -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="📸 Registro locale (senza Claude)"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Resta solo su questo telefono. Tocca un'icona per registrare un avvistamento."
+                        android:textSize="14sp"
+                        android:textColor="#3A4540" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnLocMondiale"
+                            style="@style/PulsanteIconaFdm"
+                            android:layout_marginEnd="5dp"
+                            app:backgroundTint="#E3EFEA"
+                            app:strokeColor="#2F6F62"
+                            android:text="💂" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnLocFratello"
+                            style="@style/PulsanteIconaFdm"
+                            android:layout_marginStart="5dp"
+                            android:layout_marginEnd="5dp"
+                            app:backgroundTint="#ECE6F5"
+                            app:strokeColor="#6B4FA0"
+                            android:text="🚴" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnLocGalli"
+                            style="@style/PulsanteIconaFdm"
+                            android:layout_marginStart="5dp"
+                            app:backgroundTint="#F4E6C8"
+                            app:strokeColor="#8A5A00"
+                            android:textSize="24sp"
+                            android:text="🐓🐓" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnLocCelli"
+                            style="@style/PulsanteIconaFdm"
+                            android:layout_marginEnd="5dp"
+                            app:backgroundTint="#E1ECF7"
+                            app:strokeColor="#2B5C8A"
+                            android:text=""
+                            android:contentDescription="Uomo dietro le sbarre"
+                            app:icon="@drawable/ic_fdm_celli"
+                            app:iconTint="@null"
+                            app:iconSize="52dp"
+                            app:iconPadding="0dp"
+                            app:iconGravity="textStart" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnLocGenerale"
+                            style="@style/PulsanteIconaFdm"
+                            android:layout_marginStart="5dp"
+                            app:backgroundTint="#F2E1D8"
+                            app:strokeColor="#8A4B3B"
+                            android:text="💩" />
+
+                    </LinearLayout>
+
+                    <!-- Sondaggio della giornata -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:text="SONDAGGIO DELLA GIORNATA"
+                        android:fontFamily="sans-serif-medium"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.04"
+                        android:textSize="14sp"
+                        android:textColor="@color/primary" />
+
+                    <LinearLayout
+                        android:id="@+id/boxOggi"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="vertical"
+                        android:gravity="center_horizontal"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:id="@+id/tvOggiNumero"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="44sp"
+                            android:textStyle="bold"
+                            android:textColor="#C98A2B" />
+
+                        <TextView
+                            android:id="@+id/tvOggiEtichetta"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="avvistamenti oggi"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
+
+                        <LinearLayout
+                            android:id="@+id/rigaChipOggi"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:baselineAligned="false"
+                            android:orientation="horizontal" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAzzeraGiornata"
+                        style="@style/PulsanteAzzera"
+                        android:layout_marginTop="8dp"
+                        android:text="↺  Azzera sondaggio della giornata" />
+
+                    <!-- Sondaggio totale -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="SONDAGGIO TOTALE"
+                        android:fontFamily="sans-serif-medium"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.04"
+                        android:textSize="14sp"
+                        android:textColor="@color/primary" />
+
+                    <LinearLayout
+                        android:id="@+id/boxTotale"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="vertical"
+                        android:gravity="center_horizontal"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:id="@+id/tvTotaleNumero"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="44sp"
+                            android:textStyle="bold"
+                            android:textColor="#C98A2B" />
+
+                        <TextView
+                            android:id="@+id/tvTotaleEtichetta"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="avvistamenti totali"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
+
+                        <LinearLayout
+                            android:id="@+id/rigaChipTotale"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:baselineAligned="false"
+                            android:orientation="horizontal" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAzzeraTotale"
+                        style="@style/PulsanteAzzera"
+                        android:layout_marginTop="8dp"
+                        android:text="↺  Azzera sondaggio totale" />
+
+                    <!-- Ultimi avvistamenti -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="ULTIMI AVVISTAMENTI"
+                        android:fontFamily="sans-serif-medium"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.04"
+                        android:textSize="14sp"
+                        android:textColor="@color/primary" />
+
+                    <LinearLayout
+                        android:id="@+id/listaUltimi"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="vertical" />
+
+                    <TextView
+                        android:id="@+id/tvErroreDrive"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:textSize="12sp"
+                        android:textColor="#B3261E"
+                        android:visibility="gone" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnInviaRiepilogoDrive"
+                        style="@style/PulsanteRuotaPrimario"
+                        android:layout_marginTop="14dp"
+                        android:text="📤  Salva su Drive e invia su WhatsApp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Aree locali da planimetria"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar"
+            app:popupTheme="@style/ThemeOverlay.MaterialComponents.Light" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Calcolo aree dei locali dalle quote" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:text="L'AI legge le quote (misure in metri) già scritte sulla planimetria vicino a ogni locale e calcola l'area dei locali rettangolari. Non misura i pixel dell'immagine: dove le quote non sono leggibili, o il locale non è rettangolare, lo segnala invece di indovinare. Verifica sempre il risultato prima di usarlo in un atto." />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnCaricaImmagine"
+                            style="@style/PulsanteCalcola"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="4dp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:text="APRI FILE" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnScattaFoto"
+                            style="@style/PulsanteCalcola"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="4dp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:text="SCATTA FOTO" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:layout_marginTop="4dp"
+                        android:text="Immagine o PDF catastale dalla galleria/file, oppure foto scattata al momento." />
+
+                    <ImageView
+                        android:id="@+id/imgPlanimetria"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:adjustViewBounds="true"
+                        android:maxHeight="480dp"
+                        android:scaleType="fitCenter"
+                        android:background="@drawable/bg_anteprima_planimetria"
+                        android:padding="4dp"
+                        android:visibility="gone"
+                        android:contentDescription="Planimetria caricata" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAnalizza"
+                        style="@style/PulsanteCalcola"
+                        android:text="CALCOLA AREE LOCALI (DA QUOTE SCRITTE)"
+                        android:enabled="false" />
+
+                    <ProgressBar
+                        android:id="@+id/progressoAnalisi"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvRisultatoPlanimetria"
+                        style="@style/TestoRisultatoCalcolo" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:layout_marginTop="14dp"
+                        android:text="In alternativa: rilevamento interamente automatico. Individua la scala dal reticolo catastale (o, in mancanza, chiede di toccare due punti di una misura nota) e poi individua da solo i vertici di ogni locale sui pixel dell'immagine, mostrandoli in progressione a schermo intero. Non legge né scala né misure scritte: l'area è calcolata solo dalle coordinate individuate. Al termine di ogni locale puoi scegliere se correggere i punti a mano o confermarli così come sono." />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRilevamentoAutomatico"
+                        style="@style/PulsanteCalcola"
+                        android:text="RILEVA LOCALI AUTOMATICAMENTE (SCALA + VERTICI)" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- TRACCIAMENTO MANUALE CON SCALA -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Traccia le aree a mano (precisione esatta)" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:text="1) Imposta la scala (orizzontale, verticale, obliqua o entrambe) toccando i punti di una misura nota: la planimetria si apre a schermo intero, puoi ingrandirla con due dita e una lente ti aiuta a essere preciso. Da un PDF catastale la scala viene letta automaticamente, se scritta sul disegno. 2) Per ogni locale, anche irregolare, tocca in ordine i suoi vertici e chiudilo: l'area è calcolata con la formula di Gauss, esatta per qualsiasi poligono. Puoi correggere un vertice tenendolo premuto e spostandolo, anche dopo aver chiuso il locale, e puoi rifare la scala in qualsiasi momento: tutte le superfici si ricalcolano da sole. 3) Dopo &quot;CALCOLA AREE LOCALI&quot; qui sopra, se l'AI riesce a individuare il contorno di un locale, compare qui sotto un pulsante per avviare un tracciamento guidato: i vertici proposti dall'AI vengono precaricati, ma DEVI comunque controllarli e correggerli uno per uno con la lente prima di confermare, perché sono solo una stima sui pixel dell'immagine." />
+
+                    <it.geometra.schedacliente.SuperficieView
+                        android:id="@+id/superficieView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_anteprima_planimetria" />
+
+                    <TextView
+                        android:id="@+id/tvStatoScala"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:text="Scala: non impostata" />
+
+                    <TextView
+                        android:id="@+id/tvTitoloProposteAi"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="Locali rilevati automaticamente dall'AI (vertici approssimati, da verificare)"
+                        android:textColor="@color/primary"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/containerProposteAi"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/tvIstruzioneTocco"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSchermoIntero"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textAllCaps="false"
+                        android:textSize="12sp"
+                        android:text="🔍 Visualizza / ingrandisci a schermo intero"
+                        app:strokeColor="@color/primary"
+                        android:textColor="@color/primary"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/containerControlliNormali"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="10dp">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnImpostaScala"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:textAllCaps="false"
+                                android:textSize="12sp"
+                                android:text="Imposta scala"
+                                app:strokeColor="@color/primary"
+                                android:textColor="@color/primary" />
+
+                            <View android:layout_width="6dp" android:layout_height="1dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnNuovoLocale"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:textAllCaps="false"
+                                android:textSize="12sp"
+                                android:text="Nuovo locale"
+                                app:strokeColor="@color/primary"
+                                android:textColor="@color/primary" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="6dp">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnAnnullaUltimoPunto"
+                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:textAllCaps="false"
+                                android:textSize="12sp"
+                                android:textColor="@color/text_secondary"
+                                android:text="Annulla ultimo punto" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnChiudiLocale"
+                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:textAllCaps="false"
+                                android:textSize="12sp"
+                                android:textColor="@color/button_salva"
+                                android:text="Chiudi locale" />
+
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/containerStrumentiModifica"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="10dp"
+                        android:visibility="gone">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnAggiungiVertice"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="4dp"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:text="+ Vertice" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnRimuoviVertice"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:text="− Vertice" />
+
+                        <!-- Annulla l'ultima modifica ai vertici (aggiunta, rimozione o spostamento), anche più volte. -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnAnnullaVertice"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:enabled="false"
+                            android:text="↶ Annulla" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/containerControlliModifica"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="10dp"
+                        android:visibility="gone">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnAnnullaModificaLocale"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_secondary"
+                            android:text="Annulla modifiche" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnConfermaModificaLocale"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:text="Conferma modifiche"
+                            app:strokeColor="@color/button_salva"
+                            android:textColor="@color/button_salva" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="Locali tracciati"
+                        android:textColor="@color/primary"
+                        android:textStyle="bold"
+                        android:textSize="14sp" />
+
+                    <LinearLayout
+                        android:id="@+id/containerLocaliTracciati"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="6dp" />
+
+                    <TextView
+                        android:id="@+id/tvSuperficieTotaleTracciata"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="bold"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnEsportaPdf"
+                        style="@style/PulsanteCalcola"
+                        android:text="ESPORTA PDF CON DIMOSTRAZIONE"
+                        android:enabled="false" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnEsportaDxf"
+                        style="@style/PulsanteCalcola"
+                        android:layout_marginTop="8dp"
+                        android:text="ESPORTA DXF (CAD)"
+                        android:enabled="false" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

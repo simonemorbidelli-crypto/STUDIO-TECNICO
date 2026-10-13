@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="export" path="export/" />
+    <cache-path name="fotocamera" path="fotocamera/" />
+    <!-- Allegati (foto/PDF) delle bollette salvate: servono un Uri condivisibile per poterli
+         riaprire/passare all'OCR senza spostarli fuori dalla memoria interna dell'app. -->
+    <files-path name="bollette" path="bollette_energia/" />
+    <!-- Bozze di pareri/relazioni (.docx) generate dai documenti della cartella Mega. -->
+    <external-files-path name="pareri" path="Pareri/" />
+    <files-path name="pareri_interni" path="Pareri/" />
+</paths>

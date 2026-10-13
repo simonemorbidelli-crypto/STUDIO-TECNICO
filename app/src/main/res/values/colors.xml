@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#2E5339</color>
+    <color name="primary_dark">#1E3A26</color>
+    <color name="accent">#B08642</color>
+    <color name="button_salva">#C1440E</color>
+    <color name="button_salva_pressed">#9C3609</color>
+    <color name="background">#F5F3EE</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="text_primary">#2B2B2B</color>
+    <color name="text_secondary">#6B6B6B</color>
+    <color name="divider">#E0DDD5</color>
+    <!-- Sfondo dei campi pre-compilati dall'OCR della bolletta, da verificare prima di salvare. -->
+    <color name="campo_da_verificare">#FFF3C4</color>
+</resources>
