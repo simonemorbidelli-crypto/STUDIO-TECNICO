@@ -57,9 +57,12 @@
         <item name="android:layout_marginTop">10dp</item>
     </style>
 
+    <!-- v3.77: altezza minima 50 dp invece di fissa: i testi lunghi su due righe (es. "CALCOLA AREE
+         LOCALI (DA QUOTE SCRITTE)") venivano tagliati a metà della seconda riga. -->
     <style name="PulsanteCalcola" parent="Widget.MaterialComponents.Button">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">50dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">50dp</item>
         <item name="android:layout_marginTop">16dp</item>
         <item name="android:textColor">@android:color/white</item>
         <item name="backgroundTint">@color/button_salva_tint</item>

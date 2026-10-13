@@ -1,4 +1,4 @@
-# SchedaCliente v3.76 — pacchetto per la verifica
+# SchedaCliente v3.77 — pacchetto per la verifica
 
 App Android nativa (Kotlin) per lo studio del Geom. Simone Morbidelli: schede cliente,
 planimetrie con calcolo superfici, perizia unità (OMI), documenti Mega con parere AI,
@@ -8,9 +8,9 @@ ripartizione bollette, "ruota del caffè" e altro.
 
 | Percorso | Cosa contiene |
 |---|---|
-| `SchedaCliente-v3.76-debug.apk` | APK di debug già compilato (installabile) |
+| `SchedaCliente-v3.77-debug.apk` | APK di debug già compilato (installabile) |
 | `sorgenti/` | Progetto Gradle completo (senza cartelle `build/` e senza `local.properties`) |
-| `sorgenti/storia-git.bundle` | Storia git completa (commit dalla v3.64 "buon punto di partenza" alla v3.76) |
+| `sorgenti/storia-git.bundle` | Storia git completa (commit dalla v3.64 "buon punto di partenza" alla v3.77) |
 | `anteprime/` | Immagini prodotte dai test (risultati del riconoscimento vani sulle planimetrie catastali) |
 
 ## Come compilare e far girare i test
@@ -21,7 +21,7 @@ Requisiti: JDK 17 (provato anche con JDK 21), Android SDK (compileSdk 34), Gradl
 cd sorgenti
 echo "sdk.dir=/percorso/android-sdk" > local.properties
 gradle testDebugUnitTest      # test (Robolectric 4.13, rendering NATIVE)
-gradle assembleDebug          # APK in app/build/outputs/apk/debug/SchedaCliente-v3.76-debug.apk
+gradle assembleDebug          # APK in app/build/outputs/apk/debug/SchedaCliente-v3.77-debug.apk
 ```
 
 Per recuperare la storia git: `git clone storia-git.bundle schedacliente-git`.
@@ -44,6 +44,7 @@ Note:
 | Classe | Test | Cosa verifica |
 |---|---|---|
 | AnteprimaGraficheTest | 4 | grafiche ruota/riepilogo FDM |
+| AnteprimaPlanimetriaTest | 3 | nomi dei locali leggibili, pulsanti di modifica allineati con icone, avvisi in alto, animazione della scala (immagini in `anteprime/v377_*`) |
 | CorrezioniRevisioneTest | 6 | ID univoci, guardie doppio salvataggio, centroide |
 | RilevamentoInterruzioneTest | 4 | "Interrompi"/"Salta locale" durante il rilevamento, conferma automatica sospesa in secondo piano |
 | ParereMegaTest | 9 | lettura cartelle Mega pubbliche, preparazione documenti, DOCX |
@@ -107,3 +108,20 @@ spazi chiusi di altre proprietà dentro la pianta (es. "altri sub.") vengono pro
 - **Conferma automatica dopo 3 s**: il tempo scorre solo con l'app in primo piano.
 - **Test**: il banco di prova e i test su immagini reali ora hanno soglie (prima stampavano i
   risultati ma non potevano fallire); nuovo `RilevamentoInterruzioneTest`.
+
+## Modifiche v3.77 (grafica della planimetria, su richiesta)
+
+- **Nomi dei locali**: testo scuro in grassetto (14 sp) su etichetta bianca con bordo verde, al
+  posto del bianco che sul riempimento verde chiaro non si leggeva; nei vani stretti il testo si
+  riduce (fino a 9 sp) invece di sovrapporsi all'etichetta del vano accanto.
+- **Pulsanti di modifica** (+ Vertice, − Vertice, Annulla, Nome): icone vettoriali vere della
+  stessa misura, stessa altezza (48 dp), testo su una riga anche su schermi da 360 dp. Prima i
+  caratteri +, −, ↶ e l'emoji ✏️ avevano altezze diverse e i pulsanti risultavano sfalsati.
+- **Avvisi** (es. "Vertice rimosso"): in alto, subito sotto la barra verde (anche a schermo
+  intero), invece dei Toast in basso che coprivano i pulsanti di modifica. Un tocco li chiude.
+- **Scala**: la linea gialla presa a riferimento si mostra in tre tempi: zoom sul primo punto,
+  zoom sul secondo punto, poi la linea intera con scritta la misura assegnata in metri. Linea più
+  spessa con bordo scuro, visibile anche sulla carta bianca.
+- **Pulsanti arancioni** con testo su due righe ("CALCOLA AREE LOCALI (DA QUOTE SCRITTE)", "RILEVA
+  LOCALI AUTOMATICAMENTE (SCALA + VERTICI)"): altezza minima invece di fissa, la seconda riga non è
+  più tagliata.

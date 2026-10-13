@@ -58,12 +58,44 @@
     </LinearLayout>
 
     <FrameLayout
-        android:id="@+id/contenitoreSuperficie"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="@android:color/black" />
+        android:layout_weight="1">
 
+        <FrameLayout
+            android:id="@+id/contenitoreSuperficie"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/black" />
+
+        <!-- Avvisi brevi in alto, subito sotto la barra verde (al posto dei Toast in basso, che
+             coprivano i pulsanti di modifica dei vertici e che da Android 11 non si possono spostare). -->
+        <TextView
+            android:id="@+id/tvAvvisoSchermoIntero"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_avviso"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:gravity="center"
+            android:maxLines="4"
+            android:ellipsize="end"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:elevation="12dp"
+            android:clickable="true"
+            android:focusable="false"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- Strumenti di modifica dei vertici: icone vere della stessa misura (prima i caratteri
+         +, −, ↶ e l'emoji ✏️ avevano altezze diverse e i pulsanti risultavano sfalsati). -->
     <LinearLayout
         android:id="@+id/containerStrumentiModificaSchermoIntero"
         android:layout_width="match_parent"
@@ -72,7 +104,10 @@
         android:background="@color/card_background"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
-        android:paddingTop="4dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="2dp"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
         android:visibility="gone">
 
         <com.google.android.material.button.MaterialButton
@@ -80,23 +115,47 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="3dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
             android:textAllCaps="false"
             android:textSize="12sp"
-            android:text="+ Vertice" />
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:contentDescription="Aggiungi vertice"
+            app:icon="@drawable/ic_vertice_aggiungi"
+            app:iconSize="18dp"
+            app:iconPadding="3dp"
+            app:iconGravity="textStart"
+            android:text="Vertice" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnRimuoviVerticeSchermoIntero"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="3dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
             android:textAllCaps="false"
             android:textSize="12sp"
-            android:text="− Vertice" />
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:contentDescription="Rimuovi vertice"
+            app:icon="@drawable/ic_vertice_rimuovi"
+            app:iconSize="18dp"
+            app:iconPadding="3dp"
+            app:iconGravity="textStart"
+            android:text="Vertice" />
 
         <!-- Annulla l'ultima modifica ai vertici (aggiunta, rimozione o spostamento), anche più volte. -->
         <com.google.android.material.button.MaterialButton
@@ -104,13 +163,25 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="3dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
             android:textAllCaps="false"
             android:textSize="12sp"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:enabled="false"
-            android:text="↶ Annulla" />
+            android:contentDescription="Annulla ultima modifica ai vertici"
+            app:icon="@drawable/ic_annulla"
+            app:iconSize="18dp"
+            app:iconPadding="3dp"
+            app:iconGravity="textStart"
+            android:text="Annulla" />
 
         <!-- Cambia il nome del locale che si sta correggendo. -->
         <com.google.android.material.button.MaterialButton
@@ -118,11 +189,23 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="3dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
             android:textAllCaps="false"
             android:textSize="12sp"
-            android:text="✏️ Nome" />
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:contentDescription="Cambia nome del locale"
+            app:icon="@drawable/ic_rinomina"
+            app:iconSize="18dp"
+            app:iconPadding="3dp"
+            app:iconGravity="textStart"
+            android:text="Nome" />
 
     </LinearLayout>
 

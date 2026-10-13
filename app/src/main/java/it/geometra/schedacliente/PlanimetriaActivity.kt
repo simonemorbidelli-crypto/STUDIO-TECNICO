@@ -30,7 +30,6 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -171,13 +170,13 @@ class PlanimetriaActivity : AppCompatActivity() {
             if (riuscita && uri != null) {
                 gestisciFileScelto(uri)
             } else if (!riuscita) {
-                Toast.makeText(this, "Foto annullata", Toast.LENGTH_SHORT).show()
+                avviso("Foto annullata")
             }
         }
 
     private val permessoFotocameraLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { concesso ->
-            if (concesso) avviaScattoFoto() else Toast.makeText(this, "Permesso fotocamera negato", Toast.LENGTH_SHORT).show()
+            if (concesso) avviaScattoFoto() else avviso("Permesso fotocamera negato")
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -198,13 +197,13 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.superficieView.onNuovoPunto = { gestisciNuovoPunto() }
         binding.superficieView.onPuntoSpostato = { gestisciPuntoSpostato() }
         binding.superficieView.onTapNonConsentito = {
-            Toast.makeText(this, "Premi prima \"Imposta scala\" o \"Nuovo locale\"", Toast.LENGTH_SHORT).show()
+            avviso("Premi prima \"Imposta scala\" o \"Nuovo locale\"")
         }
         binding.superficieView.onVerticeRimosso = {
-            Toast.makeText(this, "Vertice rimosso", Toast.LENGTH_SHORT).show()
+            avviso("Vertice rimosso")
         }
         binding.superficieView.onRimozioneNonConsentita = {
-            Toast.makeText(this, "Servono almeno 3 vertici: non posso rimuoverne altri", Toast.LENGTH_SHORT).show()
+            avviso("Servono almeno 3 vertici: non posso rimuoverne altri")
         }
         binding.superficieView.onLocaleAltroTenutoPremuto = { indiceVista -> gestisciCambioLocaleInModifica(indiceVista) }
         // In visualizzazione a schermo intero: dito fermo 2 s su un locale già inserito → correzione dei suoi vertici.
@@ -331,7 +330,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         val uri = try {
             androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         } catch (e: Exception) {
-            Toast.makeText(this, "Non sono riuscito a preparare la fotocamera: ${e.message}", Toast.LENGTH_SHORT).show()
+            avviso("Non sono riuscito a preparare la fotocamera: ${e.message}")
             return
         }
         uriFotoScattata = uri
@@ -370,7 +369,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             bitmapRenderPx = bmp.width
             bmp
         } catch (e: Exception) {
-            Toast.makeText(this, "Non sono riuscito a leggere il PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+            avviso("Non sono riuscito a leggere il PDF: ${e.message}")
             null
         } finally {
             renderer?.close()
@@ -410,7 +409,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         } catch (e: OutOfMemoryError) {
             if (latoMassimo > 2000) decodificaBitmapLimitato(uri, 2000) else null
         } catch (e: Exception) {
-            Toast.makeText(this, "Non sono riuscito a caricare l'immagine per il tracciamento", Toast.LENGTH_SHORT).show()
+            avviso("Non sono riuscito a caricare l'immagine per il tracciamento")
             null
         }
     }
@@ -446,7 +445,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun avviaSalvataggioProgetto() {
         val bitmap = binding.superficieView.bitmap
         if (bitmap == null) {
-            Toast.makeText(this, "Carica prima una planimetria da salvare", Toast.LENGTH_SHORT).show()
+            avviso("Carica prima una planimetria da salvare")
             return
         }
         if (salvataggioInCorso) return
@@ -497,13 +496,13 @@ class PlanimetriaActivity : AppCompatActivity() {
                 handlerPrincipale.post {
                     salvataggioInCorso = false
                     if (isFinishing || isDestroyed) return@post
-                    Toast.makeText(this, "Progetto \"$nome\" salvato", Toast.LENGTH_SHORT).show()
+                    avviso("Progetto \"$nome\" salvato")
                 }
             } catch (e: Exception) {
                 handlerPrincipale.post {
                     salvataggioInCorso = false
                     if (isFinishing || isDestroyed) return@post
-                    Toast.makeText(this, "Non sono riuscito a salvare il progetto: ${e.message}", Toast.LENGTH_SHORT).show()
+                    avviso("Non sono riuscito a salvare il progetto: ${e.message}")
                 }
             }
         }.start()
@@ -512,7 +511,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun avviaAperturaProgetto() {
         val elenco = ProgettoStore.elenca(this)
         if (elenco.isEmpty()) {
-            Toast.makeText(this, "Nessun progetto salvato ancora", Toast.LENGTH_SHORT).show()
+            avviso("Nessun progetto salvato ancora")
             return
         }
 
@@ -599,7 +598,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun caricaProgettoSalvato(id: Long) {
         val progetto = ProgettoStore.carica(this, id)
         if (progetto == null) {
-            Toast.makeText(this, "Non sono riuscito ad aprire il progetto salvato", Toast.LENGTH_SHORT).show()
+            avviso("Non sono riuscito ad aprire il progetto salvato")
             return
         }
 
@@ -645,7 +644,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         abilitaControlli(true)
         aggiornaPulsanteVisualizza()
 
-        Toast.makeText(this, "Progetto \"${progetto.nome}\" caricato", Toast.LENGTH_SHORT).show()
+        avviso("Progetto \"${progetto.nome}\" caricato")
     }
 
     // ---------------------------------------------------------------------
@@ -673,11 +672,11 @@ class PlanimetriaActivity : AppCompatActivity() {
 
         val bitmapPdf = bitmapPdfRenderizzato
         if (eraFilePdf && bitmapPdf == null) {
-            Toast.makeText(this, "Carica prima una planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Carica prima una planimetria")
             return
         }
         if (!eraFilePdf && immagineSelezionata == null) {
-            Toast.makeText(this, "Carica prima una planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Carica prima una planimetria")
             return
         }
 
@@ -924,15 +923,15 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private fun avviaVerificaPropostaAi(proposta: PropostaLocaleAi) {
         if (binding.superficieView.bitmap == null) {
-            Toast.makeText(this, "Carica prima una planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Carica prima una planimetria")
             return
         }
         if (scalaX == null) {
-            Toast.makeText(this, "Imposta prima la scala con \"Imposta scala\"", Toast.LENGTH_SHORT).show()
+            avviso("Imposta prima la scala con \"Imposta scala\"")
             return
         }
         if (modalita != Modalita.NESSUNA) {
-            Toast.makeText(this, "Finisci prima l'operazione in corso", Toast.LENGTH_SHORT).show()
+            avviso("Finisci prima l'operazione in corso")
             return
         }
 
@@ -1003,11 +1002,11 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private fun avviaRilevamentoAutomatico() {
         if (binding.superficieView.bitmap == null) {
-            Toast.makeText(this, "Carica prima una planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Carica prima una planimetria")
             return
         }
         if (modalita != Modalita.NESSUNA) {
-            Toast.makeText(this, "Finisci prima l'operazione in corso", Toast.LENGTH_SHORT).show()
+            avviso("Finisci prima l'operazione in corso")
             return
         }
 
@@ -1135,35 +1134,10 @@ class PlanimetriaActivity : AppCompatActivity() {
                             scalaY = scala
                             aggiornaTestoScala()
                             ricalcolaTuttiLocali()
-                            // Evidenzia sul disegno i due punti del reticolo usati per il calcolo, con
-                            // zoom su quel tratto, così l'utente può verificare a colpo d'occhio che
-                            // siano corretti prima di proseguire con il rilevamento dei locali.
-                            binding.superficieView.puntiScalaEvidenziati.clear()
-                            binding.superficieView.puntiScalaEvidenziati.add(p1)
-                            binding.superficieView.puntiScalaEvidenziati.add(p2)
-                            val centroSegmento = PointF((p1.x + p2.x) / 2f, (p1.y + p2.y) / 2f)
-                            // Lo zoom si adatta alla distanza reale tra i due punti scelti (ora può
-                            // essere ben più di un solo intervallo): abbastanza da vedere bene i
-                            // segni, ma senza tagliarli fuori dalla vista se sono lontani tra loro.
-                            val larghezzaVista = binding.superficieView.width.toFloat()
-                            val altezzaVista = binding.superficieView.height.toFloat()
-                            val fattoreZoomScala = if (larghezzaVista > 0f && altezzaVista > 0f && bmp.width > 0 && bmp.height > 0) {
-                                val scalaAdattata = minOf(larghezzaVista / bmp.width, altezzaVista / bmp.height)
-                                val dimVistaMinima = minOf(larghezzaVista, altezzaVista)
-                                ((dimVistaMinima * 0.6f) / (scalaAdattata * distanzaPixel.toFloat())).coerceIn(1.2f, 6f)
-                            } else {
-                                2.2f
-                            }
-                            binding.superficieView.zoomCentratoSu(centroSegmento, fattoreZoomScala)
-                            binding.tvIstruzioneTocco.text = "Scala rilevata dai due punti evidenziati sul reticolo catastale (distanza = ${String.format(java.util.Locale.ITALY, "%.0f", distanzaReale)} m, $numeroIntervalli intervalli)."
-                            aggiornaBarraSchermoIntero()
-                            Toast.makeText(this@PlanimetriaActivity, "Scala rilevata automaticamente dal reticolo catastale.", Toast.LENGTH_LONG).show()
-                            handlerPrincipale.postDelayed({
-                                if (!sessioneAttiva(sessione)) return@postDelayed
-                                binding.superficieView.puntiScalaEvidenziati.clear()
-                                binding.superficieView.azzeraZoom()
+                            avviso("Scala rilevata automaticamente dal reticolo catastale.", lungo = true)
+                            mostraTrattoScala(p1, p2, distanzaReale, "reticolo catastale ($numeroIntervalli intervalli)", sessione) {
                                 avviaRilevamentoVertici(chiaveApi)
-                            }, 1300)
+                            }
                             return
                         }
                     }
@@ -1215,38 +1189,79 @@ class PlanimetriaActivity : AppCompatActivity() {
         }.start()
     }
 
-    /** Evidenzia sul disegno il tratto usato per la scala, con zoom, poi prosegue col rilevamento dei locali. */
+    /** Evidenzia sul disegno il tratto usato per la scala (vedi [mostraTrattoScala]), poi prosegue col rilevamento dei locali. */
     private fun evidenziaScalaEProsegui(r: RilevatoreScalaBlu.Risultato, chiaveApi: String) {
-        val bmp = binding.superficieView.bitmap ?: return avviaRilevamentoVertici(chiaveApi)
-        binding.superficieView.puntiScalaEvidenziati.clear()
-        binding.superficieView.puntiScalaEvidenziati.add(r.p1)
-        binding.superficieView.puntiScalaEvidenziati.add(r.p2)
-        val distanzaPixel = GeometriaUtils.distanza(r.p1, r.p2)
-        val larghezzaVista = binding.superficieView.width.toFloat()
-        val altezzaVista = binding.superficieView.height.toFloat()
-        val fattoreZoom = if (larghezzaVista > 0f && altezzaVista > 0f && distanzaPixel > 0.0) {
-            val scalaAdattata = minOf(larghezzaVista / bmp.width, altezzaVista / bmp.height)
-            ((minOf(larghezzaVista, altezzaVista) * 0.6f) / (scalaAdattata * distanzaPixel.toFloat())).coerceIn(1.2f, 6f)
-        } else 2.2f
-        binding.superficieView.zoomCentratoSu(PointF((r.p1.x + r.p2.x) / 2f, (r.p1.y + r.p2.y) / 2f), fattoreZoom)
-        binding.tvIstruzioneTocco.text = "Scala rilevata dalla ${r.descrizione}: tratto evidenziato = ${String.format(Locale.ITALY, "%.0f", r.metriTraPunti)} m."
-        aggiornaBarraSchermoIntero()
-        Toast.makeText(this, "Scala rilevata automaticamente dal bordo del foglio.", Toast.LENGTH_LONG).show()
-        val sessione = sessioneRilevamento
-        handlerPrincipale.postDelayed({
-            if (!sessioneAttiva(sessione)) return@postDelayed
-            binding.superficieView.puntiScalaEvidenziati.clear()
-            binding.superficieView.azzeraZoom()
+        if (binding.superficieView.bitmap == null) return avviaRilevamentoVertici(chiaveApi)
+        avviso("Scala rilevata automaticamente dal bordo del foglio.", lungo = true)
+        mostraTrattoScala(r.p1, r.p2, r.metriTraPunti, r.descrizione, sessioneRilevamento) {
             avviaRilevamentoVertici(chiaveApi)
-        }, 1600)
+        }
     }
 
+    /**
+     * Fa vedere il tratto preso a riferimento per la scala, in tre tempi (v3.77, su richiesta):
+     *  1. zoom sul primo punto di riferimento, 2. zoom sul secondo punto (così si controlla che
+     *  cadano esattamente sui segni giusti), 3. la linea gialla intera inquadrata, con scritta la
+     *  misura in metri che le viene assegnata. Poi riporta la vista intera ed esegue [poi].
+     * Se nel frattempo il rilevamento viene interrotto, si ferma (vedi sessioneRilevamento).
+     */
+    private fun mostraTrattoScala(p1: PointF, p2: PointF, metri: Double, origine: String, sessione: Int, poi: () -> Unit) {
+        val vista = binding.superficieView
+        val misura = formattaMetri(metri)
+        vista.puntiScalaEvidenziati.clear()
+        vista.puntiScalaEvidenziati.add(p1)
+        vista.puntiScalaEvidenziati.add(p2)
+        vista.etichettaScala = null
+        fun fase(testo: String) {
+            binding.tvIstruzioneTocco.text = testo
+            aggiornaBarraSchermoIntero()
+        }
+        fun dopo(ms: Long, azione: () -> Unit) = handlerPrincipale.postDelayed({
+            if (sessioneAttiva(sessione)) azione()
+            else { vista.puntiScalaEvidenziati.clear(); vista.etichettaScala = null; vista.invalidate() }
+        }, ms)
+
+        val zoomPunto = 6f
+        vista.zoomCentratoSu(p1, zoomPunto)
+        fase("Scala ($origine): primo punto di riferimento (1 di 2)...")
+        dopo(1500) {
+            vista.zoomCentratoSu(p2, zoomPunto)
+            fase("Scala ($origine): secondo punto di riferimento (2 di 2)...")
+            dopo(1500) {
+                vista.etichettaScala = misura
+                vista.zoomCentratoSu(PointF((p1.x + p2.x) / 2f, (p1.y + p2.y) / 2f), zoomPerInquadrare(p1, p2))
+                fase("Scala ($origine): il tratto giallo misura $misura.")
+                dopo(2500) {
+                    vista.puntiScalaEvidenziati.clear()
+                    vista.etichettaScala = null
+                    vista.azzeraZoom()
+                    poi()
+                }
+            }
+        }
+    }
+
+    /** Ingrandimento che fa stare per intero nella vista il segmento p1-p2, con un po' di margine. */
+    private fun zoomPerInquadrare(p1: PointF, p2: PointF): Float {
+        val vista = binding.superficieView
+        val bmp = vista.bitmap ?: return 1f
+        val w = vista.width.toFloat(); val h = vista.height.toFloat()
+        if (w <= 0f || h <= 0f || bmp.width <= 0 || bmp.height <= 0) return 1f
+        val adattata = minOf(w / bmp.width, h / bmp.height)
+        val dx = kotlin.math.abs(p2.x - p1.x) * adattata
+        val dy = kotlin.math.abs(p2.y - p1.y) * adattata
+        val fx = if (dx > 1f) w * 0.75f / dx else Float.MAX_VALUE
+        val fy = if (dy > 1f) h * 0.75f / dy else Float.MAX_VALUE
+        return minOf(fx, fy, 6f).coerceAtLeast(1f)
+    }
+
+    /** "10 m" se la misura è intera, altrimenti "12,50 m". */
+    private fun formattaMetri(metri: Double): String =
+        if (kotlin.math.abs(metri - kotlin.math.round(metri)) < 0.005) String.format(Locale.ITALY, "%.0f m", metri)
+        else String.format(Locale.ITALY, "%.2f m", metri)
+
     private fun richiediScalaDaSegmento() {
-        Toast.makeText(
-            this,
-            "Non ho trovato una scala leggibile dal reticolo: tocca due punti di una misura nota sul disegno.",
-            Toast.LENGTH_LONG
-        ).show()
+        avviso("Non ho trovato una scala leggibile dal reticolo: tocca due punti di una misura nota sul disegno.", lungo = true)
         azioneDopoCalibrazione = {
             val chiaveApi = ChiaveApiStore.leggiChiave(this)
             avviaRilevamentoVertici(chiaveApi)
@@ -1265,7 +1280,7 @@ class PlanimetriaActivity : AppCompatActivity() {
 
         val bitmap = binding.superficieView.bitmap
         if (bitmap == null) {
-            Toast.makeText(this, "Carica prima una planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Carica prima una planimetria")
             terminaRilevamentoAutomatico()
             return
         }
@@ -1324,7 +1339,7 @@ class PlanimetriaActivity : AppCompatActivity() {
 
             override fun onErrore(messaggio: String) {
                 if (!sessioneAttiva(sessione)) return
-                Toast.makeText(this@PlanimetriaActivity, "Rilevamento non riuscito: $messaggio", Toast.LENGTH_LONG).show()
+                avviso("Rilevamento non riuscito: $messaggio", lungo = true)
                 terminaRilevamentoAutomatico()
             }
         })
@@ -1431,11 +1446,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                 }
             }
             if (ancoraVuote.isNotEmpty()) {
-                Toast.makeText(
-                    this,
-                    "Nessun locale individuato in: ${ancoraVuote.joinToString(", ") { it.nome }}. Puoi tracciarli a mano con \"Nuovo locale\".",
-                    Toast.LENGTH_LONG
-                ).show()
+                avviso("Nessun locale individuato in: ${ancoraVuote.joinToString(", ") { it.nome }}. Puoi tracciarli a mano con \"Nuovo locale\".", lungo = true)
             }
             avviaCodaLocaliRilevati(accumulato)
         }
@@ -1516,7 +1527,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                 ultimaDescrizioneDisegno = null
                 // Rilevamento interrotto o riavviato mentre si misurava: il risultato non serve più.
                 if (!sessioneAttiva(sessione)) return@post
-                descrizione?.let { Toast.makeText(this, "Disegno riconosciuto: $it", Toast.LENGTH_LONG).show() }
+                descrizione?.let { avviso("Disegno riconosciuto: $it", lungo = true) }
                 fatto(risultato)
             }
         }.start()
@@ -1672,7 +1683,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.superficieView.disegnaCorrenteChiuso = false
         binding.superficieView.azzeraZoom()
         binding.superficieView.invalidate()
-        Toast.makeText(this, "Locale saltato", Toast.LENGTH_SHORT).show()
+        avviso("Locale saltato")
         avviaAnimazioneENextLocale()
     }
 
@@ -1727,7 +1738,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         } else {
             "Rilevamento automatico interrotto"
         }
-        Toast.makeText(this, messaggio, Toast.LENGTH_LONG).show()
+        avviso(messaggio, lungo = true)
         terminaOperazioneInCorso()
     }
 
@@ -2031,7 +2042,7 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     /** Scarta un locale appena rilevato (visto dall'animazione finale) senza aggiungerlo all'elenco, e passa subito al successivo. */
     private fun scartaLocaleRilevato(proposta: PropostaLocaleAi) {
-        Toast.makeText(this, "Locale \"${proposta.nome}\" scartato", Toast.LENGTH_SHORT).show()
+        avviso("Locale \"${proposta.nome}\" scartato")
         binding.superficieView.puntiLocaleCorrente.clear()
         binding.superficieView.disegnaCorrenteChiuso = false
         binding.superficieView.invalidate()
@@ -2068,7 +2079,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     }
 
     private fun terminaRilevamentoAutomatico() {
-        Toast.makeText(this, "Rilevamento automatico completato", Toast.LENGTH_SHORT).show()
+        avviso("Rilevamento automatico completato")
         terminaOperazioneInCorso()
     }
 
@@ -2135,11 +2146,11 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private fun avviaCalibrazione() {
         if (binding.superficieView.bitmap == null) {
-            Toast.makeText(this, "Carica prima una planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Carica prima una planimetria")
             return
         }
         if (modalita != Modalita.NESSUNA) {
-            Toast.makeText(this, "Finisci prima l'operazione in corso", Toast.LENGTH_SHORT).show()
+            avviso("Finisci prima l'operazione in corso")
             return
         }
 
@@ -2176,7 +2187,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                         calibrazioneEntrambeInCorso = true
                         scalaXTemporanea = null
                         val unitaMisura = if (calibrazioneConParametri) "parametri" else "una misura nota"
-                        Toast.makeText(this, "Prima misura: tocca due punti su una linea orizzontale e indica $unitaMisura.", Toast.LENGTH_LONG).show()
+                        avviso("Prima misura: tocca due punti su una linea orizzontale e indica $unitaMisura.", lungo = true)
                         iniziaStepCalibrazione(DirezioneScala.ORIZZONTALE, ultimoStep = false)
                     }
                 }
@@ -2234,7 +2245,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             .setPositiveButton("Conferma") { _, _ ->
                 val valore = campo.text?.toString()?.trim()?.replace(',', '.')?.toDoubleOrNull()
                 if (valore == null || valore <= 0.0) {
-                    Toast.makeText(this, "Distanza non valida: scala non impostata", Toast.LENGTH_SHORT).show()
+                    avviso("Distanza non valida: scala non impostata")
                     calibrazioneEntrambeInCorso = false
                     scalaXTemporanea = null
                     terminaOperazioneInCorso()
@@ -2271,7 +2282,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             .setPositiveButton("Conferma") { _, _ ->
                 val numeroParametri = campo.text?.toString()?.trim()?.toIntOrNull()
                 if (numeroParametri == null || numeroParametri <= 0) {
-                    Toast.makeText(this, "Numero non valido: scala non impostata", Toast.LENGTH_SHORT).show()
+                    avviso("Numero non valido: scala non impostata")
                     calibrazioneEntrambeInCorso = false
                     scalaXTemporanea = null
                     terminaOperazioneInCorso()
@@ -2292,7 +2303,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun confermaMisuraReale(valore: Double) {
         val punti = binding.superficieView.puntiCalibrazione
         if (punti.size != 2) {
-            Toast.makeText(this, "Punti non validi: scala non impostata", Toast.LENGTH_SHORT).show()
+            avviso("Punti non validi: scala non impostata")
             calibrazioneEntrambeInCorso = false
             scalaXTemporanea = null
             terminaOperazioneInCorso()
@@ -2307,7 +2318,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             DirezioneScala.OBLIQUA -> GeometriaUtils.distanza(p1, p2)
         }
         if (distanzaPixel <= 0.0) {
-            Toast.makeText(this, "I due punti toccati non definiscono una misura valida: riprova", Toast.LENGTH_SHORT).show()
+            avviso("I due punti toccati non definiscono una misura valida: riprova")
             calibrazioneEntrambeInCorso = false
             scalaXTemporanea = null
             terminaOperazioneInCorso()
@@ -2317,7 +2328,7 @@ class PlanimetriaActivity : AppCompatActivity() {
 
         if (calibrazioneEntrambeInCorso && !calibrazioneUltimoStep) {
             scalaXTemporanea = scalaCalcolata
-            Toast.makeText(this, "Scala orizzontale impostata. Ora misura una distanza verticale nota.", Toast.LENGTH_LONG).show()
+            avviso("Scala orizzontale impostata. Ora misura una distanza verticale nota.", lungo = true)
             iniziaStepCalibrazione(DirezioneScala.VERTICALE, ultimoStep = true)
             return
         }
@@ -2346,11 +2357,11 @@ class PlanimetriaActivity : AppCompatActivity() {
             binding.superficieView.listaAttiva = null
             binding.superficieView.modoTocco = SuperficieView.ModoTocco.NESSUNO
             binding.superficieView.invalidate()
-            Toast.makeText(this, "Scala impostata", Toast.LENGTH_SHORT).show()
+            avviso("Scala impostata")
             continua.invoke()
         } else {
             terminaOperazioneInCorso()
-            Toast.makeText(this, "Scala impostata", Toast.LENGTH_SHORT).show()
+            avviso("Scala impostata")
         }
     }
 
@@ -2372,15 +2383,15 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private fun avviaNuovoLocale() {
         if (binding.superficieView.bitmap == null) {
-            Toast.makeText(this, "Carica prima una planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Carica prima una planimetria")
             return
         }
         if (scalaX == null) {
-            Toast.makeText(this, "Imposta prima la scala con \"Imposta scala\"", Toast.LENGTH_SHORT).show()
+            avviso("Imposta prima la scala con \"Imposta scala\"")
             return
         }
         if (modalita != Modalita.NESSUNA) {
-            Toast.makeText(this, "Finisci prima l'operazione in corso", Toast.LENGTH_SHORT).show()
+            avviso("Finisci prima l'operazione in corso")
             return
         }
 
@@ -2405,7 +2416,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         if (binding.superficieView.annullaUltimaModifica()) return
         val lista = binding.superficieView.listaAttiva
         if (lista == null || lista.isEmpty()) {
-            Toast.makeText(this, "Nessun punto da annullare", Toast.LENGTH_SHORT).show()
+            avviso("Nessun punto da annullare")
             return
         }
         lista.removeAt(lista.size - 1)
@@ -2433,7 +2444,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                 val nuovo = campo.text?.toString()?.trim().orEmpty()
                 if (nuovo.isNotEmpty()) {
                     nomeModificato = nuovo
-                    Toast.makeText(this, "Nome: \"$nuovo\" (si applica con \"Conferma modifiche\")", Toast.LENGTH_SHORT).show()
+                    avviso("Nome: \"$nuovo\" (si applica con \"Conferma modifiche\")")
                 }
             }
             .setNegativeButton("Annulla", null)
@@ -2444,7 +2455,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     /** "↶ Annulla" durante la correzione di un locale: annulla l'ultima aggiunta, rimozione o spostamento di un vertice. */
     private fun annullaUltimaModificaVertici() {
         if (!binding.superficieView.annullaUltimaModifica()) {
-            Toast.makeText(this, "Nessuna modifica da annullare", Toast.LENGTH_SHORT).show()
+            avviso("Nessuna modifica da annullare")
         }
     }
 
@@ -2481,12 +2492,12 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private fun chiudiLocaleCorrente() {
         if (modalita != Modalita.TRACCIAMENTO) {
-            Toast.makeText(this, "Premi prima \"Nuovo locale\" e tocca i suoi vertici", Toast.LENGTH_SHORT).show()
+            avviso("Premi prima \"Nuovo locale\" e tocca i suoi vertici")
             return
         }
         val punti = binding.superficieView.puntiLocaleCorrente
         if (punti.size < 3) {
-            Toast.makeText(this, "Servono almeno 3 vertici per chiudere un locale", Toast.LENGTH_SHORT).show()
+            avviso("Servono almeno 3 vertici per chiudere un locale")
             return
         }
         chiediNomeLocale(punti.map { PointF(it.x, it.y) })
@@ -2560,14 +2571,14 @@ class PlanimetriaActivity : AppCompatActivity() {
             aggiornaTotale()
         }
 
-        Toast.makeText(this, "Passaggio a \"${locali[nuovoIndice].nome}\"", Toast.LENGTH_SHORT).show()
+        avviso("Passaggio a \"${locali[nuovoIndice].nome}\"")
         avviaModificaLocale(nuovoIndice, forzato = true)
     }
 
     /** @param forzato true per passare direttamente a correggere [indice] anche se si è già in MODIFICA_LOCALE (cambio locale da dito tenuto premuto su un altro locale), saltando il controllo che normalmente impedisce di avviare una nuova operazione mentre una è in corso. */
     private fun avviaModificaLocale(indice: Int, forzato: Boolean = false) {
         if (!forzato && modalita != Modalita.NESSUNA) {
-            Toast.makeText(this, "Finisci prima l'operazione in corso", Toast.LENGTH_SHORT).show()
+            avviso("Finisci prima l'operazione in corso")
             return
         }
         indiceLocaleInModifica = indice
@@ -2602,7 +2613,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun confermaModificaLocale() {
         val nuoviVertici = binding.superficieView.puntiLocaleCorrente.map { PointF(it.x, it.y) }
         if (nuoviVertici.size < 3) {
-            Toast.makeText(this, "Servono almeno 3 vertici", Toast.LENGTH_SHORT).show()
+            avviso("Servono almeno 3 vertici")
             return
         }
 
@@ -2641,10 +2652,10 @@ class PlanimetriaActivity : AppCompatActivity() {
                 modalita = Modalita.TRACCIAMENTO
                 binding.containerControlliModifica.visibility = View.GONE
                 binding.containerStrumentiModifica.visibility = View.GONE
-                Toast.makeText(this, "Locale \"${proposta.nome}\" scartato", Toast.LENGTH_SHORT).show()
+                avviso("Locale \"${proposta.nome}\" scartato")
                 avviaAnimazioneENextLocale()
             } else {
-                Toast.makeText(this, "Proposta scartata", Toast.LENGTH_SHORT).show()
+                avviso("Proposta scartata")
                 terminaModificaLocale()
             }
             return
@@ -2746,13 +2757,12 @@ class PlanimetriaActivity : AppCompatActivity() {
     }
 
     private fun impostaStatoToggle(pulsante: com.google.android.material.button.MaterialButton, attivo: Boolean) {
-        if (attivo) {
-            pulsante.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.primary))
-            pulsante.setTextColor(ContextCompat.getColor(this, android.R.color.white))
-        } else {
-            pulsante.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
-            pulsante.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-        }
+        val colore = ContextCompat.getColor(this, if (attivo) android.R.color.white else R.color.text_secondary)
+        pulsante.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            if (attivo) ContextCompat.getColor(this, R.color.primary) else android.graphics.Color.TRANSPARENT
+        )
+        pulsante.setTextColor(colore)
+        pulsante.iconTint = android.content.res.ColorStateList.valueOf(colore)
     }
 
     private fun abilitaControlli(abilitati: Boolean) {
@@ -2806,6 +2816,35 @@ class PlanimetriaActivity : AppCompatActivity() {
     }
 
     /** Aggiorna testo istruzioni e pulsanti visibili nella barra dello schermo intero in base alla modalità corrente. */
+    /**
+     * Avviso breve in alto, subito sotto la barra verde (o sotto la barra dello schermo intero
+     * quando è aperto). CORREZIONE v3.77: prima erano Toast, che Android mostra sempre in basso
+     * (da Android 11 non si possono spostare) e che coprivano i pulsanti di modifica dei vertici.
+     * Un tocco sull'avviso lo chiude subito.
+     */
+    private fun avviso(testo: CharSequence, lungo: Boolean = false) {
+        val tvSchermoIntero = if (dialogSchermoIntero?.isShowing == true) bindingSchermoIntero?.tvAvvisoSchermoIntero else null
+        val tv = tvSchermoIntero ?: binding.tvAvviso
+        // Un solo avviso alla volta: quello dell'altra vista si spegne.
+        (if (tv === binding.tvAvviso) bindingSchermoIntero?.tvAvvisoSchermoIntero else binding.tvAvviso)?.let { altro ->
+            nascondiAvviso[altro]?.let { altro.removeCallbacks(it) }
+            altro.animate().cancel(); altro.visibility = View.GONE
+        }
+        tv.text = testo
+        tv.animate().cancel()
+        if (tv.visibility != View.VISIBLE) { tv.alpha = 0f; tv.visibility = View.VISIBLE }
+        tv.animate().alpha(1f).setDuration(150).start()
+        nascondiAvviso[tv]?.let { tv.removeCallbacks(it) }
+        val nascondi = Runnable {
+            tv.animate().alpha(0f).setDuration(250).withEndAction { tv.visibility = View.GONE }.start()
+        }
+        nascondiAvviso[tv] = nascondi
+        tv.setOnClickListener { tv.removeCallbacks(nascondi); nascondi.run() }
+        // I tempi dei vecchi Toast (breve ~2 s, lungo ~3,5 s), un po' allungati: in alto si leggono meglio.
+        tv.postDelayed(nascondi, if (lungo) 4000L else 2500L)
+    }
+    private val nascondiAvviso = HashMap<View, Runnable>()
+
     private fun aggiornaBarraSchermoIntero() {
         val dialogBinding = bindingSchermoIntero ?: return
         dialogBinding.tvIstruzioneSchermoIntero.text = binding.tvIstruzioneTocco.text
@@ -2975,7 +3014,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun apriPeriziaUnita() {
         if (locali.isEmpty()) return
         if (scalaX == null || scalaY == null || locali.all { it.areaM2 <= 0.0 }) {
-            Toast.makeText(this, "Imposta prima la scala: senza scala le superfici dei locali non sono in metri", Toast.LENGTH_LONG).show()
+            avviso("Imposta prima la scala: senza scala le superfici dei locali non sono in metri", lungo = true)
             return
         }
         startActivity(
@@ -2990,13 +3029,13 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private fun avviaEsportazioneDxf() {
         if (locali.isEmpty()) {
-            Toast.makeText(this, "Traccia almeno un locale prima di esportare", Toast.LENGTH_SHORT).show()
+            avviso("Traccia almeno un locale prima di esportare")
             return
         }
         val sx = scalaX
         val sy = scalaY
         if (sx == null || sy == null) {
-            Toast.makeText(this, "Imposta prima la scala della planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Imposta prima la scala della planimetria")
             return
         }
         val nomeFile = "Planimetria_locali_" + SimpleDateFormat("yyyyMMdd_HHmm", Locale.ITALY).format(Date()) + ".dxf"
@@ -3007,7 +3046,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         val sx = scalaX
         val sy = scalaY
         if (sx == null || sy == null) {
-            Toast.makeText(this, "Imposta prima la scala della planimetria", Toast.LENGTH_SHORT).show()
+            avviso("Imposta prima la scala della planimetria")
             return
         }
         try {
@@ -3018,10 +3057,10 @@ class PlanimetriaActivity : AppCompatActivity() {
             contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(contenuto.toByteArray(java.nio.charset.Charset.forName("Windows-1252")))
             }
-            Toast.makeText(this, "DXF salvato correttamente", Toast.LENGTH_SHORT).show()
+            avviso("DXF salvato correttamente")
             offriAperturaFile(uri, "application/dxf", "il DXF")
         } catch (e: Exception) {
-            Toast.makeText(this, "Non sono riuscito a salvare il DXF: ${e.message}", Toast.LENGTH_SHORT).show()
+            avviso("Non sono riuscito a salvare il DXF: ${e.message}")
         }
     }
 
@@ -3031,7 +3070,7 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private fun avviaEsportazionePdf() {
         if (locali.isEmpty()) {
-            Toast.makeText(this, "Traccia almeno un locale prima di esportare", Toast.LENGTH_SHORT).show()
+            avviso("Traccia almeno un locale prima di esportare")
             return
         }
         val nomeFile = "Planimetria_aree_" + SimpleDateFormat("yyyyMMdd_HHmm", Locale.ITALY).format(Date()) + ".pdf"
@@ -3043,10 +3082,10 @@ class PlanimetriaActivity : AppCompatActivity() {
         try {
             documento = generaPdf()
             contentResolver.openOutputStream(uri)?.use { out -> documento.writeTo(out) }
-            Toast.makeText(this, "PDF salvato correttamente", Toast.LENGTH_SHORT).show()
+            avviso("PDF salvato correttamente")
             offriAperturaFile(uri, "application/pdf", "il PDF")
         } catch (e: Exception) {
-            Toast.makeText(this, "Non sono riuscito a salvare il PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+            avviso("Non sono riuscito a salvare il PDF: ${e.message}")
         } finally {
             documento?.close()
         }
@@ -3072,7 +3111,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                     }
                     startActivity(Intent.createChooser(intent, "Apri con"))
                 } catch (e: android.content.ActivityNotFoundException) {
-                    Toast.makeText(this, "Nessuna app sul telefono sa aprire questo tipo di file", Toast.LENGTH_LONG).show()
+                    avviso("Nessuna app sul telefono sa aprire questo tipo di file", lungo = true)
                 }
             }
             .setNegativeButton("Chiudi", null)

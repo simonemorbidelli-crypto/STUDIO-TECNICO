@@ -10,9 +10,11 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
@@ -265,12 +267,64 @@ class SuperficieView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         isAntiAlias = true
     }
+    private fun sp(valore: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, valore, resources.displayMetrics)
+    private fun dp(valore: Float) = valore * resources.displayMetrics.density
+
+    // CORREZIONE v3.77: i nomi dei locali erano bianchi (30 px fissi, piccoli sugli schermi ad alta
+    // densità) e sul riempimento verde chiaro non si leggevano. Ora testo scuro in grassetto su
+    // un'etichetta bianca con bordo verde, leggibile su qualunque sfondo e a qualunque zoom.
     private val paintTestoLocale = Paint().apply {
-        color = Color.WHITE
-        textSize = 30f
+        color = Color.parseColor("#0F2A17")
+        textSize = sp(14f)
         isAntiAlias = true
+        isSubpixelText = true
+        typeface = Typeface.DEFAULT_BOLD
         textAlign = Paint.Align.CENTER
-        setShadowLayer(4f, 0f, 0f, Color.BLACK)
+    }
+    private val paintTestoLocaleRidotto = Paint(paintTestoLocale)
+    private val paintEtichettaLocaleSfondo = Paint().apply {
+        color = Color.argb(240, 255, 255, 255)
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+    private val paintEtichettaLocaleBordo = Paint().apply {
+        color = Color.parseColor("#2E5339")
+        style = Paint.Style.STROKE
+        strokeWidth = dp(1.2f)
+        isAntiAlias = true
+    }
+    /** Misura in metri assegnata al tratto di scala evidenziato (es. "10 m"), scritta a metà della linea gialla. */
+    var etichettaScala: String? = null
+    private val paintTestoScala = Paint().apply {
+        color = Color.BLACK
+        textSize = sp(16f)
+        isAntiAlias = true
+        typeface = Typeface.DEFAULT_BOLD
+        textAlign = Paint.Align.CENTER
+    }
+    private val paintEtichettaScalaSfondo = Paint().apply {
+        color = Color.parseColor("#FFD600")
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+    private val paintEtichettaScalaBordo = Paint().apply {
+        color = Color.parseColor("#C1440E")
+        style = Paint.Style.STROKE
+        strokeWidth = dp(2f)
+        isAntiAlias = true
+    }
+
+    /** Testo centrato in (cx, cy) dentro un'etichetta arrotondata con sfondo e bordo. */
+    private fun disegnaEtichetta(canvas: Canvas, testo: String, cx: Float, cy: Float, testoPaint: Paint, sfondo: Paint, bordo: Paint) {
+        val fm = testoPaint.fontMetrics
+        val larghezza = testoPaint.measureText(testo)
+        val padX = dp(6f); val padY = dp(3f)
+        val alto = fm.descent - fm.ascent
+        val r = RectF(cx - larghezza / 2 - padX, cy - alto / 2 - padY, cx + larghezza / 2 + padX, cy + alto / 2 + padY)
+        val raggio = dp(5f)
+        canvas.drawRoundRect(r, raggio, raggio, sfondo)
+        canvas.drawRoundRect(r, raggio, raggio, bordo)
+        canvas.drawText(testo, cx, cy - (fm.ascent + fm.descent) / 2, testoPaint)
     }
     private val paintLenteBordo = Paint().apply {
         color = Color.WHITE
@@ -293,9 +347,18 @@ class SuperficieView @JvmOverloads constructor(
         color = Color.WHITE
         style = Paint.Style.FILL
     }
+    // v3.77: linea gialla più spessa (in dp) con un bordo scuro sotto: prima, sottile e senza bordo,
+    // sulla carta bianca del foglio si vedeva poco.
+    private val paintScalaEvidenziataBordo = Paint().apply {
+        color = Color.parseColor("#C1440E")
+        strokeWidth = dp(6f)
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        isAntiAlias = true
+    }
     private val paintScalaEvidenziata = Paint().apply {
         color = Color.parseColor("#FFD600")
-        strokeWidth = 5f
+        strokeWidth = dp(3.5f)
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         isAntiAlias = true
@@ -308,7 +371,7 @@ class SuperficieView @JvmOverloads constructor(
     private val paintScalaEvidenziataPuntiBordo = Paint().apply {
         color = Color.parseColor("#C1440E")
         style = Paint.Style.STROKE
-        strokeWidth = 4f
+        strokeWidth = dp(2f)
         isAntiAlias = true
     }
 
@@ -416,8 +479,21 @@ class SuperficieView @JvmOverloads constructor(
             val path = creaPath(locale.verticiPx)
             canvas.drawPath(path, paintLocaleConfermato)
             canvas.drawPath(path, paintLocaleConfermatoBordo)
+        }
+        // Etichette dopo tutti i riempimenti: un locale disegnato dopo non copre il nome di un altro.
+        for (locale in locali) {
             val centro = trasforma(GeometriaUtils.centroide(locale.verticiPx))
-            canvas.drawText(locale.nome, centro.x, centro.y, paintTestoLocale)
+            // Se il nome non entra nella larghezza del vano (vani stretti, vista rimpicciolita) il
+            // testo si riduce, fino a 9 sp, invece di sovrapporsi all'etichetta del vano accanto.
+            val xs = locale.verticiPx.map { trasforma(it).x }
+            val larghezzaVano = (xs.maxOrNull() ?: 0f) - (xs.minOrNull() ?: 0f)
+            val spazio = larghezzaVano * 0.92f - dp(12f)
+            val pieno = paintTestoLocale.measureText(locale.nome)
+            val testo = if (pieno > spazio && pieno > 0f) {
+                paintTestoLocaleRidotto.textSize = (paintTestoLocale.textSize * spazio / pieno).coerceIn(sp(9f), paintTestoLocale.textSize)
+                paintTestoLocaleRidotto
+            } else paintTestoLocale
+            disegnaEtichetta(canvas, locale.nome, centro.x, centro.y, testo, paintEtichettaLocaleSfondo, paintEtichettaLocaleBordo)
         }
 
         if (puntiLocaleCorrente.isNotEmpty()) {
@@ -452,10 +528,20 @@ class SuperficieView @JvmOverloads constructor(
 
         if (puntiScalaEvidenziati.size == 2) {
             val pts = puntiScalaEvidenziati.map { trasforma(it) }
+            canvas.drawLine(pts[0].x, pts[0].y, pts[1].x, pts[1].y, paintScalaEvidenziataBordo)
             canvas.drawLine(pts[0].x, pts[0].y, pts[1].x, pts[1].y, paintScalaEvidenziata)
             pts.forEach {
-                canvas.drawCircle(it.x, it.y, 16f, paintScalaEvidenziataPunti)
-                canvas.drawCircle(it.x, it.y, 16f, paintScalaEvidenziataPuntiBordo)
+                canvas.drawCircle(it.x, it.y, dp(7f), paintScalaEvidenziataPunti)
+                canvas.drawCircle(it.x, it.y, dp(7f), paintScalaEvidenziataPuntiBordo)
+            }
+            etichettaScala?.let { testo ->
+                // A metà della linea, spostata di lato quanto basta per non coprirla.
+                val mx = (pts[0].x + pts[1].x) / 2f; val my = (pts[0].y + pts[1].y) / 2f
+                val dx = pts[1].x - pts[0].x; val dy = pts[1].y - pts[0].y
+                val l = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
+                val scostamento = dp(22f)
+                disegnaEtichetta(canvas, testo, mx - dy / l * scostamento, my + dx / l * scostamento,
+                    paintTestoScala, paintEtichettaScalaSfondo, paintEtichettaScalaBordo)
             }
         }
 
