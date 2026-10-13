@@ -88,10 +88,14 @@ object InterpretaScalaParametri {
             1. Scegli UN SOLO verso del reticolo, orizzontale oppure verticale (quello in cui i
                segni sono più numerosi, nitidi e allineati con sicurezza lungo lo stesso lato o
                la stessa riga/colonna del disegno; non mescolare mai segni di lati diversi).
-            2. Su quel verso, individua i DUE segni PIÙ LONTANI possibile tra loro (idealmente
-               il primo e l'ultimo segno leggibili con sicurezza lungo quel verso, non due
-               semplicemente vicini): una base di misura più lunga rende il calcolo della scala
-               molto più preciso. Conta con attenzione, uno per uno, ESATTAMENTE quanti
+            2. Su quel verso, individua i DUE segni PIÙ LONTANI possibile tra loro: il primo
+               e l'ULTIMO segno della fila, cioè quelli agli estremi opposti della linea retta
+               più lunga della cornice. Non fermarti ai primi segni che incontri: percorri tutta
+               la linea retta fino in fondo, a entrambe le estremità, e controlla che oltre i
+               due segni scelti non ce ne siano altri allineati. Se il disegno ha più lati con
+               segni, scegli il lato con la linea più lunga (il maggior numero di intervalli),
+               purché i segni siano leggibili con sicurezza. Una base di misura più lunga rende
+               il calcolo della scala molto più preciso. Conta con attenzione, uno per uno, ESATTAMENTE quanti
                intervalli (spazi tra un segno e il successivo) separano questi due segni: se ad
                esempio sono il 1° e il 5° segno della fila, gli intervalli sono 4, non 5.
 

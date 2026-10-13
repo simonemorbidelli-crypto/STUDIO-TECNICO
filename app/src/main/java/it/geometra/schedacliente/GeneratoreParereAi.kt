@@ -72,7 +72,8 @@ object GeneratoreParereAi {
         cliente: Cliente?,
         tipo: TipoDocumento,
         richiestaUtente: String,
-        blocchi: List<PreparatoreDocumenti.Blocco>
+        blocchi: List<PreparatoreDocumenti.Blocco>,
+        nonLetti: List<String> = emptyList()
     ): Risultato {
         val chiaveApi = ChiaveApiStore.leggiChiave(context)
         if (chiaveApi.isBlank()) {
@@ -108,7 +109,7 @@ object GeneratoreParereAi {
                 ))
             }
         }
-        contenuto.put(testo(istruzioniUtente(cliente, tipo, richiestaUtente, blocchi.map { it.nome })))
+        contenuto.put(testo(istruzioniUtente(cliente, tipo, richiestaUtente, blocchi.map { it.nome }, nonLetti)))
 
         val corpo = JSONObject().apply {
             put("model", MODELLO)
@@ -129,9 +130,14 @@ object GeneratoreParereAi {
         cliente: Cliente?,
         tipo: TipoDocumento,
         richiestaUtente: String,
-        nomiDocumenti: List<String>
+        nomiDocumenti: List<String>,
+        nonLetti: List<String> = emptyList()
     ): String = buildString {
         appendLine("Redigi la bozza di un ${tipo.etichetta.lowercase()} basandoti sui documenti allegati sopra (${nomiDocumenti.joinToString(", ")}).")
+        if (nonLetti.isNotEmpty()) {
+            appendLine("Il tecnico aveva scelto anche questi file, che NON sono stati letti (formato non supportato o illeggibili): ${nonLetti.joinToString(", ")}. " +
+                "Non dedurne il contenuto; dove le loro informazioni sarebbero state necessarie scrivi [DA VERIFICARE] e segnala nella bozza che non sono stati esaminati.")
+        }
         appendLine()
         if (cliente == null) {
             // Aperto dal menu con un link libero: nessuna scheda cliente associata.

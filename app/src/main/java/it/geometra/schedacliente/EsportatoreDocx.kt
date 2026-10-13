@@ -31,7 +31,8 @@ object EsportatoreDocx {
         tipo: GeneratoreParereAi.TipoDocumento,
         testoMarcato: String,
         documentiUsati: List<String>,
-        troncato: Boolean
+        troncato: Boolean,
+        nonLetti: List<String> = emptyList()
     ) {
         val corpo = StringBuilder()
         val righe = testoMarcato.replace("\r\n", "\n").lines()
@@ -89,7 +90,8 @@ object EsportatoreDocx {
         corpo.append(paragrafo(
             "Bozza redatta il $data con l'ausilio di intelligenza artificiale sulla base dei documenti: " +
                 documentiUsati.joinToString(", ") + ". Da verificare integralmente e completare a cura del tecnico prima dell'uso; " +
-                "rimuovere questa nota nella versione definitiva.",
+                "rimuovere questa nota nella versione definitiva." +
+                (if (nonLetti.isNotEmpty()) " File scelti ma NON esaminati (non leggibili dall'AI): " + nonLetti.joinToString(", ") + "." else ""),
             stile = "Nota"
         ))
 

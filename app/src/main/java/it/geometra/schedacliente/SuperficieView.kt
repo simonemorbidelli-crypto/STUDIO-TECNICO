@@ -315,11 +315,21 @@ class SuperficieView @JvmOverloads constructor(
     }
 
     /** Testo centrato in (cx, cy) dentro un'etichetta arrotondata con sfondo e bordo. */
-    private fun disegnaEtichetta(canvas: Canvas, testo: String, cx: Float, cy: Float, testoPaint: Paint, sfondo: Paint, bordo: Paint) {
+    private fun disegnaEtichetta(
+        canvas: Canvas, testo: String, cxIniziale: Float, cyIniziale: Float, testoPaint: Paint, sfondo: Paint, bordo: Paint,
+        dentroLoSchermo: Boolean = false
+    ) {
         val fm = testoPaint.fontMetrics
         val larghezza = testoPaint.measureText(testo)
         val padX = dp(6f); val padY = dp(3f)
         val alto = fm.descent - fm.ascent
+        var cx = cxIniziale; var cy = cyIniziale
+        if (dentroLoSchermo && width > 0 && height > 0) {
+            // La scritta della misura non deve mai uscire dallo schermo, anche se la linea è lunga o arriva al bordo.
+            val mezzaL = larghezza / 2 + padX + dp(4f); val mezzaA = alto / 2 + padY + dp(4f)
+            cx = cx.coerceIn(mezzaL, maxOf(mezzaL, width - mezzaL))
+            cy = cy.coerceIn(mezzaA, maxOf(mezzaA, height - mezzaA))
+        }
         val r = RectF(cx - larghezza / 2 - padX, cy - alto / 2 - padY, cx + larghezza / 2 + padX, cy + alto / 2 + padY)
         val raggio = dp(5f)
         canvas.drawRoundRect(r, raggio, raggio, sfondo)
@@ -541,7 +551,7 @@ class SuperficieView @JvmOverloads constructor(
                 val l = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
                 val scostamento = dp(22f)
                 disegnaEtichetta(canvas, testo, mx - dy / l * scostamento, my + dx / l * scostamento,
-                    paintTestoScala, paintEtichettaScalaSfondo, paintEtichettaScalaBordo)
+                    paintTestoScala, paintEtichettaScalaSfondo, paintEtichettaScalaBordo, dentroLoSchermo = true)
             }
         }
 

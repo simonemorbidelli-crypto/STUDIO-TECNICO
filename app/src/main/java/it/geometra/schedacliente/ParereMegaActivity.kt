@@ -495,7 +495,9 @@ class ParereMegaActivity : AppCompatActivity() {
     private fun rigaFile(file: MegaCartellaPubblica.FileMega): View {
         val tipo = PreparatoreDocumenti.tipoDi(file.nome)
         val troppoGrande = file.dimensione > MegaCartellaPubblica.DIMENSIONE_MAX_FILE
-        val selezionabile = tipo.supportato && !troppoGrande
+        // Tutti i file si possono spuntare: quelli che l'AI non può leggere vengono scartati alla
+        // generazione, avvisando quali sono e come convertirli.
+        val selezionabile = true
 
         val riga = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -505,7 +507,7 @@ class ParereMegaActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = dp(6) }
-            alpha = if (selezionabile) 1f else 0.55f
+            alpha = if (tipo.supportato && !troppoGrande) 1f else 0.8f
         }
         val spunta = CheckBox(this).apply {
             isChecked = file.handle in selezionati
@@ -531,8 +533,8 @@ class ParereMegaActivity : AppCompatActivity() {
         })
         val dettagli = buildString {
             append(tipo.descrizione).append(" · ").append(dimensioneLeggibile(file.dimensione))
-            if (!tipo.supportato) append("\n").append(PreparatoreDocumenti.motivoNonSupportato(file.nome))
-            else if (troppoGrande) append("\nTroppo grande (oltre ${MegaCartellaPubblica.DIMENSIONE_MAX_FILE / 1024 / 1024} MB)")
+            if (!tipo.supportato) append("\n⚠️ Verrà scartato. ").append(PreparatoreDocumenti.motivoNonSupportato(file.nome))
+            else if (troppoGrande) append("\n⚠️ Verrà scartato: troppo grande (oltre ${MegaCartellaPubblica.DIMENSIONE_MAX_FILE / 1024 / 1024} MB). Comprimilo o dividilo")
         }
         testi.addView(TextView(this).apply {
             text = dettagli
@@ -556,7 +558,8 @@ class ParereMegaActivity : AppCompatActivity() {
 
     private fun aggiornaRiepilogoSelezione() {
         val scelti = fileCartella.filter { it.handle in selezionati }
-        val totale = scelti.sumOf { it.dimensione }
+        // I file che verranno scartati (formato illeggibile o troppo grandi) non pesano sulla richiesta.
+        val totale = scelti.filter { PreparatoreDocumenti.tipoDi(it.nome).supportato && it.dimensione <= MegaCartellaPubblica.DIMENSIONE_MAX_FILE }.sumOf { it.dimensione }
         val troppo = totale > BYTE_SELEZIONE_MAX
         binding.tvRiepilogoSelezione.visibility = if (fileCartella.isEmpty()) View.GONE else View.VISIBLE
         // L'elenco dei file scelti resta visibile anche quando si cambia cartella.
@@ -588,31 +591,52 @@ class ParereMegaActivity : AppCompatActivity() {
             try {
                 val blocchi = ArrayList<PreparatoreDocumenti.Blocco>()
                 val scartati = ArrayList<String>()
+                var pagineTotali = 0
+                var errori = 0
                 scelti.forEachIndexed { i, file ->
+                    avanzamento("Controllo ${i + 1} di ${scelti.size}: ${file.nome}")
+                    // Formato illeggibile o file troppo grande: scartato subito, senza scaricarlo.
+                    if (!PreparatoreDocumenti.tipoDi(file.nome).supportato) {
+                        scartati += "${file.nome}: ${PreparatoreDocumenti.motivoNonSupportato(file.nome)}"; return@forEachIndexed
+                    }
+                    if (file.dimensione > MegaCartellaPubblica.DIMENSIONE_MAX_FILE) {
+                        scartati += "${file.nome}: troppo grande (oltre ${MegaCartellaPubblica.DIMENSIONE_MAX_FILE / 1024 / 1024} MB), comprimilo o dividilo in parti"; return@forEachIndexed
+                    }
                     avanzamento("Scarico ${i + 1} di ${scelti.size}: ${file.nome}")
-                    val dati = if (modoNas) NasStudio.scarica(accessoNas!!, cartellaNas!!, file) else MegaCartellaPubblica.scarica(link, file)
+                    val dati = try {
+                        if (modoNas) NasStudio.scarica(accessoNas!!, cartellaNas!!, file) else MegaCartellaPubblica.scarica(link, file)
+                    } catch (e: Exception) {
+                        errori++
+                        scartati += "${file.nome}: non sono riuscito a scaricarlo (${e.message ?: "errore di rete"}): riprova"
+                        return@forEachIndexed
+                    }
                     try {
-                        blocchi += PreparatoreDocumenti.prepara(this, file.nome, dati)
+                        val blocco = PreparatoreDocumenti.prepara(this, file.nome, dati)
+                        if (blocco is PreparatoreDocumenti.Blocco.Pdf) {
+                            if (pagineTotali + blocco.pagine > GeneratoreParereAi.PAGINE_PDF_MAX) {
+                                scartati += "${file.nome}: ha ${blocco.pagine} pagine e superano il massimo di ${GeneratoreParereAi.PAGINE_PDF_MAX} pagine PDF per richiesta: " +
+                                    "dividilo e scegli solo le pagine utili, oppure fai un'altra richiesta separata"
+                                return@forEachIndexed
+                            }
+                            pagineTotali += blocco.pagine
+                        }
+                        blocchi += blocco
                     } catch (e: PreparatoreDocumenti.DocumentoNonLeggibile) {
                         scartati += "${file.nome}: ${e.message}"
+                    } catch (e: OutOfMemoryError) {
+                        scartati += "${file.nome}: troppo pesante per la memoria del telefono: comprimilo o riducilo"
                     }
                 }
                 if (blocchi.isEmpty()) {
-                    throw IllegalStateException("Nessuno dei file scelti è leggibile:\n" + scartati.joinToString("\n"))
-                }
-                val pagine = blocchi.filterIsInstance<PreparatoreDocumenti.Blocco.Pdf>().sumOf { it.pagine }
-                if (pagine > GeneratoreParereAi.PAGINE_PDF_MAX) {
-                    throw IllegalStateException(
-                        "I PDF scelti hanno in tutto $pagine pagine: il massimo per una richiesta è ${GeneratoreParereAi.PAGINE_PDF_MAX}. Togli qualche documento."
-                    )
+                    throw IllegalStateException("Nessuno dei file scelti è leggibile dall'AI, quindi non ho creato il documento:\n• " + scartati.joinToString("\n• "))
                 }
 
                 avanzamento("L'AI sta scrivendo la bozza… di solito 1-3 minuti, tieni aperta questa schermata")
-                val risultato = GeneratoreParereAi.genera(this, cliente, tipo, richiesta, blocchi)
+                val risultato = GeneratoreParereAi.genera(this, cliente, tipo, richiesta, blocchi, scartati.map { it.substringBefore(": ") })
 
                 avanzamento("Creo il documento Word…")
                 val destinazione = File(cartellaPareri(), nomeFile(tipo))
-                EsportatoreDocx.crea(destinazione, cliente, tipo, risultato.testo, blocchi.map { it.nome }, risultato.troncato)
+                EsportatoreDocx.crea(destinazione, cliente, tipo, risultato.testo, blocchi.map { it.nome }, risultato.troncato, scartati.map { it.substringBefore(": ") })
 
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
@@ -623,7 +647,10 @@ class ParereMegaActivity : AppCompatActivity() {
                     binding.tvRisultato.text = buildString {
                         append("✅ Bozza pronta: ${destinazione.name}")
                         if (risultato.troncato) append("\n⚠️ Il testo si è interrotto perché troppo lungo: verifica la parte finale.")
-                        if (scartati.isNotEmpty()) append("\n\nNon letti:\n").append(scartati.joinToString("\n"))
+                        if (scartati.isNotEmpty()) {
+                            append("\n\n⚠️ ${scartati.size} file scartati (non letti dall'AI), il documento è basato sugli altri ${blocchi.size}:\n• ")
+                            append(scartati.joinToString("\n• "))
+                        }
                         append("\n\nÈ una bozza: i punti [DA VERIFICARE] vanno controllati prima dell'uso.")
                     }
                     // Porta in vista la scheda del risultato.

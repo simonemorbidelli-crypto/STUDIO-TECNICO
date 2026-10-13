@@ -1250,8 +1250,8 @@ class PlanimetriaActivity : AppCompatActivity() {
         val adattata = minOf(w / bmp.width, h / bmp.height)
         val dx = kotlin.math.abs(p2.x - p1.x) * adattata
         val dy = kotlin.math.abs(p2.y - p1.y) * adattata
-        val fx = if (dx > 1f) w * 0.75f / dx else Float.MAX_VALUE
-        val fy = if (dy > 1f) h * 0.75f / dy else Float.MAX_VALUE
+        val fx = if (dx > 1f) w * 0.7f / dx else Float.MAX_VALUE
+        val fy = if (dy > 1f) h * 0.7f / dy else Float.MAX_VALUE
         return minOf(fx, fy, 6f).coerceAtLeast(1f)
     }
 
