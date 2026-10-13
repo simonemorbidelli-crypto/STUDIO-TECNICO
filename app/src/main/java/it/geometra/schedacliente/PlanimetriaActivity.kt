@@ -1932,17 +1932,41 @@ class PlanimetriaActivity : AppCompatActivity() {
         passoSuccessivo()
     }
 
+    /**
+     * Chiede se correggere il locale appena rilevato. Se entro 2,5 secondi non si preme nulla, il
+     * locale si considera confermato così com'è e si passa al successivo (conto alla rovescia
+     * visibile sul pulsante "Conferma così"). Qualunque pulsante premuto ferma il conto.
+     */
     private fun chiediCorrezioneManuale(proposta: PropostaLocaleAi, generazione: Int) {
         if (generazione != generazioneElaborazioneLocale) return
+        var scelto = false
         val dialog = AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
             .setTitle("Locale \"${proposta.nome}\" rilevato")
-            .setMessage("Ho individuato ${proposta.verticiPx.size} vertici. Vuoi spostarli manualmente prima di confermare il locale?")
-            .setPositiveButton("Sposta manualmente") { _, _ -> abilitaCorrezioneManuale(proposta) }
-            .setNegativeButton("Conferma così") { _, _ -> confermaLocaleRilevato(proposta, proposta.verticiPx) }
-            .setNeutralButton("Scarta locale") { _, _ -> scartaLocaleRilevato(proposta) }
+            .setMessage("Ho individuato ${proposta.verticiPx.size} vertici. Vuoi spostarli manualmente prima di confermare il locale?\n\nSe non premi nulla viene confermato così.")
+            .setPositiveButton("Sposta manualmente") { _, _ -> scelto = true; abilitaCorrezioneManuale(proposta) }
+            .setNegativeButton("Conferma così") { _, _ -> scelto = true; confermaLocaleRilevato(proposta, proposta.verticiPx) }
+            .setNeutralButton("Scarta locale") { _, _ -> scelto = true; scartaLocaleRilevato(proposta) }
             .setCancelable(false)
             .show()
         dialog.rendiPulsantiLeggibili(this)
+        val pulsanteConferma = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+        val durataMs = 2500L
+        val inizio = android.os.SystemClock.uptimeMillis()
+        lateinit var tic: Runnable
+        tic = Runnable {
+            if (scelto || !dialog.isShowing || isFinishing || isDestroyed) return@Runnable
+            if (generazione != generazioneElaborazioneLocale) { scelto = true; dialog.dismiss(); return@Runnable }
+            val restanti = durataMs - (android.os.SystemClock.uptimeMillis() - inizio)
+            if (restanti <= 0) {
+                scelto = true
+                dialog.dismiss()
+                confermaLocaleRilevato(proposta, proposta.verticiPx)
+            } else {
+                pulsanteConferma?.text = String.format(Locale.ITALY, "Conferma così (%.1f s)", restanti / 1000.0)
+                handlerPrincipale.postDelayed(tic, 100L)
+            }
+        }
+        handlerPrincipale.post(tic)
     }
 
     /** Scarta un locale appena rilevato (visto dall'animazione finale) senza aggiungerlo all'elenco, e passa subito al successivo. */
@@ -2581,6 +2605,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.superficieView.modoTocco = SuperficieView.ModoTocco.NESSUNO
         binding.superficieView.modalitaInserimentoBordo = false
         binding.superficieView.modalitaRimozioneVertice = false
+        binding.superficieView.azzeraZoom()
         binding.superficieView.invalidate()
         binding.tvIstruzioneTocco.visibility = View.GONE
         aggiornaPulsanteVisualizza()
@@ -2605,6 +2630,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.superficieView.modoTocco = SuperficieView.ModoTocco.NESSUNO
         binding.superficieView.modalitaInserimentoBordo = false
         binding.superficieView.modalitaRimozioneVertice = false
+        binding.superficieView.azzeraZoom()
         binding.superficieView.invalidate()
         binding.tvIstruzioneTocco.visibility = View.GONE
         aggiornaPulsanteVisualizza()
@@ -2765,6 +2791,8 @@ class PlanimetriaActivity : AppCompatActivity() {
         }
         dialogSchermoIntero = null
         bindingSchermoIntero = null
+        // Tornando alla sezione dopo aver corretto, zoomato o rilevato: vista intera della planimetria.
+        superficie.post { superficie.azzeraZoom() }
     }
 
     // ---------------------------------------------------------------------
