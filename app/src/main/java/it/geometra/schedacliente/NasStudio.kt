@@ -42,9 +42,11 @@ object NasStudio {
 
     /** Stesso limite di Mega: un file più grande non avrebbe senso per l'AI. */
     const val DIMENSIONE_MAX_FILE = MegaCartellaPubblica.DIMENSIONE_MAX_FILE
-    /** Oltre questi elementi la cartella del cliente non si legge (protezione da cartelle enormi). */
-    const val ELEMENTI_MAX = 5000
-    const val PROFONDITA_MAX = 10
+    /** Elementi massimi mostrati in una singola cartella (protezione da cartelle enormi). */
+    const val ELEMENTI_MAX = 20000
+    /** Quanti livelli sotto la cartella delle pratiche si guardano per trovare la cartella del cliente. */
+    const val PROFONDITA_RICERCA = 3
+    private const val LETTURE_RICERCA_MAX = 400
 
     /** Dove sono le pratiche: \\host\condivisione\cartella (cartella vuota = radice della condivisione). */
     data class Percorso(val host: String, val porta: Int, val condivisione: String, val cartella: String) {
@@ -97,38 +99,81 @@ object NasStudio {
             .sortedBy { it.lowercase() }
     }
 
-    /** Legge cartelle e file della cartella di un cliente (con le sottocartelle), per la navigazione e la scelta dei file. */
-    fun leggiContenuto(accesso: Accesso, cartellaCliente: String): MegaCartellaPubblica.Contenuto = conCondivisione(accesso) { share ->
-        val radiceSmb = unisci(accesso.percorso.cartella, cartellaCliente)
-        if (!share.folderExists(radiceSmb)) {
-            throw ErroreNas("Sul NAS non trovo più la cartella \"$cartellaCliente\" (rinominata o spostata?)", cartellaNonTrovata = true)
-        }
+    /** Cartelle e file di UNA cartella (un solo livello), con gli handle già pronti per la schermata. */
+    class Livello(val cartelle: List<MegaCartellaPubblica.CartellaMega>, val file: List<MegaCartellaPubblica.FileMega>)
+
+    /**
+     * Legge la cartella di un cliente: restituisce la radice e il suo primo livello. Le sottocartelle
+     * si leggono una alla volta quando l'utente le apre ([leggiLivello]): così anche una cartella
+     * con migliaia di file in totale (es. "LAVORI E DISEGNI IN CORSO") si apre subito.
+     */
+    fun leggiContenuto(accesso: Accesso, cartellaCliente: String): MegaCartellaPubblica.Contenuto {
         val radice = MegaCartellaPubblica.CartellaMega(RADICE, cartellaCliente.substringAfterLast('\\'), "", "")
+        val livello = leggiLivello(accesso, cartellaCliente, "")
+        return MegaCartellaPubblica.Contenuto(radice, livello.cartelle, livello.file)
+    }
+
+    /** Legge una sola sottocartella ([relativo], es. "Catasto/Visure"; vuoto = la cartella del cliente). */
+    fun leggiLivello(accesso: Accesso, cartellaCliente: String, relativo: String): Livello = conCondivisione(accesso) { share ->
+        val radiceSmb = unisci(accesso.percorso.cartella, cartellaCliente)
+        val daLeggere = unisci(radiceSmb, relativo.replace('/', '\\'))
+        if (!share.folderExists(daLeggere)) {
+            throw ErroreNas(
+                if (relativo.isEmpty()) "Sul NAS non trovo più la cartella \"$cartellaCliente\" (rinominata o spostata?)"
+                else "Sul NAS non trovo più la cartella \"$relativo\" (rinominata o spostata?)",
+                cartellaNonTrovata = relativo.isEmpty()
+            )
+        }
+        val handleCartella = if (relativo.isEmpty()) RADICE else "/$relativo"
         val cartelle = ArrayList<MegaCartellaPubblica.CartellaMega>()
         val file = ArrayList<MegaCartellaPubblica.FileMega>()
-        fun visita(relativo: String, profondita: Int) {
-            val handleCartella = if (relativo.isEmpty()) RADICE else "/$relativo"
-            for (voce in share.list(unisci(radiceSmb, relativo.replace('/', '\\')))) {
-                val nome = voce.fileName
-                if (!visibile(nome, voce.fileAttributes)) continue
-                if (cartelle.size + file.size >= ELEMENTI_MAX) {
-                    throw ErroreNas("La cartella \"$cartellaCliente\" contiene troppi elementi (oltre $ELEMENTI_MAX): scegli una sottocartella più precisa")
-                }
-                val percorso = if (relativo.isEmpty()) nome else "$relativo/$nome"
-                if (eCartella(voce.fileAttributes)) {
-                    cartelle += MegaCartellaPubblica.CartellaMega("/$percorso", nome, handleCartella, percorso)
-                    if (profondita < PROFONDITA_MAX) visita(percorso, profondita + 1)
-                } else {
-                    file += MegaCartellaPubblica.FileMega(
-                        handle = "/$percorso", nome = nome, percorso = percorso, dimensione = voce.endOfFile,
-                        chiaveAes = ByteArray(0), iv = ByteArray(0), genitore = handleCartella
-                    )
-                }
+        for (voce in share.list(daLeggere)) {
+            val nome = voce.fileName
+            if (!visibile(nome, voce.fileAttributes)) continue
+            if (cartelle.size + file.size >= ELEMENTI_MAX) {
+                throw ErroreNas("Questa cartella contiene troppi elementi (oltre $ELEMENTI_MAX) per essere mostrata")
+            }
+            val percorso = if (relativo.isEmpty()) nome else "$relativo/$nome"
+            if (eCartella(voce.fileAttributes)) {
+                cartelle += MegaCartellaPubblica.CartellaMega("/$percorso", nome, handleCartella, percorso)
+            } else {
+                file += MegaCartellaPubblica.FileMega(
+                    handle = "/$percorso", nome = nome, percorso = percorso, dimensione = voce.endOfFile,
+                    chiaveAes = ByteArray(0), iv = ByteArray(0), genitore = handleCartella
+                )
             }
         }
-        visita("", 0)
-        MegaCartellaPubblica.Contenuto(radice, cartelle, file)
+        Livello(cartelle, file)
     }
+
+    /**
+     * Cerca la cartella del cliente anche dentro le cartelle contenitore (es. "LAVORI E DISEGNI IN
+     * CORSO\\Morbidelli Simone"), fino a [PROFONDITA_RICERCA] livelli sotto la cartella delle pratiche.
+     * Non entra nelle cartelle già riconosciute come del cliente. Restituisce i percorsi relativi.
+     */
+    fun cercaInProfondita(accesso: Accesso, primoLivello: List<String>, cognome: String, nome: String): List<String> =
+        conCondivisione(accesso) { share ->
+            val trovati = ArrayList<String>()   // percorsi relativi alla cartella delle pratiche
+            var corrente = primoLivello
+            var letture = 0
+            for (livello in 2..PROFONDITA_RICERCA) {
+                val prossimo = ArrayList<String>()
+                for (padre in corrente) {
+                    if (letture++ >= LETTURE_RICERCA_MAX) break
+                    val figli = try {
+                        share.list(unisci(accesso.percorso.cartella, padre))
+                            .filter { eCartella(it.fileAttributes) && visibile(it.fileName, it.fileAttributes) }
+                            .map { it.fileName }
+                    } catch (e: Exception) { emptyList() }
+                    val buoni = cartellePerCliente(figli, cognome, nome)
+                    buoni.forEach { trovati += "$padre\\$it" }
+                    figli.filter { it !in buoni }.forEach { prossimo += "$padre\\$it" }
+                }
+                if (trovati.isNotEmpty()) break
+                corrente = prossimo
+            }
+            trovati
+        }
 
     /** Scarica (in memoria) un file della cartella del cliente. */
     fun scarica(accesso: Accesso, cartellaCliente: String, file: MegaCartellaPubblica.FileMega): ByteArray {

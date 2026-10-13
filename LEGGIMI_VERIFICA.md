@@ -1,4 +1,4 @@
-# SchedaCliente v3.78 — pacchetto per la verifica
+# SchedaCliente v3.79 — pacchetto per la verifica
 
 App Android nativa (Kotlin) per lo studio del Geom. Simone Morbidelli: schede cliente,
 planimetrie con calcolo superfici, perizia unità (OMI), documenti Mega con parere AI,
@@ -8,9 +8,9 @@ ripartizione bollette, "ruota del caffè" e altro.
 
 | Percorso | Cosa contiene |
 |---|---|
-| `SchedaCliente-v3.78-debug.apk` | APK di debug già compilato (installabile) |
+| `SchedaCliente-v3.79-debug.apk` | APK di debug già compilato (installabile) |
 | `sorgenti/` | Progetto Gradle completo (senza cartelle `build/` e senza `local.properties`) |
-| `sorgenti/storia-git.bundle` | Storia git completa (commit dalla v3.64 "buon punto di partenza" alla v3.78) |
+| `sorgenti/storia-git.bundle` | Storia git completa (commit dalla v3.64 "buon punto di partenza" alla v3.79) |
 | `anteprime/` | Immagini prodotte dai test (risultati del riconoscimento vani sulle planimetrie catastali) |
 
 ## Come compilare e far girare i test
@@ -21,7 +21,7 @@ Requisiti: JDK 17 (provato anche con JDK 21), Android SDK (compileSdk 34), Gradl
 cd sorgenti
 echo "sdk.dir=/percorso/android-sdk" > local.properties
 gradle testDebugUnitTest      # test (Robolectric 4.13, rendering NATIVE)
-gradle assembleDebug          # APK in app/build/outputs/apk/debug/SchedaCliente-v3.78-debug.apk
+gradle assembleDebug          # APK in app/build/outputs/apk/debug/SchedaCliente-v3.79-debug.apk
 ```
 
 Per recuperare la storia git: `git clone storia-git.bundle schedacliente-git`.
@@ -128,7 +128,7 @@ spazi chiusi di altre proprietà dentro la pianta (es. "altri sub.") vengono pro
   LOCALI AUTOMATICAMENTE (SCALA + VERTICI)"): altezza minima invece di fissa, la seconda riga non è
   più tagliata.
 
-## Novità v3.78: documenti dal NAS dello studio
+## Novità v3.79: documenti dal NAS dello studio
 
 - **Impostazioni → NAS dello studio**: cartella delle pratiche come in Esplora risorse
   (es. `\\192.168.1.20\Pratiche`), utente e password del NAS (cifrati come la chiave AI),

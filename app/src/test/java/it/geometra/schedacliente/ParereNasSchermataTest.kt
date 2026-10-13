@@ -107,7 +107,7 @@ class ParereNasSchermataTest {
             return r
         }
         riga("Catasto").performClick()
-        shadowOf(Looper.getMainLooper()).idle()
+        attendi { testi(lista).any { it == "visura catastale.pdf" } }
         assertEquals("📂 Rossi Mario › Catasto", a.findViewById<TextView>(R.id.tvPercorso).text.toString())
         riga("visura catastale.pdf").performClick()
         shadowOf(Looper.getMainLooper()).idle()

@@ -93,33 +93,56 @@ class NasStudioTest {
     }
 
     @Test
-    fun leggeLaCartellaDelClienteConSottocartelle() {
-        val c = NasStudio.leggiContenuto(accesso(), "Rossi Mario")
+    fun leggeLaCartellaDelClienteUnLivelloAllaVolta() {
+        val a = accesso()
+        val c = NasStudio.leggiContenuto(a, "Rossi Mario")
         assertEquals("Rossi Mario", c.radice.nome)
         assertEquals(listOf("Catasto", "Corrispondenza", "Foto sopralluogo"), c.sottocartelleDi(c.radice.handle).map { it.nome })
         assertEquals("Thumbs.db e desktop.ini nascosti", listOf("note.txt"), c.fileIn(c.radice.handle).map { it.nome })
-        val catasto = c.sottocartelleDi(c.radice.handle).first { it.nome == "Catasto" }
-        assertEquals(listOf("planimetria.jpg", "visura catastale.pdf"), c.fileIn(catasto.handle).map { it.nome })
-        assertEquals(5, c.fileTotaliIn(c.radice.handle))
-        val visura = c.file.first { it.nome == "visura catastale.pdf" }
+        assertEquals("le sottocartelle non sono ancora lette", 1, c.fileTotaliIn(c.radice.handle))
+        val catasto = NasStudio.leggiLivello(a, "Rossi Mario", "Catasto")
+        assertEquals(listOf("planimetria.jpg", "visura catastale.pdf"), catasto.file.map { it.nome }.sorted())
+        val visura = catasto.file.first { it.nome == "visura catastale.pdf" }
         assertEquals("Catasto/visura catastale.pdf", visura.percorso)
+        assertEquals("/Catasto", visura.genitore)
         assertEquals(disco("Pratiche/Rossi Mario/Catasto/visura catastale.pdf").length(), visura.dimensione)
-        // Struttura coerente con la schermata (la cartella del cliente non ha "genitore").
         assertEquals("", c.radice.genitore)
-        assertTrue(c.cartelle.all { it.genitore.isNotEmpty() })
+        assertTrue(c.cartelle.all { it.genitore == "/" })
+    }
+
+    @Test
+    fun cartellaEnormeSiApreSubitoPerchePerLivelli() {
+        // "Archivio/LAVORI E DISEGNI IN CORSO": oltre 5000 file in tutto, ma ogni cartella è piccola.
+        val a = accesso()
+        val archivio = a.copy(percorso = a.percorso.copy(condivisione = "Archivio", cartella = ""))
+        assumeTrue("cartella di prova non presente", disco("Archivio/LAVORI E DISEGNI IN CORSO").isDirectory)
+        val c = NasStudio.leggiContenuto(archivio, "LAVORI E DISEGNI IN CORSO")
+        assertTrue(c.cartelle.isNotEmpty())
+        val sotto = NasStudio.leggiLivello(archivio, "LAVORI E DISEGNI IN CORSO", c.cartelle.first { it.nome == "Morbidelli Simone" }.percorso)
+        assertTrue(sotto.file.isNotEmpty() || sotto.cartelle.isNotEmpty())
+    }
+
+    @Test
+    fun trovaLaCartellaDelClienteDentroUnaCartellaContenitore() {
+        val a = accesso()
+        val archivio = a.copy(percorso = a.percorso.copy(condivisione = "Archivio", cartella = ""))
+        assumeTrue("cartella di prova non presente", disco("Archivio/LAVORI E DISEGNI IN CORSO").isDirectory)
+        val primo = NasStudio.elencaCartelle(archivio)
+        assertTrue(NasStudio.cartellePerCliente(primo, "Morbidelli", "Simone").isEmpty())
+        assertEquals(listOf("LAVORI E DISEGNI IN CORSO\\Morbidelli Simone"), NasStudio.cercaInProfondita(archivio, primo, "Morbidelli", "Simone"))
     }
 
     @Test
     fun scaricaIFileUgualiAllOriginale() {
         val a = accesso()
-        val c = NasStudio.leggiContenuto(a, "Rossi Mario")
-        for (nome in listOf("visura catastale.pdf", "planimetria.jpg", "note.txt")) {
-            val f = c.file.first { it.nome == nome }
+        for ((nome, cartella) in listOf("visura catastale.pdf" to "Catasto", "planimetria.jpg" to "Catasto")) {
+            val f = NasStudio.leggiLivello(a, "Rossi Mario", cartella).file.first { it.nome == nome }
             assertArrayEquals(nome, disco("Pratiche/Rossi Mario/${f.percorso}").readBytes(), NasStudio.scarica(a, "Rossi Mario", f))
         }
+        val note = NasStudio.leggiContenuto(a, "Rossi Mario").file.first { it.nome == "note.txt" }
+        assertArrayEquals(disco("Pratiche/Rossi Mario/note.txt").readBytes(), NasStudio.scarica(a, "Rossi Mario", note))
         // Nomi con accenti.
-        val l = NasStudio.leggiContenuto(a, "Lucà Niccolò")
-        val atto = l.file.single()
+        val atto = NasStudio.leggiLivello(a, "Lucà Niccolò", "Atti").file.single()
         assertEquals("Atti/atto di compravendita 2019.pdf", atto.percorso)
         assertArrayEquals(disco("Pratiche/Lucà Niccolò/Atti/atto di compravendita 2019.pdf").readBytes(), NasStudio.scarica(a, "Lucà Niccolò", atto))
     }

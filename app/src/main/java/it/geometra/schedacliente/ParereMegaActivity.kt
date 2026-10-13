@@ -68,6 +68,9 @@ class ParereMegaActivity : AppCompatActivity() {
     private var contenuto: MegaCartellaPubblica.Contenuto? = null
     private var cartellaCorrente: String = ""
     private val fileCartella: List<MegaCartellaPubblica.FileMega> get() = contenuto?.file.orEmpty()
+    /** NAS: cartelle già lette (le sottocartelle si leggono una alla volta, quando si aprono). */
+    private val cartelleLette = HashSet<String>()
+    private var letturaCartellaNas = 0
     private val selezionati = LinkedHashSet<String>() // handle dei file spuntati
     private var inGenerazione = false
     private var documentoGenerato: File? = null
@@ -178,10 +181,13 @@ class ParereMegaActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
                     contenuto = letto
+                    cartelleLette.clear()
+                    cartelleLette.add(letto.radice.handle)
                     binding.progressCartella.visibility = View.GONE
-                    binding.tvStatoCartella.text = if (letto.file.isEmpty()) "La cartella è vuota."
+                    val vuota = letto.file.isEmpty() && (nas == null || letto.cartelle.isEmpty())
+                    binding.tvStatoCartella.text = if (vuota) "La cartella è vuota."
                     else "Apri le cartelle e spunta solo i file utili al documento."
-                    binding.rigaSelezione.visibility = if (letto.file.isEmpty()) View.GONE else View.VISIBLE
+                    binding.rigaSelezione.visibility = if (letto.file.isEmpty() && nas == null) View.GONE else View.VISIBLE
                     apriCartella(letto.radice.handle)
                 }
             } catch (e: Exception) {
@@ -220,12 +226,19 @@ class ParereMegaActivity : AppCompatActivity() {
         binding.btnRiprovaCartella.visibility = View.GONE
         Thread {
             try {
-                val tutte = NasStudio.elencaCartelle(nas)
+                val primo = NasStudio.elencaCartelle(nas)
+                val c = cliente
+                var proposte = if (c != null) NasStudio.cartellePerCliente(primo, c.cognome, c.nome) else emptyList()
+                // Nessuna cartella col nome del cliente: può essere dentro una cartella contenitore
+                // (es. "LAVORI E DISEGNI IN CORSO\\Morbidelli Simone"), si guarda uno o due livelli più in basso.
+                val dentro = if (proposte.isEmpty() && c != null) {
+                    try { NasStudio.cercaInProfondita(nas, primo, c.cognome, c.nome) } catch (e: Exception) { emptyList() }
+                } else emptyList()
+                proposte = proposte + dentro
+                val tutte = primo + dentro
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
                     binding.progressCartella.visibility = View.GONE
-                    val c = cliente
-                    val proposte = if (c != null) NasStudio.cartellePerCliente(tutte, c.cognome, c.nome) else emptyList()
                     when {
                         tutte.isEmpty() -> mostraErroreCartella("Nella cartella delle pratiche sul NAS (${nas.percorso}) non ci sono cartelle.")
                         proposte.size == 1 && nota == null -> usaCartellaNas(proposte[0])
@@ -253,6 +266,7 @@ class ParereMegaActivity : AppCompatActivity() {
         cartellaNas = nome
         selezionati.clear()
         contenuto = null
+        cartelleLette.clear()
         cliente?.let { c ->
             if (c.cartellaNas != nome) {
                 val aggiornato = c.copy(cartellaNas = nome)
@@ -278,7 +292,7 @@ class ParereMegaActivity : AppCompatActivity() {
             else -> "Ho trovato più cartelle compatibili con ${c.nomeCompleto()} (★): scegli quella giusta."
         }
         val visibili = ArrayList(ordinate)
-        fun etichetta(nome: String) = if (nome in proposte) "★ $nome" else nome
+        fun etichetta(nome: String) = nome.replace("\\", " › ").let { if (nome in proposte) "★ $it" else it }
         val adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_list_item_1, ArrayList(visibili.map { etichetta(it) }))
         val campo = com.google.android.material.textfield.TextInputEditText(this).apply {
             hint = "Cerca una cartella…"
@@ -338,9 +352,45 @@ class ParereMegaActivity : AppCompatActivity() {
     }
 
     private fun apriCartella(handle: String) {
+        val c = contenuto
+        if (modoNas && c != null && handle !in cartelleLette) { leggiSottocartellaNas(handle); return }
         cartellaCorrente = handle
         indietroRisaleCartella.isEnabled = handle != contenuto?.radice?.handle
         disegnaElencoFile()
+    }
+
+    /** NAS: legge il contenuto di una sola sottocartella quando la si apre (le altre non servono). */
+    private fun leggiSottocartellaNas(handle: String) {
+        val nas = accessoNas ?: return
+        val cartellaCliente = cartellaNas ?: return
+        val c = contenuto ?: return
+        val cartella = c.cartella(handle) ?: return
+        val sessione = ++letturaCartellaNas
+        binding.tvStatoCartella.text = "Leggo la cartella \"${cartella.nome}\"…"
+        binding.tvStatoCartella.setTextColor(Color.parseColor("#2B2B2B"))
+        binding.progressCartella.visibility = View.VISIBLE
+        Thread {
+            try {
+                val livello = NasStudio.leggiLivello(nas, cartellaCliente, cartella.percorso)
+                runOnUiThread {
+                    if (isFinishing || isDestroyed || sessione != letturaCartellaNas) return@runOnUiThread
+                    val attuale = contenuto ?: return@runOnUiThread
+                    contenuto = MegaCartellaPubblica.Contenuto(attuale.radice, attuale.cartelle + livello.cartelle, attuale.file + livello.file)
+                    cartelleLette.add(handle)
+                    binding.progressCartella.visibility = View.GONE
+                    binding.tvStatoCartella.text = "Apri le cartelle e spunta solo i file utili al documento."
+                    binding.rigaSelezione.visibility = View.VISIBLE
+                    apriCartella(handle)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (isFinishing || isDestroyed || sessione != letturaCartellaNas) return@runOnUiThread
+                    binding.progressCartella.visibility = View.GONE
+                    binding.tvStatoCartella.text = "⚠️ ${e.message ?: "Impossibile leggere la cartella sul NAS"}"
+                    binding.tvStatoCartella.setTextColor(Color.parseColor("#B3261E"))
+                }
+            }
+        }.start()
     }
 
     /** Percorso della cartella aperta, dalla principale: "📂 Pratica Rossi › Catasto". */
@@ -377,8 +427,11 @@ class ParereMegaActivity : AppCompatActivity() {
         c.sottocartelleDi(cartellaCorrente).forEach { sotto ->
             val quanti = c.fileTotaliIn(sotto.handle)
             val scelti = c.file.count { it.handle in selezionati && it.percorso.startsWith(sotto.percorso + "/") }
-            val dettaglio = (if (quanti == 1) "1 file" else "$quanti file") + if (scelti > 0) " · ✓ $scelti selezionati" else ""
-            lista.addView(rigaNavigazione("📁", sotto.nome, dettaglio) { apriCartella(sotto.handle) })
+            val noto = !modoNas || sotto.handle in cartelleLette
+            val dettaglio = (if (!noto) "" else if (quanti == 1) "1 file" else "$quanti file") +
+                (if (scelti > 0) (if (noto) " · " else "") + "✓ $scelti selezionati" else "")
+            val dettaglioOpt = dettaglio.ifEmpty { null }
+            lista.addView(rigaNavigazione("📁", sotto.nome, dettaglioOpt) { apriCartella(sotto.handle) })
         }
 
         // ...poi i file della cartella aperta.
