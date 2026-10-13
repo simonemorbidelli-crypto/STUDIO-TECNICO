@@ -47,6 +47,13 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".PeriziaCompletaActivity"
+            android:exported="false"
+            android:label="Perizia di stima completa"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:label="Impostazioni" />

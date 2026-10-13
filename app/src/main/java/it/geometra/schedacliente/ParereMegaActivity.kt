@@ -51,6 +51,16 @@ class ParereMegaActivity : AppCompatActivity() {
         const val ORIGINE_NAS = "nas"
         private const val MENU_CAMBIA_CARTELLA = 1
 
+        /**
+         * Modalità "solo selezione" (v3.82, per la perizia completa): si scelgono i file dalla cartella
+         * come al solito, ma invece di scrivere il parere vengono scaricati nella cache del telefono e
+         * consegnati alla schermata chiamante ([EXTRA_RISULTATO_FILE]: JSON [{"nome","percorso","motivo"}]).
+         * "percorso" vuoto + "motivo" = file che l'AI non può leggere (viene solo segnalato, non scaricato).
+         */
+        const val EXTRA_SOLO_SELEZIONE = "solo_selezione"
+        const val EXTRA_RISULTATO_FILE = "risultato_file"
+        const val CARTELLA_ALLEGATI = "allegati_perizia"
+
         /** Stima prudente della dimensione massima dei file selezionati (la richiesta all'API ha un limite di 32 MB, in base64). */
         private const val BYTE_SELEZIONE_MAX = 22L * 1024 * 1024
     }
@@ -60,6 +70,7 @@ class ParereMegaActivity : AppCompatActivity() {
     private var link: String = ""
 
     /** Documenti dal NAS dello studio invece che da Mega (v3.78). */
+    private var soloSelezione = false
     private var modoNas = false
     private var accessoNas: NasStudio.Accesso? = null
     /** Cartella del cliente sul NAS (nome dentro la cartella delle pratiche); null finché non è stata trovata o scelta. */
@@ -153,7 +164,16 @@ class ParereMegaActivity : AppCompatActivity() {
             selezionati.clear()
             disegnaElencoFile()
         }
-        binding.btnGenera.setOnClickListener { avviaGenerazione() }
+        soloSelezione = intent.getBooleanExtra(EXTRA_SOLO_SELEZIONE, false)
+        if (soloSelezione) {
+            binding.toolbar.title = if (modoNas) "Documenti dal NAS per la perizia" else "Documenti da Mega per la perizia"
+            binding.tvTitoloFile.text = "SCEGLI I FILE DA AGGIUNGERE ALLA PERIZIA"
+            binding.tvTitoloTipo.visibility = View.GONE
+            binding.toggleTipo.visibility = View.GONE
+            binding.tilRichiesta.visibility = View.GONE
+            binding.btnGenera.text = "➕  Aggiungi alla perizia"
+        }
+        binding.btnGenera.setOnClickListener { if (soloSelezione) avviaConsegnaSelezione() else avviaGenerazione() }
         binding.btnApri.setOnClickListener { apriDocumento() }
         binding.btnCondividi.setOnClickListener { condividiDocumento() }
         binding.btnSalvaCopia.setOnClickListener {
@@ -576,6 +596,50 @@ class ParereMegaActivity : AppCompatActivity() {
     // ---------------------------------------------------------------------
     // Generazione
     // ---------------------------------------------------------------------
+
+    /** Solo selezione: scarica i file spuntati nella cache e li consegna alla schermata della perizia. */
+    private fun avviaConsegnaSelezione() {
+        if (inGenerazione) return
+        val scelti = fileCartella.filter { it.handle in selezionati }
+        if (scelti.isEmpty()) return
+        impostaInGenerazione(true)
+        Thread {
+            try {
+                val cartella = File(cacheDir, CARTELLA_ALLEGATI).apply { mkdirs() }
+                val consegna = org.json.JSONArray()
+                scelti.forEachIndexed { i, file ->
+                    val voce = org.json.JSONObject().put("nome", file.nome)
+                    when {
+                        !PreparatoreDocumenti.tipoDi(file.nome).supportato ->
+                            voce.put("percorso", "").put("motivo", PreparatoreDocumenti.motivoNonSupportato(file.nome))
+                        file.dimensione > MegaCartellaPubblica.DIMENSIONE_MAX_FILE ->
+                            voce.put("percorso", "").put("motivo", "troppo grande (oltre ${MegaCartellaPubblica.DIMENSIONE_MAX_FILE / 1024 / 1024} MB): comprimilo o dividilo")
+                        else -> {
+                            avanzamento("Scarico ${i + 1} di ${scelti.size}: ${file.nome}")
+                            val dati = if (modoNas) NasStudio.scarica(accessoNas!!, cartellaNas!!, file) else MegaCartellaPubblica.scarica(link, file)
+                            val destinazione = File(cartella, "${IdUnivoci.nuovo()}_${file.nome.replace(Regex("[\\\\/:*?\"<>|]"), "_")}")
+                            destinazione.writeBytes(dati)
+                            voce.put("percorso", destinazione.absolutePath).put("motivo", "")
+                        }
+                    }
+                    consegna.put(voce)
+                }
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    setResult(RESULT_OK, Intent().putExtra(EXTRA_RISULTATO_FILE, consegna.toString()))
+                    finish()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    impostaInGenerazione(false)
+                    binding.tvAvanzamento.visibility = View.VISIBLE
+                    binding.tvAvanzamento.setTextColor(Color.parseColor("#B3261E"))
+                    binding.tvAvanzamento.text = "⚠️ ${e.message ?: "Errore durante lo scaricamento"}"
+                }
+            }
+        }.start()
+    }
 
     private fun avviaGenerazione() {
         if (inGenerazione) return

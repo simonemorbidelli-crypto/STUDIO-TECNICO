@@ -80,6 +80,23 @@ object GeneratoreParereAi {
             throw IllegalStateException("Chiave API Anthropic non impostata: inseriscila nelle Impostazioni dell'app")
         }
 
+        val contenuto = contenutoDocumenti(blocchi)
+        contenuto.put(testo(istruzioniUtente(cliente, tipo, richiestaUtente, blocchi.map { it.nome }, nonLetti)))
+
+        val corpo = JSONObject().apply {
+            put("model", MODELLO)
+            put("max_tokens", MAX_TOKEN_RISPOSTA)
+            put("system", ISTRUZIONI_SISTEMA)
+            put("messages", JSONArray().put(JSONObject().apply {
+                put("role", "user")
+                put("content", contenuto)
+            }))
+        }
+        return invia(chiaveApi, corpo.toString())
+    }
+
+    /** Documenti scelti come contenuti della richiesta all'AI: PDF e immagini come tali, il resto come testo. */
+    private fun contenutoDocumenti(blocchi: List<PreparatoreDocumenti.Blocco>): JSONArray {
         val contenuto = JSONArray()
         blocchi.forEach { blocco ->
             when (blocco) {
@@ -109,18 +126,7 @@ object GeneratoreParereAi {
                 ))
             }
         }
-        contenuto.put(testo(istruzioniUtente(cliente, tipo, richiestaUtente, blocchi.map { it.nome }, nonLetti)))
-
-        val corpo = JSONObject().apply {
-            put("model", MODELLO)
-            put("max_tokens", MAX_TOKEN_RISPOSTA)
-            put("system", ISTRUZIONI_SISTEMA)
-            put("messages", JSONArray().put(JSONObject().apply {
-                put("role", "user")
-                put("content", contenuto)
-            }))
-        }
-        return invia(chiaveApi, corpo.toString())
+        return contenuto
     }
 
     private fun testo(t: String) = JSONObject().put("type", "text").put("text", t)
@@ -185,7 +191,128 @@ object GeneratoreParereAi {
         }
     }
 
-    private fun invia(chiaveApi: String, corpo: String): Risultato {
+    // ---------------------------------------------------------------------
+    // Perizia di stima completa (v3.82)
+    // ---------------------------------------------------------------------
+
+    private const val MAX_TOKEN_PERIZIA = 14000
+
+    private val ISTRUZIONI_PERIZIA = """
+        Sei l'assistente di un geometra libero professionista che opera in Toscana e redige perizie di
+        stima di immobili. Scrivi in italiano, con il registro formale, sobrio e preciso di una perizia
+        tecnica: terminologia catastale, urbanistica, edilizia ed estimativa corretta, frasi chiare,
+        nessun tono commerciale.
+
+        Regole inderogabili:
+        - Basati SOLO sui documenti allegati, sui dati della scheda cliente, sui dati calcolati
+          dall'app e su quanto chiede il tecnico. Non inventare nulla: superfici, consistenze,
+          rendite, date, protocolli, numeri di atti o di titoli edilizi, nomi, notai, prezzi.
+        - Se un dato serve ma manca, è illeggibile o i documenti sono in contrasto, scrivi
+          [DA VERIFICARE: spiegazione] esattamente nel punto in cui servirebbe. Non lasciare buchi
+          silenziosi e non riempirli con ipotesi presentate come fatti.
+        - Per ogni dato rilevante indica tra parentesi il documento da cui proviene, ad esempio
+          (fonte: visura.pdf, atto di acquisto.pdf).
+        - I numeri della consistenza e della valutazione li fornisce l'app: NON ricalcolarli e NON
+          scriverli in tabelle tue; nei punti indicati sotto metti solo i segnaposto.
+        - Riferimenti normativi: citali solo se compaiono nei documenti oppure se sei certo che siano
+          pertinenti; in questo caso aggiungi sempre [DA VERIFICARE: vigenza] perché la norma può
+          essere cambiata dopo il tuo aggiornamento.
+        - Foto: descrivi solo ciò che si vede (stato manutentivo, finiture, impianti visibili) e
+          dichiara che è una valutazione da fotografie.
+        - Non firmare e non inserire nome, timbro o dati del perito: li aggiunge lui.
+
+        Formato di uscita: solo testo con questa marcatura, nient'altro (nessun commento prima o dopo):
+        # Oggetto della perizia in una riga (es. "Appartamento in Via Roma 12, Terranuova Bracciolini (AR)") — è la prima riga
+        ## Titolo di sezione (senza numerazione: la aggiunge l'app)
+        ### Titolo di sottosezione
+        - voce di elenco
+        Tabelle con righe che iniziano con "|" e celle separate da "|"; la prima riga è l'intestazione
+        (poi la riga "|---|---|"). **grassetto** solo per pochi termini chiave.
+        Paragrafi separati da una riga vuota.
+        Sulla riga da sola, nei punti giusti: [[CONSISTENZA]] e [[VALUTAZIONE]].
+
+        Struttura (ometti una sezione solo se davvero priva di contenuto, ma dillo con [DA VERIFICARE]):
+        1. Premessa e incarico (committente, scopo e data di riferimento della stima, richiesta del tecnico)
+        2. Documentazione esaminata (elenco dei documenti, con una riga su cosa contengono)
+        3. Identificazione dell'immobile e dati catastali (tabella: comune, foglio, particella, sub,
+           categoria, classe, consistenza, rendita, indirizzo, intestatari, ecc. SOLO se presenti nei documenti)
+        4. Descrizione dell'immobile (ubicazione, contesto, tipologia, struttura, finiture, impianti,
+           stato di manutenzione, pertinenze, confini)
+        5. Provenienza (tabella cronologica degli atti: data, tipo di atto, notaio/repertorio,
+           da chi e a chi, fonte; poi un breve commento sulla continuità delle trascrizioni)
+        6. Situazione urbanistico-edilizia (elenco cronologico degli interventi e titoli edilizi in una
+           tabella: titolo, numero e data, intestatario, oggetto dell'intervento, fonte; poi stato legittimo
+           e eventuali difformità rilevate dal confronto dei documenti)
+        7. Conformità catastale (confronto tra planimetria catastale, stato dei luoghi e visura)
+        8. Consistenza e superficie commerciale
+           [[CONSISTENZA]]
+        9. Criteri e metodo di stima (metodo sintetico-comparativo con riferimento alle quotazioni OMI e
+           ai coefficienti del Manuale OMI / DPR 138/1998 All. C; spiega i correttivi applicati)
+        10. Valutazione
+           [[VALUTAZIONE]]
+        11. Giudizio di stima e conclusioni
+        12. Assunzioni, limiti della stima e verifiche consigliate (elenco di tutto ciò che è
+            [DA VERIFICARE] e di cosa il perito deve controllare prima di firmare)
+        Adatta titoli e ordine al caso concreto; se i documenti riguardano più immobili, descrivili uno
+        per uno.
+    """.trimIndent()
+
+    /**
+     * Perizia di stima completa: documenti allegati + richiesta dettata + dati calcolati dall'app
+     * ([DatiPerizia]). [nonLetti] = file scelti ma non leggibili dall'AI (l'AI non ne deduce il contenuto).
+     */
+    fun generaPerizia(
+        context: Context,
+        cliente: Cliente?,
+        dati: DatiPerizia?,
+        richiestaUtente: String,
+        blocchi: List<PreparatoreDocumenti.Blocco>,
+        nonLetti: List<String> = emptyList()
+    ): Risultato {
+        val chiaveApi = ChiaveApiStore.leggiChiave(context)
+        if (chiaveApi.isBlank()) {
+            throw IllegalStateException("Chiave API Anthropic non impostata: inseriscila nelle Impostazioni dell'app")
+        }
+        val contenuto = contenutoDocumenti(blocchi)
+        contenuto.put(testo(istruzioniPerizia(cliente, dati, richiestaUtente, blocchi.map { it.nome }, nonLetti)))
+        val corpo = JSONObject().apply {
+            put("model", MODELLO)
+            put("max_tokens", MAX_TOKEN_PERIZIA)
+            put("system", ISTRUZIONI_PERIZIA)
+            put("messages", JSONArray().put(JSONObject().apply {
+                put("role", "user")
+                put("content", contenuto)
+            }))
+        }
+        return invia(chiaveApi, corpo.toString(), timeoutLetturaMs = 480000)
+    }
+
+    internal fun istruzioniPerizia(
+        cliente: Cliente?,
+        dati: DatiPerizia?,
+        richiestaUtente: String,
+        nomiDocumenti: List<String>,
+        nonLetti: List<String>
+    ): String = buildString {
+        if (nomiDocumenti.isEmpty()) appendLine("Redigi la bozza di una perizia di stima. Non ci sono documenti allegati: usa solo i dati sotto e segna [DA VERIFICARE] tutto ciò che servirebbe da documenti.")
+        else appendLine("Redigi la bozza di una perizia di stima basandoti sui documenti allegati sopra (${nomiDocumenti.joinToString(", ")}).")
+        if (nonLetti.isNotEmpty()) {
+            appendLine("Il tecnico aveva scelto anche questi file, che NON sono stati letti (formato non supportato o illeggibili): ${nonLetti.joinToString(", ")}. " +
+                "Non dedurne il contenuto; dove le loro informazioni sarebbero state necessarie scrivi [DA VERIFICARE] e segnala che non sono stati esaminati.")
+        }
+        appendLine()
+        if (cliente == null) appendLine("Non c'è una scheda cliente associata: ricava committente, immobile e dati catastali dai documenti; se non risultano, usa [DA VERIFICARE].")
+        else appendDatiCliente(cliente)
+        appendLine()
+        if (dati != null) { append(dati.riepilogoPerAi()); appendLine() }
+        if (richiestaUtente.isNotBlank()) {
+            appendLine("Richiesta e indicazioni del tecnico (dettate o scritte da lui, seguile): $richiestaUtente")
+            appendLine()
+        }
+        appendLine("Segui la struttura indicata nelle istruzioni di sistema, con [[CONSISTENZA]] e [[VALUTAZIONE]] ciascuno su una riga da solo.")
+    }
+
+    private fun invia(chiaveApi: String, corpo: String, timeoutLetturaMs: Int = 300000): Risultato {
         val connessione = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -194,7 +321,7 @@ object GeneratoreParereAi {
             setRequestProperty("anthropic-version", "2023-06-01")
             connectTimeout = 30000
             // Un documento lungo con il modello più capace può richiedere qualche minuto.
-            readTimeout = 300000
+            readTimeout = timeoutLetturaMs
         }
         try {
             OutputStreamWriter(connessione.outputStream, Charsets.UTF_8).use { it.write(corpo) }

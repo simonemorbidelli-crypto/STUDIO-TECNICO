@@ -429,7 +429,57 @@ class PeriziaUnitaActivity : AppCompatActivity() {
         binding.tvValoreArrotondato.text = "Arrotondato: ${formatoEuro.format((valore / 1000.0).roundToLong() * 1000.0)}"
     }
 
+    /** "Condividi": si sceglie tra il riepilogo in testo semplice e la perizia completa in Word. */
     private fun condividi() {
+        if (risultato == null) return
+        val voci = arrayOf(
+            "📤  Riepilogo in testo semplice\nSuperfici, quotazione e valore, da inviare come messaggio",
+            "📄  Perizia completa in Word\nDocumento professionale: aggiungi la tua richiesta dettata e i documenti (visure, foto, contratti…) che l'AI legge per descrivere l'immobile, provenienze e interventi edilizi"
+        )
+        val dialog = android.app.AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
+            .setTitle("Come vuoi condividere la perizia?")
+            .setItems(voci) { _, quale -> if (quale == 0) condividiTesto() else apriPeriziaCompleta() }
+            .setNegativeButton("Annulla", null)
+            .show()
+        dialog.rendiPulsantiLeggibili(this)
+    }
+
+    private fun apriPeriziaCompleta() {
+        val dati = datiPerizia() ?: return
+        startActivity(Intent(this, PeriziaCompletaActivity::class.java).putExtra(PeriziaCompletaActivity.EXTRA_DATI, dati.toJson()))
+    }
+
+    /** I numeri della perizia come li ha calcolati l'app, per la perizia completa. */
+    internal fun datiPerizia(): DatiPerizia? {
+        val r = risultato ?: return null
+        val unitario = numero(binding.etValoreUnitario.text?.toString())?.takeIf { it > 0 }
+        val attivi = correttivi.filter { it.percentuale != 0.0 }
+        val valore = if (unitario != null && r.superficieArrotondata > 0)
+            PeriziaCalcolo.valoreDiMercato(r.superficieArrotondata.toDouble(), unitario, attivi.map { it.percentuale }) else null
+        val q = quotazioneScelta
+        val zona = zonaScelta
+        val comune = comuni.getOrNull(binding.spinComune.selectedItemPosition - 1)?.descrizione
+        val sem = semestri.getOrNull(binding.spinSemestre.selectedItemPosition)?.descrizione
+        val omi = if (q != null) listOfNotNull(
+            comune, zona?.let { "zona ${it.codice} (${it.fascia})" }, sem?.let { "semestre $it" }
+        ).joinToString(", ") else ""
+        return DatiPerizia(
+            destinazione = destinazione().etichetta,
+            righe = r.righe.map { DatiPerizia.Riga(it.voce.nome, it.voce.categoria.etichetta, it.mqLordi, it.regola, it.mqRagguagliati) },
+            superficieCommerciale = r.superficieCommerciale,
+            superficieArrotondata = r.superficieArrotondata,
+            note = r.note,
+            omiDescrizione = omi,
+            omiTipologia = q?.let { "${it.tipologia} ${it.stato}".trim() }.orEmpty(),
+            omiMinimo = q?.minimo, omiMassimo = q?.massimo,
+            valoreUnitario = unitario,
+            correttivi = attivi.map { DatiPerizia.Correttivo(it.descrizione, it.percentuale) },
+            valoreMercato = valore,
+            valoreArrotondato = valore?.let { (it / 1000.0).roundToLong() * 1000.0 }
+        )
+    }
+
+    private fun condividiTesto() {
         val r = risultato ?: return
         val testo = buildString {
             appendLine("PERIZIA UNITÀ — ${destinazione().etichetta}")

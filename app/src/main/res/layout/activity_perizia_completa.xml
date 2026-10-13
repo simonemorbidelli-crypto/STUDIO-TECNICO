@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Perizia di stima completa"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Dati già calcolati dall'app -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Dati già calcolati dall'app"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+
+                    <TextView
+                        android:id="@+id/tvDatiCalcolati"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textSize="14sp"
+                        android:textColor="#3A4540" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Cliente -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="1 · PRATICA (FACOLTATIVO)"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:textColor="@color/primary" />
+
+            <Spinner
+                android:id="@+id/spinCliente"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="6dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Serve a intestare la perizia (committente, immobile, dati catastali) e a trovare la cartella del cliente sul NAS o su Mega."
+                android:textSize="13sp"
+                android:textColor="#3A4540" />
+
+            <!-- Richiesta -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="2 · LA TUA RICHIESTA (SCRITTA O DETTATA)"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:textColor="@color/primary" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Indicazioni per la perizia"
+                app:helperText="Es.: scopo della stima, stato dei luoghi visto al sopralluogo, particolarità, cosa evidenziare">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etRichiesta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:minLines="4"
+                    android:gravity="top" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDetta"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:text="🎤  Detta la richiesta" />
+
+            <!-- Documenti -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="3 · DOCUMENTI CHE L'AI DEVE LEGGERE"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:textColor="@color/primary" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Visure e planimetrie catastali, atti di provenienza, contratti, titoli edilizi, foto dell'immobile… L'AI ricava da qui descrizione, provenienze e interventi edilizi. I file che non sa leggere vengono scartati e ti dico come convertirli."
+                android:textSize="13sp"
+                android:textColor="#3A4540" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAllegaTelefono"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="10dp"
+                android:text="📎  Aggiungi file dal telefono" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAllegaNas"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:text="🗄️  Aggiungi file dal NAS dello studio" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAllegaMega"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:text="☁️  Aggiungi file da Mega" />
+
+            <LinearLayout
+                android:id="@+id/listaAllegati"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/tvRiepilogoAllegati"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <!-- Generazione -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnGeneraPerizia"
+                style="@style/PulsanteRuotaPrimario"
+                android:layout_marginTop="20dp"
+                android:text="📄  Genera la perizia in Word" />
+
+            <TextView
+                android:id="@+id/tvAvanzamento"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary"
+                android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/progressGenerazione"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:indeterminate="true"
+                android:visibility="gone" />
+
+            <!-- Risultato -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardRisultato"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#E9F2EA"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/primary"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvRisultato"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnApri"
+                        style="@style/PulsanteRuotaPrimario"
+                        android:layout_marginTop="12dp"
+                        app:backgroundTint="@color/primary"
+                        android:text="📄  Apri in Word" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSalvaCopia"
+                        style="@style/PulsanteRuotaSecondario"
+                        android:layout_marginTop="10dp"
+                        android:text="💾  Salva una copia in…" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCondividi"
+                        style="@style/PulsanteRuotaSecondario"
+                        android:layout_marginTop="10dp"
+                        android:text="📤  Condividi" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
