@@ -71,7 +71,11 @@ class SegmentazionePlanimetria(
         // Apertura: via linee e scritte più sottili di ~5 px di lavoro (i tramezzi restano: a questa
         // risoluzione sono più spessi).
         val isola = (LATO_LAVORO * 0.07).roundToInt()
-        val muriPieni = togliIsole(dilata(erodi(scuro, 2), 2), isola)
+        val aperti = dilata(erodi(scuro, 2), 2)
+        // Scritte a mano grandi (es. "ripost", "negozio"): tratti più sottili di un muro. Si
+        // tolgono anche isole più estese purché quasi nulla resista a un'erosione di 3 px, cosa
+        // che un tronco di muro vero (anche staccato tra due porte) invece supera.
+        val muriPieni = togliIsole(aperti, isola, erodi(aperti, 3), (LATO_LAVORO * 0.15).roundToInt())
         val frazionePieni = muriPieni.count { it }.toDouble() / muriPieni.size
         // Disegni coi muri a doppia linea sottile (molte planimetrie catastali): l'apertura li
         // cancellerebbe. Allora i muri sono le linee stesse (leggermente ingrossate per sigillare
@@ -103,7 +107,6 @@ class SegmentazionePlanimetria(
         if (!utilizzabile) return null
         val sx = ((puntoImmagine.x - regione.left) * f).roundToInt()
         val sy = ((puntoImmagine.y - regione.top) * f).roundToInt()
-        val areaAttesa = areaAttesaImmagine?.let { it * f * f }
         // Si parte dalla larghezza di una porta normale; se il riempimento "esce" (portafinestra
         // verso un terrazzo, apertura ampia verso un corridoio) si riprova chiudendo aperture via
         // via più larghe, fino a circa 2,5 m.
@@ -112,12 +115,14 @@ class SegmentazionePlanimetria(
             val chiusi = chiusiCon(r)
             val seme = puntoLiberoVicino(sx, sy, r * 2, chiusi) ?: continue
             val nucleo = riempi(seme.first, seme.second, chiusi) ?: continue
-            if (areaAttesa != null) {
-                val area = nucleo.count { it }.toDouble()
-                // Il nucleo è ristretto di r su ogni lato: confronto largo, e solo per eccesso.
-                if (area > areaAttesa * 2.5) continue
+            val pol = poligonoDaNucleo(nucleo, r) ?: continue
+            // Con la stima dell'AI: se il vano trovato è molto più grande (ha inglobato un vano
+            // accanto passando da una porta) si riprova chiudendo aperture più larghe.
+            if (areaAttesaImmagine != null && areaAttesaImmagine > 0) {
+                val rapporto = abs(areaConSegno(pol)) / areaAttesaImmagine
+                if (rapporto > 1.65) continue
             }
-            return poligonoDaNucleo(nucleo, r)
+            return pol
         }
         return null
     }
@@ -130,7 +135,13 @@ class SegmentazionePlanimetria(
      */
     fun agganciaAiMuri(verticiImmagine: List<PointF>): List<PointF> {
         if (!utilizzabile || verticiImmagine.size < 3) return verticiImmagine
-        val pts = verticiImmagine.map { PointF(((it.x - regione.left) * f).toFloat(), ((it.y - regione.top) * f).toFloat()) }
+        // Prima si tolgono i vertici superflui dell'AI (in linea coi vicini, o doppi), che
+        // altrimenti farebbero rinunciare all'aggancio.
+        val pts = togliCollineari(
+            verticiImmagine.map { PointF(((it.x - regione.left) * f).toFloat(), ((it.y - regione.top) * f).toFloat()) }.toMutableList(),
+            tolleranza = max(3.0, raggioPorte * 0.4)
+        )
+        if (pts.size < 4) return verticiImmagine
         val n = pts.size
         // Orientamento di ogni lato: true = orizzontale, false = verticale; obliqui → rinuncia.
         val orizz = BooleanArray(n)
@@ -138,8 +149,8 @@ class SegmentazionePlanimetria(
             val a = pts[i]; val b = pts[(i + 1) % n]
             val dx = abs(b.x - a.x); val dy = abs(b.y - a.y)
             when {
-                dy <= dx * 0.14f -> orizz[i] = true
-                dx <= dy * 0.14f -> orizz[i] = false
+                dy <= dx * 0.2f -> orizz[i] = true
+                dx <= dy * 0.2f -> orizz[i] = false
                 else -> return verticiImmagine
             }
         }
@@ -211,10 +222,15 @@ class SegmentazionePlanimetria(
                 }
                 // Prima si prova a spostare il lato più corto; si accetta solo se l'area cala.
                 val candidati = ArrayList<MutableList<PointF>>()
-                if (la <= lb) { if (la <= latoMax) candidati += spostaA(); if (lb <= latoMax) candidati += spostaB() }
-                else { if (lb <= latoMax) candidati += spostaB(); if (la <= latoMax) candidati += spostaA() }
+                // Il lato più lungo si sposta solo se i due sono simili (sguancio largo quanto il
+                // tratto di parete accanto); altrimenti si raddrizzerebbe una parete vera.
+                val simili = max(la, lb) <= min(la, lb) * 2f
+                if (la <= lb) { if (la <= latoMax) candidati += spostaA(); if (simili && lb <= latoMax) candidati += spostaB() }
+                else { if (lb <= latoMax) candidati += spostaB(); if (simili && la <= latoMax) candidati += spostaA() }
                 val areaOra = abs(areaConSegno(p))
-                val scelto = candidati.firstOrNull { abs(areaConSegno(it)) < areaOra } ?: continue
+                // Gradini minimi (pochi cm, residui del tracciamento) si tolgono in ogni caso.
+                val minimo = gradino < prof * 0.35f
+                val scelto = candidati.firstOrNull { minimo || abs(areaConSegno(it)) < areaOra } ?: continue
                 p.clear(); p.addAll(togliCollineari(scelto)); cambiato = true
                 break
             }
@@ -222,13 +238,13 @@ class SegmentazionePlanimetria(
         return p
     }
 
-    private fun togliCollineari(p: MutableList<PointF>): MutableList<PointF> {
+    private fun togliCollineari(p: MutableList<PointF>, tolleranza: Double = 1.5): MutableList<PointF> {
         var i = 0
         while (p.size > 3 && i < p.size) {
             val a = p[(i - 1 + p.size) % p.size]; val b = p[i]; val c = p[(i + 1) % p.size]
             val cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
             val l = hypot((c.x - a.x).toDouble(), (c.y - a.y).toDouble())
-            if (l < 1e-3 || abs(cross) / l < 1.5) p.removeAt(i) else i++
+            if (l < 1e-3 || abs(cross) / l < tolleranza) p.removeAt(i) else i++
         }
         return p
     }
@@ -319,13 +335,20 @@ class SegmentazionePlanimetria(
         // Muri con i vani delle porte "tappati" a filo del muro (chiusura morfologica): la regione
         // torna fino alle facce dei muri ma non entra negli sguanci di porte e finestre, che non
         // fanno parte della superficie netta del vano.
-        val tappati = erodi(chiusiCon(raggio), raggio)
+        // Chiusura per righe e per colonne (non quadrata): tappa i vani tra due tronchi di muro
+        // allineati, ma non riempie le "tasche" dello spazio vicino a simboli o arredi disegnati
+        // (es. la freccia d'ingresso davanti a una vetrina), che con la chiusura quadrata
+        // venivano tolte dal vano.
+        val tappati = chiusura1D(raggio, orizzontale = true).let { o ->
+            val v = chiusura1D(raggio, orizzontale = false)
+            BooleanArray(w * h) { o[it] || v[it] }
+        }
         val aperta = dilata(erodi(cresciGeodetico(nucleo, raggio), 3), 3).let { r ->
             BooleanArray(w * h) { r[it] && !muri[it] && !tappati[it] }
         }
         // Chiusura (elemento quadrato: gli angoli retti, anche rientranti, restano netti): riempie le
         // tacche strette lasciate da stipiti e mozziconi di tramezzo che sporgono nel vano.
-        val k = max(3, (raggioPorte * 0.6).roundToInt())
+        val k = max(3, raggioPorte)
         val regioneVano = erodi(dilata(aperta, k), k)
         val contorno = tracciaContorno(regioneVano) ?: return null
         val tolleranza = max(2.0, raggioPorte * 0.35)
@@ -338,7 +361,7 @@ class SegmentazionePlanimetria(
      * Toglie dai muri le "isole" piccole non collegate alla rete dei muri: lettere delle scritte
      * (es. "LOGGIA", "CUCINA mq 12"), simboli, numeri, che altrimenti spezzerebbero un vano in due.
      */
-    private fun togliIsole(m: BooleanArray, latoMinimo: Int): BooleanArray {
+    private fun togliIsole(m: BooleanArray, latoMinimo: Int, erosa: BooleanArray? = null, latoTesto: Int = 0): BooleanArray {
         val out = m.copyOf()
         val visto = BooleanArray(w * h)
         val coda = IntArray(w * h)
@@ -346,9 +369,10 @@ class SegmentazionePlanimetria(
             if (!m[inizio] || visto[inizio]) continue
             var testa = 0; var fine = 0
             coda[fine++] = inizio; visto[inizio] = true
-            var minX = w; var maxX = 0; var minY = h; var maxY = 0
+            var minX = w; var maxX = 0; var minY = h; var maxY = 0; var resistenti = 0
             while (testa < fine) {
                 val i = coda[testa++]
+                if (erosa != null && erosa[i]) resistenti++
                 val x = i % w; val y = i / w
                 minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
                 for (dy in -1..1) for (dx in -1..1) {
@@ -358,7 +382,9 @@ class SegmentazionePlanimetria(
                     if (m[j] && !visto[j]) { visto[j] = true; coda[fine++] = j }
                 }
             }
-            if (max(maxX - minX, maxY - minY) < latoMinimo) {
+            val lato = max(maxX - minX, maxY - minY)
+            val testo = erosa != null && lato < latoTesto && resistenti < fine * 0.12
+            if (lato < latoMinimo || testo) {
                 for (k in 0 until fine) out[coda[k]] = false
             }
         }
@@ -483,6 +509,38 @@ class SegmentazionePlanimetria(
         return if (distMax > eps) {
             semplifica(p.subList(0, indice + 1), eps).dropLast(1) + semplifica(p.subList(indice, p.size), eps)
         } else listOf(a, b)
+    }
+
+    /** Chiusura dei muri lungo una sola direzione: riempie i tratti liberi lunghi meno di 2·r tra due muri sulla stessa riga/colonna. */
+    private fun chiusura1D(r: Int, orizzontale: Boolean): BooleanArray {
+        val dil = filtroAsse(muri, r, true, orizzontale)
+        return filtroAsse(dil, r, false, orizzontale)
+    }
+
+    private fun filtroAsse(m: BooleanArray, r: Int, qualsiasi: Boolean, orizzontale: Boolean): BooleanArray {
+        val out = BooleanArray(w * h)
+        if (orizzontale) {
+            val riga = IntArray(w + 1)
+            for (y in 0 until h) {
+                for (x in 0 until w) riga[x + 1] = riga[x] + if (m[y * w + x]) 1 else 0
+                for (x in 0 until w) {
+                    val a = max(0, x - r); val b = min(w - 1, x + r)
+                    val n = riga[b + 1] - riga[a]
+                    out[y * w + x] = if (qualsiasi) n > 0 else n == (b - a + 1)
+                }
+            }
+        } else {
+            val col = IntArray(h + 1)
+            for (x in 0 until w) {
+                for (y in 0 until h) col[y + 1] = col[y] + if (m[y * w + x]) 1 else 0
+                for (y in 0 until h) {
+                    val a = max(0, y - r); val b = min(h - 1, y + r)
+                    val n = col[b + 1] - col[a]
+                    out[y * w + x] = if (qualsiasi) n > 0 else n == (b - a + 1)
+                }
+            }
+        }
+        return out
     }
 
     // --- morfologia su maschere booleane con finestra quadrata (separabile, somme prefisse) ---

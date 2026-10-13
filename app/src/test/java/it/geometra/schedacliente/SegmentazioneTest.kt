@@ -169,4 +169,42 @@ class SegmentazioneTest {
         java.io.File("build/anteprime").mkdirs()
         java.io.FileOutputStream("build/anteprime/ingresso_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
+
+    private fun screenshotPulito(nome: String): Bitmap? {
+        val stream = javaClass.classLoader!!.getResourceAsStream(nome) ?: return null
+        val bmp = android.graphics.BitmapFactory.decodeStream(stream).copy(Bitmap.Config.ARGB_8888, true)
+        val px = IntArray(bmp.width * bmp.height)
+        bmp.getPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+        for (i in px.indices) { val c = px[i]; if (Color.green(c) - Color.red(c) >= 20) px[i] = Color.WHITE }
+        bmp.setPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+        return bmp
+    }
+
+    /** Negozio a L con vetrina larga su strada e ripostiglio sopra: anteprima di controllo. */
+    @Test
+    fun negozioReale() {
+        val bmp = screenshotPulito("negozio.jpg") ?: return
+        val k = bmp.width / 923f
+        fun P(x: Float, y: Float) = PointF(x * k, y * k)
+        // Toglie l'etichetta "ripost. - ripostiglio" disegnata dall'app (testo bianco con ombra scura).
+        Canvas(bmp).drawRect(430 * k, 660 * k, 634 * k, 688 * k, Paint().apply { color = Color.WHITE })
+        val regione = Rect(0, (225 * k).toInt(), bmp.width, (1880 * k).toInt())
+        val seg = SegmentazionePlanimetria(bmp, regione, null)
+        println("NEGOZIO utilizzabile=${seg.utilizzabile} frazione=${seg.frazioneMuri} raggio=${seg.raggioPorte}")
+        val ai = listOf(P(342f, 812f), P(480f, 813f), P(612f, 812f), P(615f, 1572f), P(218f, 1572f), P(218f, 1245f), P(340f, 1240f))
+        val areaAi = area(ai).toDouble()
+        val pol = seg.poligonoDaPunto(P(470f, 1000f), areaAi)
+        println("NEGOZIO fill: ${pol?.size} " + pol?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" })
+        val agg = seg.agganciaAiMuri(ai)
+        println("NEGOZIO aggancio: " + agg.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" })
+        val rip = seg.poligonoDaPunto(P(530f, 690f))
+        println("RIPOST: " + rip?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" })
+        val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
+        val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 5f }
+        fun disegna(p: List<PointF>?, col: Int) { if (p == null) return; pen.color = col
+            for (i in p.indices) { val a = p[i]; val b = p[(i + 1) % p.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) } }
+        disegna(pol, Color.RED); disegna(agg, Color.BLUE); disegna(rip, Color.MAGENTA)
+        java.io.File("build/anteprime").mkdirs()
+        java.io.FileOutputStream("build/anteprime/negozio_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 }

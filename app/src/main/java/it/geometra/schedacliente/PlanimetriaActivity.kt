@@ -1499,7 +1499,9 @@ class PlanimetriaActivity : AppCompatActivity() {
                 if (p.verticiPx.size >= 3) {
                     val aAi = GeometriaUtils.areaPoligono(p.verticiPx)
                     val aMis = GeometriaUtils.areaPoligono(pol)
-                    if (aAi > 0 && (aMis / aAi !in 0.33..3.0)) continue
+                    // Tolleranza stretta: un riempimento che ha inglobato il vano accanto (porta
+                    // aperta) o ha perso un pezzo non va preso per buono; meglio l'aggancio ai muri.
+                    if (aAi > 0 && (aMis / aAi !in 0.6..1.65)) continue
                 }
                 misurato = pol
                 break
@@ -1510,7 +1512,8 @@ class PlanimetriaActivity : AppCompatActivity() {
                     // Vano non chiuso dai muri: si tiene la forma dell'AI ma coi lati portati sulle
                     // facce dei muri vere (niente più poligoni spostati rispetto al disegno).
                     val agganciato = seg.agganciaAiMuri(p.verticiPx)
-                    val cambiato = agganciato.zip(p.verticiPx).any { (a, b) -> a.x != b.x || a.y != b.y }
+                    val cambiato = agganciato.size != p.verticiPx.size ||
+                        agganciato.zip(p.verticiPx).any { (a, b) -> a.x != b.x || a.y != b.y }
                     val aAgg = GeometriaUtils.areaPoligono(agganciato)
                     val plausibile = areaAi != null && areaAi > 0 && aAgg / areaAi in 0.5..2.0
                     esito += if (cambiato && plausibile) p.copy(verticiPx = agganciato, precisa = true) else p
