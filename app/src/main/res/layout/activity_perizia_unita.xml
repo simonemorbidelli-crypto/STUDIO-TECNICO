@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Perizia unità"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- 1 · Destinazione -->
+            <TextView
+                style="@style/TitoloSezionePerizia"
+                android:text="1 · DESTINAZIONE DELL'UNITÀ" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggleDestinazione"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                app:checkedButton="@+id/btnDestAbitazione">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDestAbitazione"
+                    style="@style/PulsanteFiltroBar"
+                    android:textSize="12sp"
+                    android:text="Abitazione" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDestUfficio"
+                    style="@style/PulsanteFiltroBar"
+                    android:textSize="12sp"
+                    android:text="Ufficio" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDestNegozio"
+                    style="@style/PulsanteFiltroBar"
+                    android:textSize="12sp"
+                    android:text="Negozio" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDestBox"
+                    style="@style/PulsanteFiltroBar"
+                    android:textSize="12sp"
+                    android:text="Box" />
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <CheckBox
+                android:id="@+id/chkVilla"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Villa / villino (regola speciale per le aree scoperte)"
+                android:textColor="@color/text_primary" />
+
+            <!-- 2 · Superfici -->
+            <TextView
+                style="@style/TitoloSezionePerizia"
+                android:layout_marginTop="18dp"
+                android:text="2 · RAGGUAGLIO DELLE SUPERFICI" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Coefficienti del Manuale OMI (Allegato 3, basato sul DPR 138/1998). Tocca la categoria di ogni vano per cambiarla."
+                android:textSize="13sp"
+                android:textColor="#3A4540" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchNette"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:checked="true"
+                android:text="Superfici tracciate nette (interne ai muri)"
+                android:textColor="@color/text_primary" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilMuri"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:hint="Maggiorazione per i muri (%)"
+                app:helperText="La superficie commerciale OMI comprende i muri (perimetrali fino a 50 cm): indica la percentuale da aggiungere ai locali coperti">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etMuri"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal"
+                    android:text="0" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <LinearLayout
+                android:id="@+id/listaVoci"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAggiungiVoce"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:text="+ Aggiungi superficie (es. giardino, cantina)" />
+
+            <TextView
+                android:id="@+id/tvSuperficieCommerciale"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:padding="12dp"
+                android:background="@drawable/bg_risultato_calcolo"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/tvNoteSuperficie"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textSize="12sp"
+                android:textColor="#3A4540"
+                android:visibility="gone" />
+
+            <!-- 3 · OMI -->
+            <TextView
+                style="@style/TitoloSezionePerizia"
+                android:layout_marginTop="20dp"
+                android:text="3 · QUOTAZIONE OMI (AGENZIA DELLE ENTRATE)" />
+
+            <TextView
+                style="@style/EtichettaPerizia"
+                android:text="Provincia" />
+            <Spinner
+                android:id="@+id/spinProvincia"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+
+            <TextView
+                style="@style/EtichettaPerizia"
+                android:text="Semestre" />
+            <Spinner
+                android:id="@+id/spinSemestre"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+
+            <TextView
+                style="@style/EtichettaPerizia"
+                android:text="Comune" />
+            <Spinner
+                android:id="@+id/spinComune"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+
+            <TextView
+                style="@style/EtichettaPerizia"
+                android:text="Zona OMI" />
+            <Spinner
+                android:id="@+id/spinZona"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp" />
+
+            <TextView
+                android:id="@+id/tvStatoOmi"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textSize="13sp"
+                android:textColor="#3A4540" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnMostraOmi"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:enabled="false"
+                android:text="Mostra quotazioni della zona" />
+
+            <RadioGroup
+                android:id="@+id/gruppoQuotazioni"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggleValore"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                app:checkedButton="@+id/btnValMedio">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnValMin"
+                    style="@style/PulsanteFiltroBar"
+                    android:text="Minimo" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnValMedio"
+                    style="@style/PulsanteFiltroBar"
+                    android:text="Medio" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnValMax"
+                    style="@style/PulsanteFiltroBar"
+                    android:text="Massimo" />
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:hint="Valore unitario (€/mq)"
+                app:helperText="Compilato dalla quotazione scelta; puoi anche scriverlo a mano">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etValoreUnitario"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- 4 · Correttivi -->
+            <TextView
+                style="@style/TitoloSezionePerizia"
+                android:layout_marginTop="20dp"
+                android:text="4 · AUMENTI E DEPREZZAMENTI" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Percentuali positive per aumentare, negative per deprezzare (es. −10 per stato manutentivo scadente). Più voci si applicano in cascata."
+                android:textSize="13sp"
+                android:textColor="#3A4540" />
+
+            <LinearLayout
+                android:id="@+id/listaCorrettivi"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAggiungiCorrettivo"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:text="+ Aggiungi aumento / deprezzamento" />
+
+            <!-- 5 · Valore -->
+            <TextView
+                style="@style/TitoloSezionePerizia"
+                android:layout_marginTop="20dp"
+                android:text="5 · VALORE DI MERCATO" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="#E9F2EA"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/primary"
+                app:strokeWidth="1dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvCalcoloValore"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_primary" />
+
+                    <TextView
+                        android:id="@+id/tvValoreMercato"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textSize="26sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/primary" />
+
+                    <TextView
+                        android:id="@+id/tvValoreArrotondato"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCondividiPerizia"
+                style="@style/PulsanteRuotaPrimario"
+                android:layout_marginTop="14dp"
+                android:text="📤  Condividi il riepilogo della perizia" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

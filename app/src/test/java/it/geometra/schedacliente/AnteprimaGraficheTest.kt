@@ -106,6 +106,27 @@ class AnteprimaGraficheTest {
         salvaSchermata(activity, "parere_mega_catasto.png")
     }
 
+    @Test
+    fun schermataPerizia() {
+        val ctx = RuntimeEnvironment.getApplication()
+        val locali = listOf(
+            LocaleTracciato("Soggiorno", emptyList(), 20.4, emptyList()),
+            LocaleTracciato("Camera", emptyList(), 14.1, emptyList()),
+            LocaleTracciato("Cucina", emptyList(), 10.0, emptyList()),
+            LocaleTracciato("Bagno", emptyList(), 5.2, emptyList()),
+            LocaleTracciato("Disimpegno", emptyList(), 4.0, emptyList()),
+            LocaleTracciato("Terrazza", emptyList(), 30.0, emptyList()),
+            LocaleTracciato("Cantina", emptyList(), 8.0, emptyList())
+        )
+        val intent = android.content.Intent(ctx, PeriziaUnitaActivity::class.java)
+            .putExtra(PeriziaUnitaActivity.EXTRA_LOCALI, PeriziaUnitaActivity.localiInJson(locali))
+        val activity = Robolectric.buildActivity(PeriziaUnitaActivity::class.java, intent).setup().get()
+        activity.findViewById<android.widget.EditText>(R.id.etMuri).setText("10")
+        activity.findViewById<android.widget.EditText>(R.id.etValoreUnitario).setText("1375")
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        salvaSchermata(activity, "perizia.png")
+    }
+
     private fun salvaSchermata(activity: android.app.Activity, nome: String) {
         val scroll = (activity.findViewById<View>(android.R.id.content) as android.view.ViewGroup).getChildAt(0) as android.view.ViewGroup
         val inner = (scroll.getChildAt(1) as android.view.ViewGroup).getChildAt(0)

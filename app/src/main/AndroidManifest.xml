@@ -34,6 +34,12 @@
 
         <!-- Parere / relazione con l'AI dai documenti della cartella Mega. configChanges: la
              generazione (download + attesa dell'AI) non deve ripartire ruotando il telefono. -->
+        <!-- Perizia unità: superficie commerciale (coefficienti OMI) + quotazioni OMI + valore di mercato. -->
+        <activity
+            android:name=".PeriziaUnitaActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <activity
             android:name=".ParereMegaActivity"
             android:exported="false"

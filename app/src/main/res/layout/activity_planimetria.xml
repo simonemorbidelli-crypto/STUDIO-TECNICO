@@ -322,10 +322,23 @@
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
                             android:textAllCaps="false"
                             android:textSize="12sp"
                             android:enabled="false"
                             android:text="↶ Annulla" />
+
+                        <!-- Cambia il nome del locale che si sta correggendo. -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnRinominaLocale"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:text="✏️ Nome" />
 
                     </LinearLayout>
 
@@ -398,6 +411,15 @@
                         style="@style/PulsanteCalcola"
                         android:layout_marginTop="8dp"
                         android:text="ESPORTA DXF (CAD)"
+                        android:enabled="false" />
+
+                    <!-- Dopo aver completato i locali: perizia dell'unità (superficie commerciale + OMI). -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPeriziaUnita"
+                        style="@style/PulsanteCalcola"
+                        android:layout_marginTop="8dp"
+                        app:backgroundTint="@color/primary"
+                        android:text="🏠  PERIZIA UNITÀ"
                         android:enabled="false" />
 
                 </LinearLayout>

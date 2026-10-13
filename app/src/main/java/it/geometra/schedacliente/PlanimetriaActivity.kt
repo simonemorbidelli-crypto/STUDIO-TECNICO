@@ -76,6 +76,9 @@ class PlanimetriaActivity : AppCompatActivity() {
     private val locali = mutableListOf<LocaleTracciato>()
     private var indiceLocaleInModifica: Int? = null
 
+    /** Nome nuovo dato con "✏️ Nome" al locale in correzione (null = invariato); applicato alla conferma. */
+    private var nomeModificato: String? = null
+
     /** Un locale individuato dall'AI con una stima (approssimativa) dei suoi vertici in pixel, non ancora verificato dall'utente. */
     private data class PropostaLocaleAi(val nome: String, val verticiPx: List<PointF>)
     private var proposteAi: MutableList<PropostaLocaleAi> = mutableListOf()
@@ -184,10 +187,12 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.btnRimuoviVertice.setOnClickListener { attivaModalitaRimozioneVertice() }
         binding.btnEsportaPdf.setOnClickListener { avviaEsportazionePdf() }
         binding.btnEsportaDxf.setOnClickListener { avviaEsportazioneDxf() }
+        binding.btnPeriziaUnita.setOnClickListener { apriPeriziaUnita() }
         binding.btnSchermoIntero.setOnClickListener {
             if (modalita == Modalita.NESSUNA) apriVisualizzazione() else apriSchermoIntero()
         }
         binding.btnAnnullaVertice.setOnClickListener { annullaUltimaModificaVertici() }
+        binding.btnRinominaLocale.setOnClickListener { rinominaLocaleInModifica() }
         binding.superficieView.onStoriaCambiata = { aggiornaPulsantiAnnulla() }
 
         disegnaElencoLocali()
@@ -887,6 +892,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         proposizioneInVerifica = proposta
         indiceLocaleInModifica = null
         modalita = Modalita.MODIFICA_LOCALE
+        nomeModificato = null
 
         binding.superficieView.puntiLocaleCorrente.clear()
         binding.superficieView.puntiLocaleCorrente.addAll(proposta.verticiPx.map { PointF(it.x, it.y) })
@@ -911,7 +917,7 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private fun chiediNomeLocaleProposto(proposta: PropostaLocaleAi, verticiPx: List<PointF>) {
         val campo = EditText(this).apply {
-            setText(proposta.nome)
+            setText(nomeModificato ?: proposta.nome)
             setPadding(
                 (16 * resources.displayMetrics.density).toInt(), (12 * resources.displayMetrics.density).toInt(),
                 (16 * resources.displayMetrics.density).toInt(), (12 * resources.displayMetrics.density).toInt()
@@ -1768,6 +1774,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun abilitaCorrezioneManuale(proposta: PropostaLocaleAi) {
         proposizioneInVerifica = proposta
         modalita = Modalita.MODIFICA_LOCALE
+        nomeModificato = null
         binding.superficieView.modoTocco = SuperficieView.ModoTocco.SOLO_TRASCINA
         binding.superficieView.listaAttiva = binding.superficieView.puntiLocaleCorrente
         binding.containerControlliModifica.visibility = View.VISIBLE
@@ -2138,6 +2145,35 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.superficieView.invalidate()
     }
 
+    /** Nome attuale del locale in correzione (già inserito o proposta dell'AI), tenendo conto di un'eventuale rinomina. */
+    private fun nomeLocaleInModifica(): String? =
+        nomeModificato ?: indiceLocaleInModifica?.let { locali.getOrNull(it)?.nome } ?: proposizioneInVerifica?.nome
+
+    /** "✏️ Nome": cambia il nome del locale che si sta correggendo, senza uscire dalla modifica dei vertici. */
+    private fun rinominaLocaleInModifica() {
+        if (modalita != Modalita.MODIFICA_LOCALE) return
+        val densita = resources.displayMetrics.density
+        val campo = EditText(this).apply {
+            setText(nomeLocaleInModifica().orEmpty())
+            setSelection(text.length)
+            hint = "Nome locale (es. Cucina)"
+            setPadding((16 * densita).toInt(), (12 * densita).toInt(), (16 * densita).toInt(), (12 * densita).toInt())
+        }
+        val dialog = AlertDialog.Builder(dialogSchermoIntero?.context ?: this, R.style.Theme_SchedaCliente_Dialog)
+            .setTitle("Nome del locale")
+            .setView(campo)
+            .setPositiveButton("OK") { _, _ ->
+                val nuovo = campo.text?.toString()?.trim().orEmpty()
+                if (nuovo.isNotEmpty()) {
+                    nomeModificato = nuovo
+                    Toast.makeText(this, "Nome: \"$nuovo\" (si applica con \"Conferma modifiche\")", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+        dialog.rendiPulsantiLeggibili(this)
+    }
+
     /** "↶ Annulla" durante la correzione di un locale: annulla l'ultima aggiunta, rimozione o spostamento di un vertice. */
     private fun annullaUltimaModificaVertici() {
         if (!binding.superficieView.annullaUltimaModifica()) {
@@ -2245,7 +2281,10 @@ class PlanimetriaActivity : AppCompatActivity() {
             val verticiCorrente = binding.superficieView.puntiLocaleCorrente.map { PointF(it.x, it.y) }
             if (verticiCorrente.size >= 3) {
                 val (area, lati) = calcolaAreaELati(verticiCorrente)
-                val aggiornato = locali[indiceAttuale].copy(verticiPx = verticiCorrente, areaM2 = area, latiM = lati)
+                val aggiornato = locali[indiceAttuale].copy(
+                    nome = nomeModificato ?: locali[indiceAttuale].nome,
+                    verticiPx = verticiCorrente, areaM2 = area, latiM = lati
+                )
                 locali[indiceAttuale] = aggiornato
                 binding.superficieView.locali.add(aggiornato)
             } else {
@@ -2267,6 +2306,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         indiceLocaleInModifica = indice
         proposizioneInVerifica = null
         modalita = Modalita.MODIFICA_LOCALE
+        nomeModificato = null
 
         val locale = locali[indice]
         val posizioneNellaVista = binding.superficieView.locali.indexOfFirst { it === locale }
@@ -2305,7 +2345,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                 proposizioneInVerifica = null
                 binding.containerControlliModifica.visibility = View.GONE
                 binding.containerStrumentiModifica.visibility = View.GONE
-                confermaLocaleRilevato(proposta, nuoviVertici)
+                confermaLocaleRilevato(nomeModificato?.let { proposta.copy(nome = it) } ?: proposta, nuoviVertici)
             } else {
                 chiediNomeLocaleProposto(proposta, nuoviVertici)
             }
@@ -2314,7 +2354,10 @@ class PlanimetriaActivity : AppCompatActivity() {
 
         val indice = indiceLocaleInModifica ?: return
         val (area, lati) = calcolaAreaELati(nuoviVertici)
-        val aggiornato = locali[indice].copy(verticiPx = nuoviVertici, areaM2 = area, latiM = lati)
+        val aggiornato = locali[indice].copy(
+            nome = nomeModificato ?: locali[indice].nome,
+            verticiPx = nuoviVertici, areaM2 = area, latiM = lati
+        )
         locali[indice] = aggiornato
         binding.superficieView.locali.add(aggiornato)
 
@@ -2476,6 +2519,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         dialogBinding.btnAggiungiVerticeSchermoIntero.setOnClickListener { attivaModalitaInserimentoVertice() }
         dialogBinding.btnRimuoviVerticeSchermoIntero.setOnClickListener { attivaModalitaRimozioneVertice() }
         dialogBinding.btnAnnullaVerticeSchermoIntero.setOnClickListener { annullaUltimaModificaVertici() }
+        dialogBinding.btnRinominaLocaleSchermoIntero.setOnClickListener { rinominaLocaleInModifica() }
         dialogBinding.btnSaltaLocaleSchermoIntero.setOnClickListener { saltaLocaleInElaborazione() }
         dialogBinding.btnInterrompiRilevamentoSchermoIntero.setOnClickListener { confermaAnnullaRilevamentoAutomatico() }
 
@@ -2643,12 +2687,27 @@ class PlanimetriaActivity : AppCompatActivity() {
             binding.tvSuperficieTotaleTracciata.text = ""
             binding.btnEsportaPdf.isEnabled = false
             binding.btnEsportaDxf.isEnabled = false
+            binding.btnPeriziaUnita.isEnabled = false
             return
         }
         val totale = locali.sumOf { it.areaM2 }
         binding.tvSuperficieTotaleTracciata.text = "Superficie totale tracciata: ${String.format(Locale.ITALY, "%,.2f", totale)} m²"
         binding.btnEsportaPdf.isEnabled = true
         binding.btnEsportaDxf.isEnabled = true
+        binding.btnPeriziaUnita.isEnabled = true
+    }
+
+    /** Passa alla perizia dell'unità con le superfici dei locali tracciati (servono la scala e almeno un locale). */
+    private fun apriPeriziaUnita() {
+        if (locali.isEmpty()) return
+        if (scalaX == null || scalaY == null || locali.all { it.areaM2 <= 0.0 }) {
+            Toast.makeText(this, "Imposta prima la scala: senza scala le superfici dei locali non sono in metri", Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(
+            Intent(this, PeriziaUnitaActivity::class.java)
+                .putExtra(PeriziaUnitaActivity.EXTRA_LOCALI, PeriziaUnitaActivity.localiInJson(locali))
+        )
     }
 
     // ---------------------------------------------------------------------
