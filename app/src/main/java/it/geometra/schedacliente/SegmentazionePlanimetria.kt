@@ -46,6 +46,10 @@ class SegmentazionePlanimetria(
 
     /** Muri (true = muro) dopo l'eliminazione delle linee sottili. */
     private val muri: BooleanArray
+    /** Muri "veri" (senza le soglie e le finestre aggiunte): per distinguere una parete da un vano di porta. */
+    private val muriBase: BooleanArray
+    /** true = muri pieni (campiti); false = muri a doppia linea sottile. */
+    private val muriPieniRiconosciuti: Boolean
     /** Muri allargati per chiudere i vani delle porte (raggio base [raggioPorte]). */
     private val muriChiusi: BooleanArray
     /** Muri chiusi con raggi più grandi (portefinestre, aperture ampie), calcolati solo se servono. */
@@ -80,6 +84,8 @@ class SegmentazionePlanimetria(
         // Disegni coi muri a doppia linea sottile (molte planimetrie catastali): l'apertura li
         // cancellerebbe. Allora i muri sono le linee stesse (leggermente ingrossate per sigillare
         // i tratti), tolte solo le scritte isolate: la linea interna del muro delimita il vano.
+        muriPieniRiconosciuti = frazionePieni >= 0.03
+        muriBase = if (frazionePieni >= 0.03) muriPieni else togliIsole(erodi(dilata(scuro, 2), 1), isola)
         muri = if (frazionePieni >= 0.03) conSoglieEFinestre(muriPieni, scuro)
         else togliIsole(erodi(dilata(scuro, 2), 1), isola)
         frazioneMuri = muri.count { it }.toDouble() / muri.size
@@ -206,6 +212,8 @@ class SegmentazionePlanimetria(
                 val gradino = len(a1, b0)
                 if (gradino > prof || gradino < 1f) continue
                 val la = len(a0, a1); val lb = len(b0, b1)
+                // Gradini minimi (pochi cm, residui del tracciamento) si tolgono in ogni caso.
+                val minimo = gradino < prof * 0.35f
                 fun spostaA(): MutableList<PointF> {
                     val prova = p.toMutableList()
                     if (parOrizz) { prova[(i - 1 + n) % n] = PointF(a0.x, b0.y); prova[i] = PointF(a1.x, b0.y) }
@@ -221,15 +229,53 @@ class SegmentazionePlanimetria(
                     return prova
                 }
                 // Prima si prova a spostare il lato più corto; si accetta solo se l'area cala.
+                // Un lato che poggia su una parete vera (muro pieno subito fuori) non è uno sguancio:
+                // è un risalto reale del muro e non va raddrizzato.
+                fun suParete(q0: PointF, q1: PointF): Boolean {
+                    val lx = q1.x - q0.x; val ly = q1.y - q0.y
+                    val l = hypot(lx.toDouble(), ly.toDouble()).toFloat()
+                    if (l < 1f) return false
+                    val nx = -ly / l; val ny = lx / l
+                    var su = 0; var tot = 0
+                    for (t in 1..9) {
+                        val px = q0.x + lx * t / 10f; val py = q0.y + ly * t / 10f
+                        // verso esterno: quello in cui, a 2 px, si esce dal poligono
+                        val dentroPiu = GeometriaUtils.puntoDentroPoligono(PointF(px + nx * 2, py + ny * 2), p)
+                        val sx = if (dentroPiu) -nx else nx; val sy = if (dentroPiu) -ny else ny
+                        var muroTrovato = false
+                        for (d in 1..4) {
+                            val x = (px + sx * d).roundToInt(); val y = (py + sy * d).roundToInt()
+                            if (x in 0 until w && y in 0 until h && muriBase[y * w + x]) { muroTrovato = true; break }
+                        }
+                        tot++; if (muroTrovato) su++
+                    }
+                    return su >= tot * 0.7
+                }
+                // Sguancio "a dente": il lato spostato ha un gradino anche all'altro capo, e oltre
+                // quello la parete riprende sulla stessa linea del lato di arrivo.
+                fun aDente(spostaPrimo: Boolean): Boolean {
+                    val tol = max(3f, prof * 0.3f)
+                    return if (spostaPrimo) {
+                        val q = p[(i - 2 + 2 * n) % n]; val qq = p[(i - 3 + 3 * n) % n]
+                        if (parOrizz) abs(q.y - b0.y) < tol && abs(qq.y - b0.y) < tol else abs(q.x - b0.x) < tol && abs(qq.x - b0.x) < tol
+                    } else {
+                        val q = p[(i + 3) % n]; val qq = p[(i + 4) % n]
+                        if (parOrizz) abs(q.y - a1.y) < tol && abs(qq.y - a1.y) < tol else abs(q.x - a1.x) < tol && abs(qq.x - a1.x) < tol
+                    }
+                }
+                // Muri pieni: si guarda se il lato poggia su una parete vera. Muri a doppia linea
+                // (dove anche telai e soglie sono linee): si raddrizzano solo i "denti".
+                val aSuParete = if (muriPieniRiconosciuti) suParete(a0, a1) else !aDente(true)
+                val bSuParete = if (muriPieniRiconosciuti) suParete(b0, b1) else !aDente(false)
                 val candidati = ArrayList<MutableList<PointF>>()
                 // Il lato più lungo si sposta solo se i due sono simili (sguancio largo quanto il
                 // tratto di parete accanto); altrimenti si raddrizzerebbe una parete vera.
                 val simili = max(la, lb) <= min(la, lb) * 2f
-                if (la <= lb) { if (la <= latoMax) candidati += spostaA(); if (simili && lb <= latoMax) candidati += spostaB() }
-                else { if (lb <= latoMax) candidati += spostaB(); if (simili && la <= latoMax) candidati += spostaA() }
+                val puoA = (minimo || !aSuParete) && la <= latoMax
+                val puoB = (minimo || !bSuParete) && lb <= latoMax
+                if (la <= lb) { if (puoA) candidati += spostaA(); if (simili && puoB) candidati += spostaB() }
+                else { if (puoB) candidati += spostaB(); if (simili && puoA) candidati += spostaA() }
                 val areaOra = abs(areaConSegno(p))
-                // Gradini minimi (pochi cm, residui del tracciamento) si tolgono in ogni caso.
-                val minimo = gradino < prof * 0.35f
                 val scelto = candidati.firstOrNull { minimo || abs(areaConSegno(it)) < areaOra } ?: continue
                 p.clear(); p.addAll(togliCollineari(scelto)); cambiato = true
                 break

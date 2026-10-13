@@ -263,4 +263,55 @@ class SegmentazioneTest {
         java.io.File("build/anteprime").mkdirs()
         java.io.FileOutputStream("build/anteprime/sotto_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
+
+    /** PDF catastale reale (garage a comune) reso a 4000 px come nell'app. */
+    @Test
+    fun garagePdf() {
+        val stream = javaClass.classLoader!!.getResourceAsStream("pdf_garage.png") ?: return
+        val bmp = android.graphics.BitmapFactory.decodeStream(stream).copy(Bitmap.Config.ARGB_8888, true)
+        println("GARAGE zone: " + RilevatoreZoneDisegno.zone(bmp).joinToString())
+        val regione = Rect(900, 1050, 2200, 2200)
+        val seg = SegmentazionePlanimetria(bmp, regione, null)
+        println("GARAGE utilizzabile=${seg.utilizzabile} frazione=${seg.frazioneMuri} raggio=${seg.raggioPorte}")
+        // coordinate nel ritaglio 900x796 (scala 1300/900) -> immagine
+        val s = 1300f / 900f
+        fun P(x: Float, y: Float) = PointF(900 + x * s, 1050 + y * s)
+        val pol = seg.poligonoDaPunto(P(110f, 380f))
+        println("GARAGE: " + pol?.joinToString { "(${((it.x - 900) / s).toInt()},${((it.y - 1050) / s).toInt()})" })
+        val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
+        val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 6f; color = Color.RED }
+        if (pol != null) for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) }
+        java.io.File("build/anteprime").mkdirs()
+        java.io.FileOutputStream("build/anteprime/garage.png").use { Bitmap.createBitmap(out, 900, 1050, 1300, 1150).compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    /** Foglio con due piante (screenshot v3.70): pianta superiore e inferiore. */
+    @Test
+    fun duePianiReale() {
+        val bmp = screenshotPulito("due_piani.jpg") ?: return
+        val k = bmp.width / 923f
+        fun P(x: Float, y: Float) = PointF(x * k, y * k)
+        // etichette dell'app: si cancellano le zone di testo bianco con ombra (approssimate)
+        val px = IntArray(bmp.width * bmp.height)
+        bmp.getPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+        println("ZONE2: " + RilevatoreZoneDisegno.zone(bmp).joinToString { "(${(it.left / k).toInt()},${(it.top / k).toInt()})-(${(it.right / k).toInt()},${(it.bottom / k).toInt()})" })
+        val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
+        val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 4f; color = Color.RED }
+        fun prova(regione: Rect, semi: Map<String, PointF>) {
+            val seg = SegmentazionePlanimetria(bmp, regione, null)
+            println("DUE utilizzabile=${seg.utilizzabile} frazione=${seg.frazioneMuri}")
+            semi.forEach { (nome, p) ->
+                val pol = seg.poligonoDaPunto(p)
+                println("DUE $nome: ${pol?.size} " + (pol?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" } ?: ""))
+                if (pol != null) for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) }
+            }
+        }
+        prova(Rect((100 * k).toInt(), (460 * k).toInt(), (900 * k).toInt(), (980 * k).toInt()), linkedMapOf(
+            "L1" to P(220f, 600f), "L2" to P(400f, 600f), "wc" to P(205f, 705f), "disimp" to P(350f, 712f), "L9" to P(495f, 700f),
+            "rip" to P(310f, 752f), "L6" to P(215f, 840f), "cucina" to P(370f, 870f), "scala" to P(500f, 850f)))
+        prova(Rect((100 * k).toInt(), (1320 * k).toInt(), (900 * k).toInt(), (1800 * k).toInt()), linkedMapOf(
+            "cantina" to P(390f, 1380f), "L1" to P(380f, 1555f), "legnaia" to P(380f, 1690f), "scala" to P(500f, 1700f)))
+        java.io.File("build/anteprime").mkdirs()
+        java.io.FileOutputStream("build/anteprime/due_piani.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 }
