@@ -80,7 +80,7 @@ class SegmentazionePlanimetria(
         // Disegni coi muri a doppia linea sottile (molte planimetrie catastali): l'apertura li
         // cancellerebbe. Allora i muri sono le linee stesse (leggermente ingrossate per sigillare
         // i tratti), tolte solo le scritte isolate: la linea interna del muro delimita il vano.
-        muri = if (frazionePieni >= 0.03) muriPieni
+        muri = if (frazionePieni >= 0.03) conSoglieEFinestre(muriPieni, scuro)
         else togliIsole(erodi(dilata(scuro, 2), 1), isola)
         frazioneMuri = muri.count { it }.toDouble() / muri.size
 
@@ -509,6 +509,24 @@ class SegmentazionePlanimetria(
         return if (distMax > eps) {
             semplifica(p.subList(0, indice + 1), eps).dropLast(1) + semplifica(p.subList(indice, p.size), eps)
         } else listOf(a, b)
+    }
+
+    /**
+     * Finestre e soglie delle porte sono disegnate con linee sottili DENTRO lo spessore del muro,
+     * che l'apertura cancella: il vano resterebbe "aperto" verso l'esterno o verso il vano accanto.
+     * Si rimettono come muro le linee scure che cadono nella fascia tra due tronchi dello stesso
+     * muro allineati (orizzontali con orizzontali, verticali con verticali), cioè proprio dentro
+     * il vano della finestra o della porta, e non quelle sparse nelle stanze (scritte, scale).
+     */
+    private fun conSoglieEFinestre(muriPieni: BooleanArray, scuro: BooleanArray): BooleanArray {
+        val tratto = (LATO_LAVORO * 0.015).roundToInt()   // un muro "vero" è lungo almeno ~2·tratto
+        val ponte = (LATO_LAVORO * 0.08).roundToInt()     // vani fino a ~2·ponte (finestre larghe)
+        val orizzontali = filtroAsse(filtroAsse(muriPieni, tratto, false, true), tratto, true, true)
+        val verticali = filtroAsse(filtroAsse(muriPieni, tratto, false, false), tratto, true, false)
+        val fasciaO = filtroAsse(filtroAsse(orizzontali, ponte, true, true), ponte, false, true)
+        val fasciaV = filtroAsse(filtroAsse(verticali, ponte, true, false), ponte, false, false)
+        val linee = dilata(scuro, 1)
+        return BooleanArray(w * h) { i -> muriPieni[i] || (linee[i] && (fasciaO[i] || fasciaV[i])) }
     }
 
     /** Chiusura dei muri lungo una sola direzione: riempie i tratti liberi lunghi meno di 2·r tra due muri sulla stessa riga/colonna. */

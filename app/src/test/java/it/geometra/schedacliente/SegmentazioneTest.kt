@@ -207,4 +207,33 @@ class SegmentazioneTest {
         java.io.File("build/anteprime").mkdirs()
         java.io.FileOutputStream("build/anteprime/negozio_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
+
+    /** Appartamento con molte porte (disimpegno centrale): anteprima di controllo. */
+    @Test
+    fun porteReale() {
+        val bmp = screenshotPulito("porte.jpg") ?: return
+        val k = bmp.width / 923f
+        fun P(x: Float, y: Float) = PointF(x * k, y * k)
+        // via le etichette dell'app (testo bianco con ombra) nei vani
+        val bianco = Paint().apply { color = Color.WHITE }
+        val cv0 = Canvas(bmp)
+        listOf(floatArrayOf(340f, 608f, 450f, 638f), floatArrayOf(670f, 655f, 785f, 685f), floatArrayOf(130f, 903f, 240f, 933f),
+            floatArrayOf(435f, 923f, 550f, 953f), floatArrayOf(470f, 1040f, 640f, 1070f), floatArrayOf(735f, 1130f, 850f, 1160f),
+            floatArrayOf(50f, 1190f, 300f, 1220f), floatArrayOf(370f, 1213f, 580f, 1243f), floatArrayOf(850f, 903f, 923f, 930f)
+        ).forEach { r -> cv0.drawRect(r[0] * k, r[1] * k, r[2] * k, r[3] * k, bianco) }
+        val regione = Rect(0, (440 * k).toInt(), bmp.width, (1460 * k).toInt())
+        val seg = SegmentazionePlanimetria(bmp, regione, null)
+        println("PORTE utilizzabile=${seg.utilizzabile} frazione=${seg.frazioneMuri} raggio=${seg.raggioPorte}")
+        val semi = linkedMapOf("L1" to P(390f, 700f), "L2" to P(760f, 720f), "L8" to P(190f, 960f), "L4" to P(520f, 900f),
+            "rip" to P(600f, 1080f), "cucina" to P(480f, 1320f), "L7" to P(790f, 1250f), "wc" to P(850f, 960f), "scala" to P(180f, 1380f))
+        val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
+        val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 5f; color = Color.RED }
+        semi.forEach { (nome, p) ->
+            val pol = seg.poligonoDaPunto(p)
+            println("PORTE $nome: ${pol?.size} " + (pol?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" } ?: ""))
+            if (pol != null) for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) }
+        }
+        java.io.File("build/anteprime").mkdirs()
+        java.io.FileOutputStream("build/anteprime/porte_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 }
