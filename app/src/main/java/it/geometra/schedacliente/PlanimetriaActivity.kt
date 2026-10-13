@@ -1486,9 +1486,10 @@ class PlanimetriaActivity : AppCompatActivity() {
                 p.puntoInterno?.let { add(it) }
                 if (p.verticiPx.size >= 3) add(GeometriaUtils.centroide(p.verticiPx))
             }
+            val areaAi = if (p.verticiPx.size >= 3) GeometriaUtils.areaPoligono(p.verticiPx) else null
             var misurato: List<PointF>? = null
             for (seme in semi) {
-                val pol = seg.poligonoDaPunto(seme) ?: continue
+                val pol = seg.poligonoDaPunto(seme, areaAi) ?: continue
                 // Stesso vano già misurato per un'altra proposta (due punti nella stessa stanza):
                 // non lo si duplica.
                 val c = GeometriaUtils.centroide(pol)
@@ -1505,7 +1506,15 @@ class PlanimetriaActivity : AppCompatActivity() {
             }
             when {
                 misurato != null -> esito += p.copy(verticiPx = misurato, precisa = true)
-                p.verticiPx.size >= 3 -> esito += p
+                p.verticiPx.size >= 3 -> {
+                    // Vano non chiuso dai muri: si tiene la forma dell'AI ma coi lati portati sulle
+                    // facce dei muri vere (niente più poligoni spostati rispetto al disegno).
+                    val agganciato = seg.agganciaAiMuri(p.verticiPx)
+                    val cambiato = agganciato.zip(p.verticiPx).any { (a, b) -> a.x != b.x || a.y != b.y }
+                    val aAgg = GeometriaUtils.areaPoligono(agganciato)
+                    val plausibile = areaAi != null && areaAi > 0 && aAgg / areaAi in 0.5..2.0
+                    esito += if (cambiato && plausibile) p.copy(verticiPx = agganciato, precisa = true) else p
+                }
             }
         }
         // Passata di completezza.

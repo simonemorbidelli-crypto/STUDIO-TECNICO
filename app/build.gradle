@@ -9,8 +9,8 @@ android {
         applicationId "it.geometra.schedacliente"
         minSdk 24
         targetSdk 34
-        versionCode 66
-        versionName "3.66"
+        versionCode 67
+        versionName "3.67"
     }
 
     // Keystore di debug fissa (invece di quella generata automaticamente, diversa a ogni

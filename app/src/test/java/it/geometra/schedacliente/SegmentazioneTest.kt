@@ -100,4 +100,73 @@ class SegmentazioneTest {
         val seg = SegmentazionePlanimetria(bmp, Rect(0, 0, 800, 600), 0.01)
         assertNull(seg.poligonoDaPunto(PointF(400f, 300f)))
     }
+
+    /** Vano con portafinestra larga 150 cm verso un terrazzo aperto: deve chiudersi comunque. */
+    @Test
+    fun portafinestraLargaChiusa() {
+        val bmp = Bitmap.createBitmap(900, 900, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp); c.drawColor(Color.WHITE)
+        val muro = Paint().apply { color = Color.BLACK }
+        c.drawRect(100f, 100f, 700f, 112f, muro); c.drawRect(100f, 100f, 112f, 600f, muro)
+        c.drawRect(688f, 100f, 700f, 600f, muro)
+        // muro in basso con apertura di 150 px (x 330..480), sotto il terrazzo aperto
+        c.drawRect(100f, 588f, 330f, 600f, muro); c.drawRect(480f, 588f, 700f, 600f, muro)
+        val seg = SegmentazionePlanimetria(bmp, Rect(0, 0, 900, 900), 0.01)
+        val pol = seg.poligonoDaPunto(PointF(400f, 300f), 576.0 * 476.0)
+        assertNotNull("vano con portafinestra", pol)
+        println("portafinestra: ${pol!!.size} vertici, area=${area(pol)}")
+        assertEquals(576.0 * 476.0, area(pol), 576.0 * 476.0 * 0.06)
+    }
+
+    /** Poligono AI spostato di 30 px: i lati vengono riportati sulle facce dei muri. */
+    @Test
+    fun agganciaPoligonoSpostato() {
+        val bmp = pianta()
+        val seg = SegmentazionePlanimetria(bmp, Rect(0, 0, bmp.width, bmp.height), 0.01)
+        val ai = listOf(PointF(142f, 82f), PointF(542f, 82f), PointF(542f, 382f), PointF(142f, 382f))
+        val ok = seg.agganciaAiMuri(ai)
+        println("agganciato: " + ok.joinToString { "(${it.x.toInt()},${it.y.toInt()})" })
+        val atteso = listOf(PointF(112f, 112f), PointF(512f, 112f), PointF(512f, 412f), PointF(112f, 412f))
+        ok.zip(atteso).forEach { (p, q) -> assertTrue("$p vs $q", abs(p.x - q.x) <= 3 && abs(p.y - q.y) <= 3) }
+    }
+
+    /** Screenshot reale (ingresso a L con portafinestra sul terrazzo): anteprima di controllo. */
+    @Test
+    fun ingressoReale() {
+        val stream = javaClass.classLoader!!.getResourceAsStream("ingresso_l.jpg") ?: return
+        val letta = android.graphics.BitmapFactory.decodeStream(stream)
+        // Toglie la sovrapposizione verde disegnata dall'app nello screenshot (contorni e campiture):
+        // l'analisi vera lavora sull'immagine originale, senza.
+        val bmp = letta.copy(Bitmap.Config.ARGB_8888, true)
+        val px = IntArray(bmp.width * bmp.height)
+        bmp.getPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+        for (i in px.indices) {
+            val c = px[i]; val r = Color.red(c); val g = Color.green(c); val b = Color.blue(c)
+            if (g - r >= 20) px[i] = Color.WHITE
+        }
+        bmp.setPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+        val k = bmp.width / 923f // coordinate prese dallo screenshot visualizzato a 923 px
+        fun P(x: Float, y: Float) = PointF(x * k, y * k)
+        val regione = Rect(0, (225 * k).toInt(), bmp.width, (1845 * k).toInt())
+        val seg = SegmentazionePlanimetria(bmp, regione, null)
+        val out = bmp.copy(Bitmap.Config.ARGB_8888, true)
+        val cv = Canvas(out)
+        val pen = Paint().apply { color = Color.RED; style = Paint.Style.STROKE; strokeWidth = 6f }
+        fun disegna(p: List<PointF>?, col: Int) {
+            if (p == null) return
+            pen.color = col
+            for (i in p.indices) { val a = p[i]; val b = p[(i + 1) % p.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) }
+        }
+        val ingr = seg.poligonoDaPunto(P(500f, 1350f), 600.0 * 1000.0 * k * k)
+        println("INGRESSO: ${ingr?.size} " + ingr?.joinToString { "(${it.x.toInt()},${it.y.toInt()})" })
+        disegna(ingr, Color.RED)
+        // stima AI spostata come nello screenshot (fondo a 1645 invece di ~1715)
+        val ai = listOf(P(420f, 675f), P(810f, 675f), P(810f, 1645f), P(195f, 1645f), P(195f, 1125f), P(300f, 1125f), P(300f, 900f), P(420f, 900f))
+        val agg = seg.agganciaAiMuri(ai)
+        println("AGGANCIO: " + agg.joinToString { "(${it.x.toInt()},${it.y.toInt()})" })
+        disegna(agg, Color.BLUE)
+        disegna(seg.poligonoDaPunto(P(170f, 600f)), Color.MAGENTA)
+        java.io.File("build/anteprime").mkdirs()
+        java.io.FileOutputStream("build/anteprime/ingresso_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 }
