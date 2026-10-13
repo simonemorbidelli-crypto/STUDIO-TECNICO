@@ -1279,9 +1279,11 @@ class PlanimetriaActivity : AppCompatActivity() {
             override fun onSuccesso(risultato: JSONObject) {
                 if (isFinishing || isDestroyed) return
                 val proposte = estraiVerticiDaRisultato(risultato.optJSONArray("locali"))
-                misuraLocaliSulDisegno(bitmap, Rect(0, 0, bitmap.width, bitmap.height), proposte) { misurate ->
-                    avviaCodaLocaliRilevati(misurate)
-                }
+                // Ogni gruppo di locali si misura sulla zona di disegno (pianta) che lo contiene,
+                // ad alta risoluzione, invece che sull'intera tavola rimpicciolita.
+                val margine = (maxOf(bitmap.width, bitmap.height) * 0.01f).toInt()
+                val zone = (zoneDisegno ?: emptyList()).map { Rect(it).apply { inset(-margine, -margine); intersect(0, 0, bitmap.width, bitmap.height) } }
+                misuraPerRiquadri(bitmap, proposte, zone) { misurate -> avviaCodaLocaliRilevati(misurate) }
             }
 
             override fun onErrore(messaggio: String) {
@@ -1418,7 +1420,12 @@ class PlanimetriaActivity : AppCompatActivity() {
                 val finali = if (recuperati.isEmpty()) tutti.filter { p ->
                     p.verticiPx.size >= 3 && accumulato.none { GeometriaUtils.puntoDentroPoligono(GeometriaUtils.centroide(p.verticiPx), it.verticiPx) }
                 } else recuperati
-                concludi(finali)
+                // Anche i locali recuperati dall'intera tavola si misurano sui muri (prima no:
+                // per questo una pianta "ripescata" restava con i contorni stimati a occhio).
+                val riquadri = rettangoliVuoti.map { agganciaAlDisegno(bitmap, it) }
+                binding.tvIstruzioneTocco.text = "Misura dei contorni sui muri..."
+                aggiornaBarraSchermoIntero()
+                misuraPerRiquadri(bitmap, finali, riquadri) { concludi(it) }
             }
 
             override fun onErrore(messaggio: String) {
@@ -1470,6 +1477,30 @@ class PlanimetriaActivity : AppCompatActivity() {
                 fatto(risultato)
             }
         }.start()
+    }
+
+    /** Misura i locali raggruppandoli per riquadro di pianta (quello che contiene il loro punto); gli altri sull'immagine intera. */
+    private fun misuraPerRiquadri(
+        bitmap: Bitmap,
+        proposte: List<PropostaLocaleAi>,
+        riquadri: List<Rect>,
+        fatto: (MutableList<PropostaLocaleAi>) -> Unit
+    ) {
+        val gruppi = LinkedHashMap<Rect, MutableList<PropostaLocaleAi>>()
+        val intera = Rect(0, 0, bitmap.width, bitmap.height)
+        proposte.forEach { p ->
+            val c = p.puntoInterno ?: GeometriaUtils.centroide(p.verticiPx)
+            val r = riquadri.firstOrNull { it.contains(c.x.toInt(), c.y.toInt()) } ?: intera
+            gruppi.getOrPut(r) { mutableListOf() }.add(p)
+        }
+        val esito = mutableListOf<PropostaLocaleAi>()
+        val coda = gruppi.entries.toMutableList()
+        fun prossimo() {
+            if (coda.isEmpty()) { fatto(esito); return }
+            val (r, lista) = coda.removeAt(0)
+            misuraLocaliSulDisegno(bitmap, r, lista) { misurate -> esito.addAll(misurate); prossimo() }
+        }
+        prossimo()
     }
 
     private fun calcolaLocaliMisurati(

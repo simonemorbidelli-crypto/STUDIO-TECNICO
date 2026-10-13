@@ -236,4 +236,31 @@ class SegmentazioneTest {
         java.io.File("build/anteprime").mkdirs()
         java.io.FileOutputStream("build/anteprime/porte_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
+
+    /** Piano inferiore piccolo dentro un foglio con due piante: anteprima di controllo. */
+    @Test
+    fun pianoSottoReale() {
+        val bmp = screenshotPulito("piano_sotto.jpg") ?: return
+        val k = bmp.width / 923f
+        fun P(x: Float, y: Float) = PointF(x * k, y * k)
+        val bianco = Paint().apply { color = Color.WHITE }
+        val cv0 = Canvas(bmp)
+        listOf(floatArrayOf(255f, 1352f, 460f, 1382f), floatArrayOf(295f, 1443f, 395f, 1473f), floatArrayOf(432f, 1440f, 532f, 1470f),
+            floatArrayOf(245f, 1552f, 600f, 1582f)).forEach { r -> cv0.drawRect(r[0] * k, r[1] * k, r[2] * k, r[3] * k, bianco) }
+        println("ZONE: " + RilevatoreZoneDisegno.zone(bmp).joinToString { "(${(it.left / k).toInt()},${(it.top / k).toInt()})-(${(it.right / k).toInt()},${(it.bottom / k).toInt()})" })
+        val regione = Rect((60 * k).toInt(), (1230 * k).toInt(), (880 * k).toInt(), (1720 * k).toInt())
+        val seg = SegmentazionePlanimetria(bmp, regione, null)
+        println("SOTTO utilizzabile=${seg.utilizzabile} frazione=${seg.frazioneMuri} raggio=${seg.raggioPorte}")
+        val semi = linkedMapOf("cantina" to P(355f, 1300f), "loc1" to P(345f, 1480f), "loc2" to P(480f, 1480f),
+            "legnaia" to P(350f, 1620f), "scala" to P(480f, 1660f))
+        val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
+        val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 4f; color = Color.RED }
+        semi.forEach { (nome, p) ->
+            val pol = seg.poligonoDaPunto(p)
+            println("SOTTO $nome: ${pol?.size} " + (pol?.joinToString { "(${(it.x / k).toInt()},${(it.y / k).toInt()})" } ?: ""))
+            if (pol != null) for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) }
+        }
+        java.io.File("build/anteprime").mkdirs()
+        java.io.FileOutputStream("build/anteprime/sotto_reale.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 }
