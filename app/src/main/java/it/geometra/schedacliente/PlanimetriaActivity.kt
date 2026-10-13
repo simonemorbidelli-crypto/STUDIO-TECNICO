@@ -189,6 +189,14 @@ class PlanimetriaActivity : AppCompatActivity() {
             Toast.makeText(this, "Servono almeno 3 vertici: non posso rimuoverne altri", Toast.LENGTH_SHORT).show()
         }
         binding.superficieView.onLocaleAltroTenutoPremuto = { indiceVista -> gestisciCambioLocaleInModifica(indiceVista) }
+        // In visualizzazione a schermo intero: dito fermo 2 s su un locale già inserito → correzione dei suoi vertici.
+        binding.superficieView.onLocaleTenutoPremutoInVisualizzazione = { indiceVista ->
+            if (modalita == Modalita.NESSUNA && !rilevamentoAutomaticoInCorso) {
+                val locale = binding.superficieView.locali.getOrNull(indiceVista)
+                val indice = locali.indexOfFirst { it === locale }
+                if (indice >= 0) avviaModificaLocale(indice)
+            }
+        }
 
         binding.btnImpostaScala.setOnClickListener { avviaCalibrazione() }
         binding.btnNuovoLocale.setOnClickListener { avviaNuovoLocale() }
@@ -1536,7 +1544,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                     val aMis = GeometriaUtils.areaPoligono(pol)
                     // Tolleranza stretta: un riempimento che ha inglobato il vano accanto (porta
                     // aperta) o ha perso un pezzo non va preso per buono; meglio l'aggancio ai muri.
-                    if (aAi > 0 && (aMis / aAi !in 0.6..1.65)) continue
+                    if (aAi > 0 && (aMis / aAi !in 0.6..1.45)) continue
                 }
                 misurato = pol
                 break
@@ -1933,7 +1941,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     }
 
     /**
-     * Chiede se correggere il locale appena rilevato. Se entro 2,5 secondi non si preme nulla, il
+     * Chiede se correggere il locale appena rilevato. Se entro 3 secondi non si preme nulla, il
      * locale si considera confermato così com'è e si passa al successivo (conto alla rovescia
      * visibile sul pulsante "Conferma così"). Qualunque pulsante premuto ferma il conto.
      */
@@ -1950,7 +1958,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             .show()
         dialog.rendiPulsantiLeggibili(this)
         val pulsanteConferma = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-        val durataMs = 2500L
+        val durataMs = 3000L
         val inizio = android.os.SystemClock.uptimeMillis()
         lateinit var tic: Runnable
         tic = Runnable {
@@ -2410,7 +2418,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         if (binding.superficieView.bitmap == null) return
         binding.superficieView.avvisaTapNonConsentito = false
         binding.tvIstruzioneTocco.text =
-            "Visualizzazione: pizzica con due dita per ingrandire, trascina con un dito per spostarti. Il pulsante in alto riadatta la vista, la X chiude."
+            "Visualizzazione: pizzica con due dita per ingrandire, trascina con un dito per spostarti. Tieni il dito fermo 2 secondi su un locale per correggerlo. Il pulsante in alto riadatta la vista, la X chiude."
         apriSchermoIntero()
         dialogSchermoIntero?.setOnDismissListener {
             ripristinaSuperficieView()

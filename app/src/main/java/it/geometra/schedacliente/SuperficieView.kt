@@ -126,6 +126,13 @@ class SuperficieView @JvmOverloads constructor(
     var onLocaleAltroTenutoPremuto: ((Int) -> Unit)? = null
 
     /**
+     * In sola visualizzazione (nessuna operazione attiva): tenendo il dito fermo per 2 secondi
+     * sopra un locale già inserito, passa l'indice (nella lista [locali]) a chi vuole aprirne la
+     * correzione dei vertici.
+     */
+    var onLocaleTenutoPremutoInVisualizzazione: ((Int) -> Unit)? = null
+
+    /**
      * Quando true (e [modoTocco] è [ModoTocco.SOLO_TRASCINA]), il tocco successivo non sposta
      * un vertice esistente ma ne inserisce uno nuovo sul bordo del poligono corrente, nel punto
      * più vicino al tocco: usato per correggere un locale già rilevato che ha bisogno di un
@@ -167,6 +174,18 @@ class SuperficieView @JvmOverloads constructor(
     private val handlerPressioneLunga = Handler(Looper.getMainLooper())
     private val pressioneLungaRunnable = Runnable { avviaTrascinamentoCandidato() }
     private val pressioneLungaCambioLocaleRunnable = Runnable { tentaCambioLocale() }
+    private val pressioneLungaVisualizzazioneRunnable = Runnable {
+        val callback = onLocaleTenutoPremutoInVisualizzazione ?: return@Runnable
+        if (panInCorso) return@Runnable
+        val puntoImmagine = schermoAImmagine(downX, downY)
+        val indiceLocale = locali.indexOfFirst { GeometriaUtils.puntoDentroPoligono(puntoImmagine, it.verticiPx) }
+        if (indiceLocale >= 0) {
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            pressioneVisualizzazioneUsata = true
+            callback(indiceLocale)
+        }
+    }
+    private var pressioneVisualizzazioneUsata = false
 
     /** Tocco a un dito partito su un punto vuoto (nessun vertice vicino): può diventare uno scorrimento libero della vista, oppure, se il dito resta fermo, un cambio del locale in modifica. */
     private var panCandidato = false
@@ -558,11 +577,16 @@ class SuperficieView @JvmOverloads constructor(
                     downX = event.x; downY = event.y
                     puntoPanPrecedenteX = event.x; puntoPanPrecedenteY = event.y
                     panInCorso = false
+                    pressioneVisualizzazioneUsata = false
+                    if (onLocaleTenutoPremutoInVisualizzazione != null && locali.isNotEmpty()) {
+                        handlerPressioneLunga.postDelayed(pressioneLungaVisualizzazioneRunnable, RITARDO_CAMBIO_LOCALE_MS)
+                    }
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val sogliaSpostamento = 18f * resources.displayMetrics.density
                     if (!panInCorso && hypot((event.x - downX).toDouble(), (event.y - downY).toDouble()) > sogliaSpostamento) {
                         panInCorso = true
+                        handlerPressioneLunga.removeCallbacks(pressioneLungaVisualizzazioneRunnable)
                     }
                     if (panInCorso && fattoreZoomCorrente > 1.001f) {
                         matriceVista.postTranslate(event.x - puntoPanPrecedenteX, event.y - puntoPanPrecedenteY)
@@ -574,10 +598,14 @@ class SuperficieView @JvmOverloads constructor(
                     if (panInCorso && fattoreZoomCorrente > 1.001f) parent?.requestDisallowInterceptTouchEvent(true)
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!panInCorso && bmp != null && avvisaTapNonConsentito) onTapNonConsentito?.invoke()
+                    handlerPressioneLunga.removeCallbacks(pressioneLungaVisualizzazioneRunnable)
+                    if (!panInCorso && !pressioneVisualizzazioneUsata && bmp != null && avvisaTapNonConsentito) onTapNonConsentito?.invoke()
                     panInCorso = false
                 }
-                MotionEvent.ACTION_CANCEL -> panInCorso = false
+                MotionEvent.ACTION_CANCEL -> {
+                    handlerPressioneLunga.removeCallbacks(pressioneLungaVisualizzazioneRunnable)
+                    panInCorso = false
+                }
             }
             return true
         }
@@ -755,6 +783,7 @@ class SuperficieView @JvmOverloads constructor(
     private fun cancellaPressioneLunga() {
         handlerPressioneLunga.removeCallbacks(pressioneLungaRunnable)
         handlerPressioneLunga.removeCallbacks(pressioneLungaCambioLocaleRunnable)
+        handlerPressioneLunga.removeCallbacks(pressioneLungaVisualizzazioneRunnable)
         indiceCandidatoPressioneLunga = null
     }
 

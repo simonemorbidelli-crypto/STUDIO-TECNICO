@@ -64,11 +64,12 @@ class SegmentazioneTest {
         val bmp = pianta()
         val seg = SegmentazionePlanimetria(bmp, Rect(0, 0, bmp.width, bmp.height), 0.01)
         assertTrue(seg.utilizzabile)
-        val a = seg.poligonoDaPunto(PointF(300f, 350f))
+        // come nell'app: con l'area stimata dall'AI (qui quella vera ±20%)
+        val a = seg.poligonoDaPunto(PointF(300f, 350f), 400.0 * 300.0 * 1.2)
         assertNotNull("vano A", a)
         println("A: ${a!!.size} vertici, area=${area(a)} " + a.joinToString { "(${it.x.toInt()},${it.y.toInt()})" })
         assertEquals(400.0 * 300.0, area(a), 400.0 * 300.0 * 0.06) // entro il 6% (porta)
-        val b = seg.poligonoDaPunto(PointF(1150f, 700f))
+        val b = seg.poligonoDaPunto(PointF(1150f, 700f), 360000.0 * 0.9)
         assertNotNull("vano B a L", b)
         println("B: ${b!!.size} vertici, area=${area(b)} " + b.joinToString { "(${it.x.toInt()},${it.y.toInt()})" })
         val areaB = (1288 - 524) * (412 - 112) + (1288 - 1012) * (888 - 412) // parte alta + gamba a destra
@@ -83,7 +84,7 @@ class SegmentazioneTest {
     fun vaniMancantiTrovati() {
         val bmp = pianta()
         val seg = SegmentazionePlanimetria(bmp, Rect(0, 0, bmp.width, bmp.height), 0.01)
-        val a = seg.poligonoDaPunto(PointF(300f, 350f))!!
+        val a = seg.poligonoDaPunto(PointF(300f, 350f), 120000.0)!!
         val mancanti = seg.vaniChiusiMancanti(listOf(a))
         println("mancanti: ${mancanti.size} " + mancanti.map { area(it).toInt() })
         // B (L), C e il vano centrale in basso (tra C, A e B)
@@ -330,15 +331,19 @@ class SegmentazioneTest {
             val m = (maxOf(bmp.width, bmp.height) * 0.01f).toInt()
             val agg = RilevatoreZoneDisegno.agganciaRiquadro(stima, zone, m)
             println("PDF2 $nome stima=$stima agganciato=$agg")
-            val seg = SegmentazionePlanimetria(bmp, agg, null)
+            // scala 1:200 su A4 reso a 4001 px di altezza: 1 m = 5 mm di foglio = 67,4 px
+            val seg = SegmentazionePlanimetria(bmp, agg, 297.0 / 4001.0 * 0.2)
             println("PDF2 $nome utilizzabile=${seg.utilizzabile} frazione=${seg.frazioneMuri} raggio=${seg.raggioPorte}")
             java.io.File("build/anteprime").mkdirs()
             java.io.FileOutputStream("build/anteprime/pdf2_mask_$nome.png").use { seg.mascheraDiagnosi(51).compress(Bitmap.CompressFormat.PNG, 100, it) }
             val trovati = ArrayList<List<PointF>>()
             semi.forEach { (n, p) ->
-                SegmentazionePlanimetria.DEBUG = n == "cuc" || n == "C" || n == "cantina"
+                SegmentazionePlanimetria.DEBUG = n == "wc" || n == "L9" || n == "portico2"
                 if (SegmentazionePlanimetria.DEBUG) println("--- $n")
-                val pol = seg.poligonoDaPunto(PointF(p.x + 900, p.y + (if (nome == "su") 1050 else 2030)))
+                val attese = mapOf("wc" to 113.0 * 78, "L9" to 93.0 * 78, "rip" to 102.0 * 42, "dis" to 221.0 * 79 + 66 * 48,
+                    "A" to 190.0 * 170, "B" to 206.0 * 170, "cuc" to 173.0 * 148, "C" to 161.0 * 196, "scala" to 90.0 * 197,
+                    "cantina" to 147.0 * 160, "portico" to 177.0 * 85, "portico2" to 111.0 * 85, "legnaia" to 174.0 * 193)
+                val pol = seg.poligonoDaPunto(PointF(p.x + 900, p.y + (if (nome == "su") 1050 else 2030)), attese[n])
                 println("PDF2 $nome/$n: ${pol?.size} " + (pol?.joinToString { "(${it.x.toInt() - 900},${it.y.toInt() - (if (nome == "su") 1050 else 2030)})" } ?: ""))
                 disegna(pol, Color.RED); pol?.let { trovati += it }
             }

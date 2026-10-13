@@ -105,7 +105,10 @@ class SegmentazionePlanimetria(
         frazioneMuri = muri.count { it }.toDouble() / muri.size
 
         // Mezza larghezza di una porta (0,9 m) se la scala è nota, altrimenti l'1,2% del riquadro.
-        raggioPorte = metriPerPixelLavoro?.let { (0.45 / it).roundToInt() }?.coerceIn(4, 60)
+        // Si parte stretti (25 cm: chiude i varchi fino a 50 cm) per non far sparire i vani piccoli
+        // (wc, disimpegni, ripostigli) sotto i muri ingrossati; le porte vere si chiudono nei
+        // tentativi successivi a raggio crescente (vedi poligonoDaPunto).
+        raggioPorte = metriPerPixelLavoro?.let { (0.25 / it).roundToInt() }?.coerceIn(4, 60)
             ?: (LATO_LAVORO * 0.012).roundToInt()
         muriChiusi = dilata(muri, raggioPorte)
         muriChiusiPerRaggio[raggioPorte] = muriChiusi
@@ -117,6 +120,9 @@ class SegmentazionePlanimetria(
         val px = IntArray(w * h) { i -> when { muri[i] -> Color.BLACK; c[i] -> Color.rgb(255, 150, 150); else -> Color.WHITE } }
         return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
     }
+
+    /** Muri spessi almeno ~5 px: le scritte e i segni sottili si possono attraversare, le pareti no. */
+    private val muriSpessi: BooleanArray by lazy { dilata(erodi(muri, 2), 2) }
 
     private fun chiusiCon(r: Int): BooleanArray = muriChiusiPerRaggio.getOrPut(r) { dilata(muri, r) }
 
@@ -137,7 +143,8 @@ class SegmentazionePlanimetria(
         // Si parte dalla larghezza di una porta normale; se il riempimento "esce" (portafinestra
         // verso un terrazzo, apertura ampia verso un corridoio) si riprova chiudendo aperture via
         // via più larghe, fino a circa 2,5 m.
-        for (molt in doubleArrayOf(1.0, 1.6, 2.3, 3.0)) {
+        val moltiplicatori = if (metriPerPixelLavoro != null) doubleArrayOf(1.0, 1.6, 2.2, 3.0, 4.0) else doubleArrayOf(1.0, 1.6, 2.3, 3.0)
+        for (molt in moltiplicatori) {
             val r = (raggioPorte * molt).roundToInt()
             val chiusi = chiusiCon(r)
             val seme = puntoLiberoVicino(sx, sy, r * 2, chiusi) ?: continue
@@ -147,7 +154,7 @@ class SegmentazionePlanimetria(
             // accanto passando da una porta) si riprova chiudendo aperture più larghe.
             if (areaAttesaImmagine != null && areaAttesaImmagine > 0) {
                 val rapporto = abs(areaConSegno(pol)) / areaAttesaImmagine
-                if (rapporto > 1.65) continue
+                if (rapporto > 1.4) continue
             }
             return pol
         }
@@ -305,6 +312,108 @@ class SegmentazionePlanimetria(
         return p
     }
 
+    /**
+     * Regolarizzazione del contorno (come nei metodi di "room segmentation" che assumono pareti
+     * ortogonali): i segni convenzionali attaccati ai muri (croci delle porte, frecce, archi,
+     * lettere a contatto) lasciano piccoli "denti" e angoli smussati, e il contorno ci girava
+     * intorno con tanti punti invece di andare dritto allo spigolo. Qui:
+     *  1. si tolgono i denti piccoli (verso l'interno o l'esterno) lungo una parete dritta;
+     *  2. agli angoli, i piccoli tratti tra due pareti si sostituiscono con lo spigolo vero
+     *     (incrocio delle due pareti);
+     *  3. i lati quasi orizzontali/verticali si rendono esattamente tali.
+     */
+    private fun regolarizza(poligono: List<PointF>): List<PointF> {
+        val dente = metriPerPixelLavoro?.let { (0.45 / it).toFloat() } ?: (LATO_LAVORO * 0.03f)
+        val larghezzaDente = metriPerPixelLavoro?.let { (1.2 / it).toFloat() } ?: (LATO_LAVORO * 0.07f)
+        val p = poligono.map { PointF(it.x, it.y) }.toMutableList()
+        fun len(a: PointF, b: PointF) = hypot((b.x - a.x).toDouble(), (b.y - a.y).toDouble()).toFloat()
+        fun cos(a0: PointF, a1: PointF, b0: PointF, b1: PointF): Float {
+            val ax = a1.x - a0.x; val ay = a1.y - a0.y; val bx = b1.x - b0.x; val by = b1.y - b0.y
+            val l = hypot(ax.toDouble(), ay.toDouble()) * hypot(bx.toDouble(), by.toDouble())
+            return if (l < 1e-6) 0f else ((ax * bx + ay * by) / l).toFloat()
+        }
+        fun distRetta(q: PointF, r0: PointF, r1: PointF): Float {
+            val l = len(r0, r1); if (l < 1e-3) return len(q, r0)
+            return abs((r1.x - r0.x) * (r0.y - q.y) - (r0.x - q.x) * (r1.y - r0.y)) / l
+        }
+        // 1. denti
+        var cambiato = true; var giri = 0
+        while (cambiato && p.size >= 6 && giri++ < 60) {
+            cambiato = false
+            val n = p.size
+            for (i in 0 until n) {
+                val prev = p[(i - 1 + n) % n]; val a = p[i]; val b = p[(i + 1) % n]; val c = p[(i + 2) % n]; val d = p[(i + 3) % n]
+                if (len(a, b) > dente || len(c, d) > dente || len(b, c) > larghezzaDente) continue
+                if (cos(a, b, c, d) > -0.7f) continue                 // i due gradini vanno in versi opposti
+                if (abs(cos(prev, a, a, b)) > 0.5f) continue          // il gradino è di traverso alla parete
+                if (len(prev, a) < len(b, c)) continue                // la parete è più lunga del dente
+                if (distRetta(d, prev, a) > max(3f, dente * 0.35f)) continue // la parete riprende sulla stessa linea
+                val i1 = (i + 1) % n; val i2 = (i + 2) % n
+                if (i2 > i1) { p.removeAt(i2); p.removeAt(i1) } else { p.removeAt(i1); p.removeAt(i2) }
+                cambiato = true; break
+            }
+        }
+        // 2. angoli smussati o "girati intorno" a un segno: tra due pareti lunghe quasi perpendicolari,
+        //    fino a 3 tratti corti si sostituiscono con l'incrocio delle due pareti.
+        cambiato = true; giri = 0
+        while (cambiato && p.size >= 5 && giri++ < 60) {
+            cambiato = false
+            val n = p.size
+            loop@ for (i in 0 until n) {
+                val e0 = p[(i - 1 + n) % n]; val e1 = p[i]
+                if (len(e0, e1) < dente * 2) continue
+                for (k in 1..3) {
+                    if (p.size - k < 4) break
+                    val f0 = p[(i + k) % n]; val f1 = p[(i + k + 1) % n]
+                    if (len(f0, f1) < dente * 2) continue
+                    var percorso = 0f
+                    for (t in 0 until k) percorso += len(p[(i + t) % n], p[(i + t + 1) % n])
+                    if (percorso > dente * 1.5f) break
+                    if (abs(cos(e0, e1, f0, f1)) > 0.3f) break
+                    val x = incrocio(e0, e1, f0, f1) ?: break
+                    if (len(x, e1) > dente * 1.5f || len(x, f0) > dente * 1.5f) break
+                    // sostituisce i vertici i..i+k con l'incrocio
+                    val indici = (0..k).map { (i + it) % n }.sortedDescending()
+                    val pos = (0..k).map { (i + it) % n }.minOrNull()!!
+                    indici.forEach { p.removeAt(it) }
+                    p.add(min(pos, p.size), x)
+                    cambiato = true; break@loop
+                }
+            }
+        }
+        // 3. ortogonalità: lati entro ~6° dall'orizzontale/verticale resi esatti
+        val n = p.size
+        if (n >= 4) {
+            val tipo = IntArray(n) { i ->
+                val a = p[i]; val b = p[(i + 1) % n]
+                val dx = abs(b.x - a.x); val dy = abs(b.y - a.y)
+                when { dy <= dx * 0.105f -> 1; dx <= dy * 0.105f -> 2; else -> 0 }
+            }
+            val coord = FloatArray(n) { i ->
+                val a = p[i]; val b = p[(i + 1) % n]
+                when (tipo[i]) { 1 -> (a.y + b.y) / 2; 2 -> (a.x + b.x) / 2; else -> 0f }
+            }
+            for (i in 0 until n) {
+                val prec = (i - 1 + n) % n
+                var x = p[i].x; var y = p[i].y
+                if (tipo[prec] == 1) y = coord[prec]
+                if (tipo[i] == 1) y = coord[i]
+                if (tipo[prec] == 2) x = coord[prec]
+                if (tipo[i] == 2) x = coord[i]
+                p[i] = PointF(x, y)
+            }
+        }
+        val pulito = togliCollineari(p)
+        return if (pulito.size >= 3) pulito else poligono
+    }
+
+    private fun incrocio(a0: PointF, a1: PointF, b0: PointF, b1: PointF): PointF? {
+        val d = (a1.x - a0.x) * (b1.y - b0.y) - (a1.y - a0.y) * (b1.x - b0.x)
+        if (abs(d) < 1e-6) return null
+        val t = ((b0.x - a0.x) * (b1.y - b0.y) - (b0.y - a0.y) * (b1.x - b0.x)) / d
+        return PointF(a0.x + t * (a1.x - a0.x), a0.y + t * (a1.y - a0.y))
+    }
+
     private fun togliCollineari(p: MutableList<PointF>, tolleranza: Double = 1.5): MutableList<PointF> {
         var i = 0
         while (p.size > 3 && i < p.size) {
@@ -379,17 +488,20 @@ class SegmentazionePlanimetria(
             }
         }
         val risultati = ArrayList<List<PointF>>()
+        // Porte normali chiuse (fino a ~1,1 m), così due vani comunicanti non tornano come uno solo.
+        val r = (raggioPorte * 2.2).roundToInt()
+        val chiusi = chiusiCon(r)
         for (y in 0 until h) for (x in 0 until w) {
             val i = y * w + x
-            if (visitato[i] || muriChiusi[i]) continue
-            val componente = componente(x, y, visitato)
+            if (visitato[i] || chiusi[i]) continue
+            val componente = componente(x, y, visitato, muriChiusi = chiusi)
             val area = componente.size
-            if (area < areaMinimaPx() || area > areaMassimaPx()) continue
+            if (area < areaMinimaPx() / 3 || area > areaMassimaPx()) continue
             if (componente.any { val px = it % w; val py = it / w; px == 0 || py == 0 || px == w - 1 || py == h - 1 }) continue
             val giaCoperti = componente.count { coperto[it] }
-            if (giaCoperti > area * 0.3) continue
+            if (giaCoperti > area * 0.15) continue
             val nucleo = BooleanArray(w * h).also { m -> componente.forEach { m[it] = true } }
-            poligonoDaNucleo(nucleo, raggioPorte)?.let { risultati += it }
+            poligonoDaNucleo(nucleo, r)?.let { risultati += it }
         }
         return risultati
     }
@@ -419,7 +531,7 @@ class SegmentazionePlanimetria(
         val regioneVano = erodi(dilata(aperta, k), k)
         val contorno = tracciaContorno(regioneVano) ?: return null
         val tolleranza = max(2.0, raggioPorte * 0.35)
-        val semplificato = togliSguanci(douglasPeucker(contorno, tolleranza))
+        val semplificato = regolarizza(togliSguanci(douglasPeucker(contorno, tolleranza)))
         if (semplificato.size < 3) return null
         return semplificato.map { PointF((it.x / f + regione.left).toFloat(), (it.y / f + regione.top).toFloat()) }
     }
@@ -458,14 +570,31 @@ class SegmentazionePlanimetria(
         return out
     }
 
+    /**
+     * Punto libero (fuori dai muri ingrossati) più vicino al seme, raggiungibile SENZA attraversare
+     * un muro vero: prima poteva "saltare" oltre una parete sottile nel vano accanto quando il seme
+     * cadeva vicino a una scritta (es. "W.C." in un bagno stretto).
+     */
     private fun puntoLiberoVicino(x0: Int, y0: Int, raggio: Int, muriChiusi: BooleanArray): Pair<Int, Int>? {
         if (x0 !in 0 until w || y0 !in 0 until h) return null
         if (!muriChiusi[y0 * w + x0]) return x0 to y0
-        for (r in 1..raggio) {
-            for (dy in -r..r) for (dx in -r..r) {
-                if (max(abs(dx), abs(dy)) != r) continue
-                val x = x0 + dx; val y = y0 + dy
-                if (x in 0 until w && y in 0 until h && !muriChiusi[y * w + x]) return x to y
+        val visto = HashSet<Int>()
+        val coda = ArrayDeque<Int>()
+        val inizio = y0 * w + x0
+        coda.add(inizio); visto.add(inizio)
+        val r2 = (raggio * 1.5).let { it * it }
+        while (coda.isNotEmpty()) {
+            val i = coda.removeFirst()
+            val x = i % w; val y = i / w
+            if (!muriChiusi[i]) return x to y
+            for ((nx, ny) in arrayOf(x - 1 to y, x + 1 to y, x to y - 1, x to y + 1)) {
+                if (nx !in 0 until w || ny !in 0 until h) continue
+                val dx = (nx - x0).toDouble(); val dy = (ny - y0).toDouble()
+                if (dx * dx + dy * dy > r2) continue
+                val j = ny * w + nx
+                // si può passare sulle scritte e sui muri ingrossati, non sui muri veri
+                if (j in visto || muriSpessi[j]) continue
+                visto.add(j); coda.add(j)
             }
         }
         return null
@@ -475,7 +604,7 @@ class SegmentazionePlanimetria(
     private fun riempi(x0: Int, y0: Int, muriChiusi: BooleanArray): BooleanArray? {
         val visitato = BooleanArray(w * h)
         val componente = componente(x0, y0, visitato, limite = areaMassimaPx() + 1, muriChiusi = muriChiusi)
-        if (componente.size > areaMassimaPx() || componente.size < areaMinimaPx()) return null
+        if (componente.size > areaMassimaPx() || componente.size < areaMinimaPx() / 5) return null // il nucleo è ristretto dai muri ingrossati: soglia larga
         if (componente.any { val px = it % w; val py = it / w; px == 0 || py == 0 || px == w - 1 || py == h - 1 }) return null
         return BooleanArray(w * h).also { m -> componente.forEach { m[it] = true } }
     }
