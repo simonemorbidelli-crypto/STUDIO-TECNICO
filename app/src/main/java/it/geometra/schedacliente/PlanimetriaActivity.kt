@@ -231,6 +231,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         }
         binding.btnAnnullaVertice.setOnClickListener { annullaUltimaModificaVertici() }
         binding.btnRinominaLocale.setOnClickListener { rinominaLocaleInModifica() }
+        binding.btnEliminaLocale.setOnClickListener { eliminaLocaleInModifica() }
         binding.superficieView.onStoriaCambiata = { aggiornaPulsantiAnnulla() }
 
         disegnaElencoLocali()
@@ -2452,6 +2453,38 @@ class PlanimetriaActivity : AppCompatActivity() {
         dialog.rendiPulsantiLeggibili(this)
     }
 
+    /**
+     * "🗑 Elimina" nella finestra di modifica: elimina per intero il poligono che si sta correggendo
+     * (dopo conferma). Per un locale già in elenco lo toglie dalla planimetria e dal totale; per una
+     * proposta appena rilevata dall'AI equivale a scartarla.
+     */
+    private fun eliminaLocaleInModifica() {
+        if (modalita != Modalita.MODIFICA_LOCALE) return
+        val nome = nomeLocaleInModifica() ?: "questo locale"
+        val proposta = proposizioneInVerifica
+        val dialog = AlertDialog.Builder(dialogSchermoIntero?.context ?: this, R.style.Theme_SchedaCliente_Dialog)
+            .setTitle(if (proposta != null) "Scartare il locale?" else "Eliminare il locale?")
+            .setMessage(
+                if (proposta != null) "\"$nome\" non verrà aggiunto alla planimetria."
+                else "\"$nome\" verrà eliminato dalla planimetria e dal totale delle superfici. L'operazione non può essere annullata."
+            )
+            .setPositiveButton(if (proposta != null) "Scarta" else "Elimina") { _, _ ->
+                if (modalita != Modalita.MODIFICA_LOCALE) return@setPositiveButton
+                if (proposizioneInVerifica != null) { annullaModificaLocale(); return@setPositiveButton }
+                val indice = indiceLocaleInModifica ?: return@setPositiveButton
+                if (indice !in locali.indices) { terminaModificaLocale(); return@setPositiveButton }
+                // Durante la modifica il poligono non è nella vista (vedi avviaModificaLocale): basta toglierlo dall'elenco.
+                locali.removeAt(indice)
+                terminaModificaLocale()
+                disegnaElencoLocali()
+                aggiornaTotale()
+                avviso("Locale \"$nome\" eliminato")
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+        dialog.rendiPulsantiLeggibili(this)
+    }
+
     /** "↶ Annulla" durante la correzione di un locale: annulla l'ultima aggiunta, rimozione o spostamento di un vertice. */
     private fun annullaUltimaModificaVertici() {
         if (!binding.superficieView.annullaUltimaModifica()) {
@@ -2802,6 +2835,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         dialogBinding.btnRimuoviVerticeSchermoIntero.setOnClickListener { attivaModalitaRimozioneVertice() }
         dialogBinding.btnAnnullaVerticeSchermoIntero.setOnClickListener { annullaUltimaModificaVertici() }
         dialogBinding.btnRinominaLocaleSchermoIntero.setOnClickListener { rinominaLocaleInModifica() }
+        dialogBinding.btnEliminaLocaleSchermoIntero.setOnClickListener { eliminaLocaleInModifica() }
         dialogBinding.btnSaltaLocaleSchermoIntero.setOnClickListener { saltaLocaleInElaborazione() }
         dialogBinding.btnInterrompiRilevamentoSchermoIntero.setOnClickListener { confermaAnnullaRilevamentoAutomatico() }
 

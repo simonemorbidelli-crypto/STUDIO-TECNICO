@@ -67,6 +67,11 @@ object RilevatoreScalaBlu {
         val stimeTacche = analisi.mapNotNull { it.passoTacche }
         val passoTacche = stimeTacche.sorted().getOrNull(stimeTacche.size / 2)
 
+        // La linea più lunga con tacche regolari (almeno 3): su di essa si prendono la prima e l'ultima
+        // tacca, cioè i due segni dei parametri più lontani tra loro.
+        val miglioreTacche = analisi.filter { it.passoTacche != null && it.tacche.size >= 3 }
+            .maxByOrNull { it.tacche.last() - it.tacche.first() }
+
         // 1) Barra blu: la scala più "dichiarata" (c'è scritto accanto quanti metri sono).
         val conBarra = analisi.filter { it.barra != null }.maxByOrNull { it.barra!!.lunghezza }
         if (conBarra != null) {
@@ -78,11 +83,21 @@ object RilevatoreScalaBlu {
                 // Se le tacche confermano la barra, il loro passo misurato su tutto il bordo (molti
                 // intervalli) è più preciso della sola barra: si usa quello.
                 val pixelPerIntervallo = passoTacche ?: barra.lunghezza
+                // Come tratto da mostrare (v3.81): non la sola barra di 10 m ma, se ci sono, le due tacche
+                // più lontane sulla linea più lunga; la scala resta quella già calcolata.
+                var mostraP1 = barra.p1; var mostraP2 = barra.p2; var mostraMetri = metriBarra
+                if (miglioreTacche != null && passoTacche != null) {
+                    val n = ((miglioreTacche.tacche.last() - miglioreTacche.tacche.first()) / passoTacche).roundToInt()
+                    if (n >= 1) {
+                        val (a, b) = estremiTacche(miglioreTacche)
+                        mostraP1 = a; mostraP2 = b; mostraMetri = n * metriBarra
+                    }
+                }
                 return Risultato(
                     metriPerPixel = metriBarra / pixelPerIntervallo,
                     fonte = Fonte.BARRA,
-                    p1 = barra.p1, p2 = barra.p2,
-                    metriTraPunti = metriBarra,
+                    p1 = mostraP1, p2 = mostraP2,
+                    metriTraPunti = mostraMetri,
                     zonaEtichetta = barra.zonaEtichetta,
                     numeroTacche = nTacche,
                     descrizione = "barra blu di scala sul bordo del foglio (${barra.lunghezza.roundToInt()} px = ${formatta(metriBarra)} m)" +
@@ -92,17 +107,14 @@ object RilevatoreScalaBlu {
         }
 
         // 2) Solo tacche del reticolo (una ogni 10 m): si usa la coppia più lontana per precisione.
-        val miglioreTacche = analisi.filter { it.passoTacche != null && it.tacche.size >= 3 }
-            .maxByOrNull { it.tacche.last() - it.tacche.first() } ?: return null
+        if (miglioreTacche == null) return null
         val passo = miglioreTacche.passoTacche!!
         val prima = miglioreTacche.tacche.first()
         val ultima = miglioreTacche.tacche.last()
         val intervalli = ((ultima - prima) / passo).roundToInt().coerceAtLeast(1)
         val distanzaPx = ultima - prima
         val metri = intervalli * metriBarra
-        val (p1, p2) = if (miglioreTacche.verticale)
-            PointF(miglioreTacche.posizioneLinea, prima) to PointF(miglioreTacche.posizioneLinea, ultima)
-        else PointF(prima, miglioreTacche.posizioneLinea) to PointF(ultima, miglioreTacche.posizioneLinea)
+        val (p1, p2) = estremiTacche(miglioreTacche)
         return Risultato(
             metriPerPixel = metri / distanzaPx,
             fonte = Fonte.TACCHE,
@@ -115,6 +127,13 @@ object RilevatoreScalaBlu {
     }
 
     // ---------------------------------------------------------------------
+
+    /** Prima e ultima tacca della linea, come punti dell'immagine (sulla linea di cornice). */
+    private fun estremiTacche(a: AnalisiFascia): Pair<PointF, PointF> {
+        val prima = a.tacche.first(); val ultima = a.tacche.last()
+        return if (a.verticale) PointF(a.posizioneLinea, prima) to PointF(a.posizioneLinea, ultima)
+        else PointF(prima, a.posizioneLinea) to PointF(ultima, a.posizioneLinea)
+    }
 
     private class Barra(val p1: PointF, val p2: PointF, val lunghezza: Float, val zonaEtichetta: Rect)
 
@@ -160,6 +179,9 @@ object RilevatoreScalaBlu {
         //    contigui) del tratto blu che attraversa la cornice.
         val copertura = FloatArray(lungo)
         val estensione = IntArray(lungo)
+        // true se il tratto blu arriva fino al limite della fascia: non è una tacca ma una linea
+        // della cornice che prosegue (tipico degli angoli, dove la cornice gira ad angolo retto).
+        val finePerBordo = BooleanArray(lungo)
         for (l in 0 until lungo) {
             var partenza = -1
             for (d in intArrayOf(0, -1, 1, -2, 2)) {
@@ -175,6 +197,7 @@ object RilevatoreScalaBlu {
             for (t in a..z) somma += valore(l, t)
             copertura[l] = somma
             estensione[l] = z - a + 1
+            finePerBordo[l] = a == 0 || z == trasv - 1
         }
         val presenti = (0 until lungo).filter { copertura[it] > 0f }
         if (presenti.size < lungo * 0.3) return null
@@ -183,17 +206,26 @@ object RilevatoreScalaBlu {
 
         // 3) Tacche: punti in cui il blu sporge molto dalla cornice (segmenti perpendicolari).
         val sogliaTacca = maxOf(5, estensioneBase * 4)
-        val tacche = ArrayList<Float>()
+        val candidate = ArrayList<Pair<Float, Int>>() // (posizione, lunghezza della tacca in pixel)
         var inizioTacca = -1
         for (l in 0..lungo) {
-            val eTacca = l < lungo && estensione[l] >= sogliaTacca
+            // Gli angoli della cornice non sono tacche del reticolo (v3.81): altrimenti il tratto di
+            // scala andrebbe da un angolo all'altro invece che dalla prima all'ultima tacca.
+            val eTacca = l < lungo && estensione[l] >= sogliaTacca && !finePerBordo[l]
             if (eTacca && inizioTacca < 0) inizioTacca = l
             if (!eTacca && inizioTacca >= 0) {
                 // Le tacche sono sottili: un gruppo troppo lungo non è una tacca (es. scritte).
-                if (l - inizioTacca <= maxOf(6, lungo / 150)) tacche.add((inizioTacca + l - 1) / 2f)
+                if (l - inizioTacca <= maxOf(6, lungo / 150)) {
+                    candidate.add(((inizioTacca + l - 1) / 2f) to (inizioTacca until l).maxOf { estensione[it] })
+                }
                 inizioTacca = -1
             }
         }
+        // Un angolo della cornice (la linea che gira ad angolo retto) sporge molto più delle tacche
+        // vere, anche quando l'antialiasing gli accorcia un po' il bordo: si scarta ciò che è
+        // più di 2,5 volte la lunghezza tipica (mediana) delle tacche.
+        val lunghezzaTipica = candidate.map { it.second }.sorted().let { if (it.isEmpty()) 0 else it[it.size / 2] }
+        val tacche = ArrayList<Float>(candidate.filter { lunghezzaTipica == 0 || it.second <= lunghezzaTipica * 2.5f }.map { it.first })
         val passoTacche = passoCoerente(tacche)
 
         // 4) Barra: tratto lungo in cui la cornice è nettamente più spessa (ma non sporge come una tacca).
