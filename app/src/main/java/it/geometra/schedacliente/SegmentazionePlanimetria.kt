@@ -6,6 +6,7 @@ import android.graphics.PointF
 import android.graphics.Rect
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -32,10 +33,16 @@ class SegmentazionePlanimetria(
     bitmap: Bitmap,
     regione: Rect,
     /** Metri per pixel dell'immagine originale, se la scala è nota (serve a dimensionare porte e aree minime). */
-    metriPerPixel: Double?
+    metriPerPixel: Double?,
+    /** Modello dei muri: AUTO lo sceglie dal disegno; PIENI/LINEE lo impongono (vedi [AnalizzatoreVani]). */
+    private val tipo: TipoMuri = TipoMuri.AUTO
 ) {
+    enum class TipoMuri { AUTO, PIENI, LINEE }
+
     companion object {
         const val LATO_LAVORO = 1400
+        /** Sopra questa quota d'inchiostro in tratti spessi il disegno si tratta a muri pieni. */
+        const val SOGLIA_QUOTA_PIENI = 0.35
         /** Solo per i test: stampa perché un riempimento è stato scartato. */
         @JvmField var DEBUG = false
     }
@@ -62,6 +69,13 @@ class SegmentazionePlanimetria(
 
     /** Frazione dell'area occupata dai muri: se troppo bassa il disegno non ha muri "pieni" e il metodo non si applica. */
     val frazioneMuri: Double
+    /** true se nel riquadro è stato riconosciuto (e tolto) un reticolo regolare tipo carta millimetrata. */
+    var reticoloTolto = false
+        private set
+
+    /** Quota dell'inchiostro in tratti spessi (0..1): alta = muri campiti, bassa = muri a linee sottili. */
+    val quotaInchiostroSpesso: Double
+
 
     init {
         val scalato = Bitmap.createScaledBitmap(
@@ -70,10 +84,12 @@ class SegmentazionePlanimetria(
         )
         val pixel = IntArray(w * h)
         scalato.getPixels(pixel, 0, w, 0, 0, w, h)
-        val scuro = BooleanArray(w * h) { i ->
+        val scuroGrezzo = BooleanArray(w * h) { i ->
             val c = pixel[i]
             (Color.red(c) * 299 + Color.green(c) * 587 + Color.blue(c) * 114) / 1000 < 140
         }
+        // Carta millimetrata / reticolo regolare stampato in nero: si toglie prima di tutto.
+        val scuro = togliReticolo(scuroGrezzo)
         // Apertura: via linee e scritte più sottili di ~5 px di lavoro (i tramezzi restano: a questa
         // risoluzione sono più spessi).
         val isola = (LATO_LAVORO * 0.07).roundToInt()
@@ -86,8 +102,17 @@ class SegmentazionePlanimetria(
         // che un tronco di muro vero (anche staccato tra due porte) invece supera.
         fun pulisci(m: BooleanArray) = togliIsole(m, isola, erodi(m, 3), (LATO_LAVORO * 0.15).roundToInt())
         val pieniSoli = pulisci(apertiSoli)
-        // Il tipo di disegno si decide sui soli muri campiti.
-        val frazionePieni = pieniSoli.count { it }.toDouble() / pieniSoli.size
+        // Il tipo di disegno si decide sui soli muri campiti: quota dell'inchiostro che sta in
+        // tratti spessi (muri campiti) rispetto a tutto l'inchiostro del riquadro. Non dipende da
+        // quanta carta bianca c'è attorno alla pianta (la frazione sull'area sì).
+        val nScuro = scuro.count { it }.coerceAtLeast(1)
+        quotaInchiostroSpesso = pieniSoli.count { it }.toDouble() / nScuro
+        val usaPieni = when (tipo) {
+            TipoMuri.PIENI -> true
+            TipoMuri.LINEE -> false
+            TipoMuri.AUTO -> quotaInchiostroSpesso >= SOGLIA_QUOTA_PIENI
+        }
+        val frazionePieni = if (usaPieni) 1.0 else 0.0
         // Disegni misti: muri campiti e, nello stesso foglio, muri a doppia linea sottile (spesso i
         // muri esterni con le finestre). Le coppie di linee lunghe parallele vicine si riempiono e
         // contano come muro pieno, così l'apertura non le cancella.
@@ -99,9 +124,9 @@ class SegmentazionePlanimetria(
         // cancellerebbe. Allora i muri sono le linee stesse (leggermente ingrossate per sigillare
         // i tratti), tolte solo le scritte isolate: la linea interna del muro delimita il vano.
         muriPieniRiconosciuti = frazionePieni >= 0.03
-        muriBase = if (frazionePieni >= 0.03) muriPieni else togliIsole(erodi(dilata(scuro, 2), 1), isola)
-        muri = if (frazionePieni >= 0.03) conSoglieEFinestre(muriPieni, scuro)
-        else togliIsole(erodi(dilata(scuro, 2), 1), isola)
+        val lineeSenzaScritte = if (frazionePieni >= 0.03) null else togliScritte(togliIsole(erodi(dilata(scuro, 2), 1), isola), scuro)
+        muriBase = lineeSenzaScritte ?: muriPieni
+        muri = lineeSenzaScritte ?: conSoglieEFinestre(muriPieni, scuro)
         frazioneMuri = muri.count { it }.toDouble() / muri.size
 
         // Mezza larghezza di una porta (0,9 m) se la scala è nota, altrimenti l'1,2% del riquadro.
@@ -113,6 +138,66 @@ class SegmentazionePlanimetria(
         muriChiusi = dilata(muri, raggioPorte)
         muriChiusiPerRaggio[raggioPorte] = muriChiusi
     }
+
+    /**
+     * Carta millimetrata o quadrettata (le vecchie schede disegnate a mano su carta tecnica): tante
+     * linee sottili lunghe, parallele ed equidistanti, in orizzontale e/o in verticale. Si
+     * riconoscono dalla spaziatura regolare e si cancellano solo dove sono sottili (dove passano
+     * sopra un muro campito, il muro resta: si cancella solo dove l'inchiostro è spesso al massimo 5 px).
+     */
+    private fun togliReticolo(scuro: BooleanArray): BooleanArray {
+        val out = scuro.copyOf()
+        for (orizz in booleanArrayOf(true, false)) {
+            val lungo = (if (orizz) w else h) / 4                 // linee lunghe almeno metà riquadro
+            val base = filtroAsse(scuro, 1, true, !orizz)
+            val linee = filtroAsse(filtroAsse(base, lungo, false, orizz), lungo, true, orizz)
+            val n1 = if (orizz) h else w; val n2 = if (orizz) w else h
+            // righe (o colonne) occupate per buona parte da una linea lunga
+            val piene = BooleanArray(n1) { a ->
+                var c = 0
+                for (b in 0 until n2) if (linee[if (orizz) a * w + b else b * w + a]) c++
+                c > n2 * 0.4
+            }
+            val centri = ArrayList<Int>()
+            var a = 0
+            while (a < n1) {
+                if (piene[a]) { var z = a; while (z + 1 < n1 && piene[z + 1]) z++; centri += (a + z) / 2; a = z + 1 } else a++
+            }
+            if (centri.size < 8) continue
+            val passi = centri.zipWithNext { x, y -> y - x }.sorted()
+            val mediana = passi[passi.size / 2].toDouble()
+            if (mediana < 3) continue
+            val regolari = passi.count { abs(it - mediana) <= mediana * 0.3 }
+            if (regolari < passi.size * 0.7) continue
+            reticoloTolto = true
+            // cancella i pixel di linea lunga dove l'inchiostro è sottile (≤ 3 px di traverso)
+            for (i in 0 until w * h) {
+                if (!linee[i] || !scuro[i]) continue
+                val x = i % w; val y = i / w
+                var spessore = 1
+                var t = 1
+                while (t <= 6) {
+                    val xx = if (orizz) x else x + t; val yy = if (orizz) y + t else y
+                    if (xx >= w || yy >= h || !scuro[yy * w + xx]) break
+                    spessore++; t++
+                }
+                t = 1
+                while (t <= 6) {
+                    val xx = if (orizz) x else x - t; val yy = if (orizz) y - t else y
+                    if (xx < 0 || yy < 0 || !scuro[yy * w + xx]) break
+                    spessore++; t++
+                }
+                if (spessore <= 5) out[i] = false
+            }
+        }
+        return out
+    }
+
+    fun muriPieniRiconosciuti(): Boolean = muriPieniRiconosciuti
+
+    /** Breve descrizione del tipo di disegno riconosciuto e dei parametri scelti (diagnosi). */
+    fun descrizioneTipo(): String =
+        "muri=${if (muriPieniRiconosciuti) "pieni" else "doppia-linea"} quotaSpessa=${"%.2f".format(quotaInchiostroSpesso)} frazione=${"%.3f".format(frazioneMuri)} reticolo=$reticoloTolto raggioPorte=$raggioPorte lavoro=${w}x$h"
 
     /** Solo per diagnosi nei test: muri (nero), muri chiusi col raggio [r] (rosso). */
     fun mascheraDiagnosi(r: Int): Bitmap {
@@ -144,16 +229,24 @@ class SegmentazionePlanimetria(
         // verso un terrazzo, apertura ampia verso un corridoio) si riprova chiudendo aperture via
         // via più larghe, fino a circa 2,5 m.
         val moltiplicatori = if (metriPerPixelLavoro != null) doubleArrayOf(1.0, 1.6, 2.2, 3.0, 4.0) else doubleArrayOf(1.0, 1.6, 2.3, 3.0)
-        for (molt in moltiplicatori) {
-            val r = (raggioPorte * molt).roundToInt()
+        val raggi = moltiplicatori.map { (raggioPorte * it).roundToInt() }.toMutableList()
+        // Vani piccoli (ripostigli, wc, sottoscala): si comincia con un raggio proporzionato al
+        // vano, altrimenti i muri ingrossati e la scritta all'interno lo riempiono del tutto.
+        if (areaAttesaImmagine != null && areaAttesaImmagine > 0) {
+            val latoLavoro = sqrt(areaAttesaImmagine) * f
+            val r0 = (latoLavoro * 0.12).roundToInt().coerceAtLeast(3)
+            if (r0 < raggioPorte) raggi.add(0, r0)
+        }
+        for (r in raggi) {
             val chiusi = chiusiCon(r)
-            val seme = puntoLiberoVicino(sx, sy, r * 2, chiusi) ?: continue
+            val seme = puntoLiberoVicino(sx, sy, r * 2, chiusi) ?: run { if (DEBUG) println("DBG r=$r nessun seme ($sx,$sy) muro=${muri.getOrNull(sy * w + sx)} spesso=${muriSpessi.getOrNull(sy * w + sx)}"); null } ?: continue
             val nucleo = riempi(seme.first, seme.second, chiusi) ?: run { if (DEBUG) { val vis = BooleanArray(w*h); val c = componente(seme.first, seme.second, vis, muriChiusi = chiusi); println("DBG r=$r null area=${c.size} max=${areaMassimaPx()} min=${areaMinimaPx()} bordo=${c.any { val px = it % w; val py = it / w; px == 0 || py == 0 || px == w - 1 || py == h - 1 }}") }; null } ?: continue
-            val pol = poligonoDaNucleo(nucleo, r) ?: continue
+            val pol = poligonoDaNucleo(nucleo, r) ?: run { if (DEBUG) println("DBG r=$r poligono null"); null } ?: continue
             // Con la stima dell'AI: se il vano trovato è molto più grande (ha inglobato un vano
             // accanto passando da una porta) si riprova chiudendo aperture più larghe.
             if (areaAttesaImmagine != null && areaAttesaImmagine > 0) {
                 val rapporto = abs(areaConSegno(pol)) / areaAttesaImmagine
+                if (DEBUG) println("DBG r=$r rapporto=${"%.2f".format(rapporto)}")
                 if (rapporto > 1.4) continue
             }
             return pol
@@ -353,6 +446,32 @@ class SegmentazionePlanimetria(
                 cambiato = true; break
             }
         }
+        // 1b. scalini lungo una parete: tra due tratti lunghi paralleli quasi allineati, fino a 5
+        //     tratti corti (il contorno che gira attorno a una croce di porta o a una scritta
+        //     attaccata al muro) si tolgono e la parete torna dritta.
+        cambiato = true; giri = 0
+        while (cambiato && p.size >= 6 && giri++ < 60) {
+            cambiato = false
+            val n = p.size
+            loop@ for (i in 0 until n) {
+                val e0 = p[(i - 1 + n) % n]; val e1 = p[i]
+                if (len(e0, e1) < dente * 2) continue
+                var percorso = 0f
+                for (k in 1..5) {
+                    if (n - (k - 1) < 4) break
+                    percorso += len(p[(i + k - 1) % n], p[(i + k) % n])
+                    if (percorso > larghezzaDente * 1.5f) break
+                    val f0 = p[(i + k) % n]; val f1 = p[(i + k + 1) % n]
+                    if (len(f0, f1) < dente * 2) continue
+                    if (k < 2) break
+                    if (cos(e0, e1, f0, f1) < 0.95f) break
+                    if (distRetta(f0, e0, e1) > dente * 0.5f) break
+                    val rimuovi = (1 until k).map { (i + it) % n }.sortedDescending()
+                    rimuovi.forEach { p.removeAt(it) }
+                    cambiato = true; break@loop
+                }
+            }
+        }
         // 2. angoli smussati o "girati intorno" a un segno: tra due pareti lunghe quasi perpendicolari,
         //    fino a 3 tratti corti si sostituiscono con l'incrocio delle due pareti.
         cambiato = true; giri = 0
@@ -387,7 +506,7 @@ class SegmentazionePlanimetria(
             val tipo = IntArray(n) { i ->
                 val a = p[i]; val b = p[(i + 1) % n]
                 val dx = abs(b.x - a.x); val dy = abs(b.y - a.y)
-                when { dy <= dx * 0.105f -> 1; dx <= dy * 0.105f -> 2; else -> 0 }
+                when { dy <= dx * 0.21f -> 1; dx <= dy * 0.21f -> 2; else -> 0 }
             }
             val coord = FloatArray(n) { i ->
                 val a = p[i]; val b = p[(i + 1) % n]
@@ -540,6 +659,46 @@ class SegmentazionePlanimetria(
      * Toglie dai muri le "isole" piccole non collegate alla rete dei muri: lettere delle scritte
      * (es. "LOGGIA", "CUCINA mq 12"), simboli, numeri, che altrimenti spezzerebbero un vano in due.
      */
+    /**
+     * Nei disegni a linee sottili le scritte (destinazioni come "Terrazza", "Bagno", "Rip.", sigle,
+     * altezze) hanno lo stesso spessore dei muri e non si distinguono per spessore: si riconoscono
+     * dalla forma. Una scritta isolata è un gruppo compatto di tratti (ingombro piccolo, non una
+     * linea dritta, inchiostro sparso nel suo rettangolo); un pezzo di muro staccato è invece una
+     * linea lunga e sottile o un rettangolo pieno.
+     */
+    private fun togliScritte(m: BooleanArray, scuro: BooleanArray): BooleanArray {
+        val out = m.copyOf()
+        val visto = BooleanArray(w * h)
+        val coda = IntArray(w * h)
+        val latoMax = (LATO_LAVORO * 0.15).roundToInt()
+        val latoMinTesto = (LATO_LAVORO * 0.006).roundToInt().coerceAtLeast(6)
+        for (inizio in 0 until w * h) {
+            if (!m[inizio] || visto[inizio]) continue
+            var testa = 0; var fine = 0
+            coda[fine++] = inizio; visto[inizio] = true
+            var minX = w; var maxX = 0; var minY = h; var maxY = 0
+            while (testa < fine) {
+                val i = coda[testa++]
+                val x = i % w; val y = i / w
+                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+                for (dy in -1..1) for (dx in -1..1) {
+                    val nx = x + dx; val ny = y + dy
+                    if (nx !in 0 until w || ny !in 0 until h) continue
+                    val j = ny * w + nx
+                    if (m[j] && !visto[j]) { visto[j] = true; coda[fine++] = j }
+                }
+            }
+            val bw = maxX - minX + 1; val bh = maxY - minY + 1
+            // inchiostro originale (non ingrossato) dentro il rettangolo d'ingombro
+            var nScuro = 0
+            for (k in 0 until fine) if (scuro[coda[k]]) nScuro++
+            val riempimento = nScuro.toDouble() / (bw.toLong() * bh)
+            val scritta = max(bw, bh) < latoMax && min(bw, bh) >= latoMinTesto && riempimento < 0.6
+            if (scritta) for (k in 0 until fine) out[coda[k]] = false
+        }
+        return out
+    }
+
     private fun togliIsole(m: BooleanArray, latoMinimo: Int, erosa: BooleanArray? = null, latoTesto: Int = 0): BooleanArray {
         val out = m.copyOf()
         val visto = BooleanArray(w * h)
@@ -580,7 +739,21 @@ class SegmentazionePlanimetria(
         if (!muriChiusi[y0 * w + x0]) return x0 to y0
         val visto = HashSet<Int>()
         val coda = ArrayDeque<Int>()
-        val inizio = y0 * w + x0
+        var inizio = y0 * w + x0
+        // Seme caduto sopra un segno spesso (freccia, pilastro, scritta in grassetto): si parte dal
+        // punto non murato più vicino.
+        if (muriSpessi[inizio]) {
+            var trovato = -1
+            loop@ for (r in 1..raggio) {
+                for (dy in -r..r) for (dx in -r..r) {
+                    if (max(abs(dx), abs(dy)) != r) continue
+                    val x = x0 + dx; val y = y0 + dy
+                    if (x in 0 until w && y in 0 until h && !muriSpessi[y * w + x]) { trovato = y * w + x; break@loop }
+                }
+            }
+            if (trovato < 0) return null
+            inizio = trovato
+        }
         coda.add(inizio); visto.add(inizio)
         val r2 = (raggio * 1.5).let { it * it }
         while (coda.isNotEmpty()) {
@@ -912,5 +1085,102 @@ object RilevatoreZoneDisegno {
             }
         }
         return out
+    }
+}
+
+/**
+ * Sceglie da solo il metodo migliore per il disegno caricato. Le planimetrie catastali hanno
+ * grafiche molto diverse (muri campiti a mano, muri a doppia linea dei programmi CAD con o senza
+ * tratteggio, disegni misti, scansioni vecchie con reticolo e scritte a mano), e nessun singolo
+ * modello dei muri va bene per tutte. Qui si tengono pronti due modelli:
+ *  - PIENI: muri = tratti spessi (le linee sottili, cioè scritte, croci delle porte, gradini, quote,
+ *    reticolo, si scartano; finestre e soglie dentro lo spessore del muro si rimettono);
+ *  - LINEE: muri = tutte le linee (per i disegni a doppia linea sottile, dove la linea interna del
+ *    muro delimita il vano);
+ * e per ogni vano si confrontano i due contorni, tenendo quello più coerente con l'area stimata
+ * dall'AI e più "pulito" (meno vertici). Se uno dei due fallisce, vale l'altro.
+ */
+class AnalizzatoreVani(
+    private val bitmap: Bitmap,
+    private val regione: Rect,
+    private val metriPerPixel: Double?
+) {
+    internal val pieni by lazy { SegmentazionePlanimetria(bitmap, regione, metriPerPixel, SegmentazionePlanimetria.TipoMuri.PIENI) }
+    internal val linee by lazy { SegmentazionePlanimetria(bitmap, regione, metriPerPixel, SegmentazionePlanimetria.TipoMuri.LINEE) }
+
+    /** Modello prevalente per il disegno (usato per l'aggancio delle stime AI e per i vani mancanti). */
+    val principale: SegmentazionePlanimetria by lazy {
+        if (pieni.quotaInchiostroSpesso >= SegmentazionePlanimetria.SOGLIA_QUOTA_PIENI) pieni else linee
+    }
+
+    /** Quante volte ha vinto ciascun modello (diagnosi). */
+    val vittorie = HashMap<String, Int>()
+
+    data class Esito(val vertici: List<PointF>, val metodo: String)
+
+    fun misura(seme: PointF, areaAttesa: Double?): Esito? {
+        val candidati = ArrayList<Pair<Esito, Double>>()
+        for ((nome, modello) in listOf("pieni" to pieni, "linee" to linee)) {
+            if (!modello.utilizzabile) continue
+            val pol = modello.poligonoDaPunto(seme, areaAttesa) ?: continue
+            val area = areaPoligono(pol)
+            var punteggio = 0.05 * (pol.size - 4).coerceAtLeast(0)
+            if (areaAttesa != null && areaAttesa > 0) {
+                val r = area / areaAttesa
+                if (r !in 0.55..1.5) continue
+                punteggio += 2 * abs(ln(r))
+            }
+            // a parità, il modello prevalente per il disegno
+            if (modello === principale) punteggio -= 0.02
+            candidati += Esito(pol, nome) to punteggio
+        }
+        val migliore = candidati.minByOrNull { it.second }?.first ?: return null
+        vittorie[migliore.metodo] = (vittorie[migliore.metodo] ?: 0) + 1
+        return migliore
+    }
+
+    /** Diagnosi: risultato grezzo di ciascun modello (area/attesa e vertici). */
+    fun dettaglio(seme: PointF, areaAttesa: Double?): String = listOf("pieni" to pieni, "linee" to linee).joinToString("  ") { (n, m) ->
+        val pol = if (m.utilizzabile) m.poligonoDaPunto(seme, areaAttesa) else null
+        if (pol == null) "$n=null" else "$n=${pol.size}v r=${"%.2f".format(areaPoligono(pol) / (areaAttesa ?: 1.0))}"
+    }
+
+    fun agganciaAiMuri(vertici: List<PointF>): List<PointF> = principale.agganciaAiMuri(vertici)
+
+    /** Descrizione in italiano del tipo di disegno riconosciuto e del metodo usato, per l'utente. */
+    fun descrizioneDisegno(): String {
+        val p = vittorie["pieni"] ?: 0; val l = vittorie["linee"] ?: 0
+        val tipo = when {
+            p > 0 && l > 0 -> "disegno misto (muri campiti e a linee sottili): metodo scelto vano per vano"
+            p > 0 -> "muri campiti: scritte, croci delle porte e gradini ignorati"
+            l > 0 -> "muri a linee sottili: scritte e segni isolati ignorati"
+            principale.muriPieniRiconosciuti() -> "muri campiti"
+            else -> "muri a linee sottili"
+        }
+        val reticolo = if (pieni.reticoloTolto || linee.reticoloTolto) "; reticolo/carta millimetrata tolto" else ""
+        return tipo + reticolo
+    }
+
+    /**
+     * Spazi chiusi non indicati, ma solo quelli plausibili come vani dell'unità: non più grandi
+     * del vano più grande già trovato (×1,3) e dentro l'ingombro dei vani trovati. Così corti,
+     * resedi, "altre proprietà" e il riquadro del lotto non diventano "locali da verificare".
+     */
+    fun vaniChiusiMancanti(gia: List<List<PointF>>): List<List<PointF>> {
+        if (gia.isEmpty()) return emptyList()
+        val areaMax = gia.maxOf { areaPoligono(it) } * 1.3
+        val minX = gia.minOf { p -> p.minOf { it.x } }; val maxX = gia.maxOf { p -> p.maxOf { it.x } }
+        val minY = gia.minOf { p -> p.minOf { it.y } }; val maxY = gia.maxOf { p -> p.maxOf { it.y } }
+        val mx = (maxX - minX) * 0.05f; val my = (maxY - minY) * 0.05f
+        return principale.vaniChiusiMancanti(gia).filter { pol ->
+            areaPoligono(pol) <= areaMax &&
+                pol.all { it.x in (minX - mx)..(maxX + mx) && it.y in (minY - my)..(maxY + my) }
+        }
+    }
+
+    private fun areaPoligono(p: List<PointF>): Double {
+        var s = 0.0
+        for (i in p.indices) { val a = p[i]; val b = p[(i + 1) % p.size]; s += a.x.toDouble() * b.y - b.x.toDouble() * a.y }
+        return abs(s) / 2
     }
 }

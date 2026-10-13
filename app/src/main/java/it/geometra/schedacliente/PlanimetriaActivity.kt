@@ -68,6 +68,8 @@ class PlanimetriaActivity : AppCompatActivity() {
     private var scalaX: Double? = null
     /** Zone del foglio con muri pieni (piante), calcolate all'avvio del rilevamento automatico. */
     private var zoneDisegno: List<Rect>? = null
+    /** Tipo di disegno riconosciuto nell'ultima misura dei contorni (mostrato all'utente). */
+    @Volatile private var ultimaDescrizioneDisegno: String? = null
     private var scalaY: Double? = null
     private var direzioneCalibrazioneCorrente = DirezioneScala.OBLIQUA
     private var calibrazioneEntrambeInCorso = false
@@ -1482,6 +1484,8 @@ class PlanimetriaActivity : AppCompatActivity() {
             }
             handlerPrincipale.post {
                 if (isFinishing || isDestroyed) return@post
+                ultimaDescrizioneDisegno?.let { Toast.makeText(this, "Disegno riconosciuto: $it", Toast.LENGTH_LONG).show() }
+                ultimaDescrizioneDisegno = null
                 fatto(risultato)
             }
         }.start()
@@ -1521,18 +1525,24 @@ class PlanimetriaActivity : AppCompatActivity() {
         // di pianta, i vani sul bordo risulterebbero "aperti" e non misurabili.
         val m = (maxOf(bitmap.width, bitmap.height) * 0.04f).toInt()
         val regioneLarga = Rect(regione).apply { inset(-m, -m); intersect(0, 0, bitmap.width, bitmap.height) }
-        val seg = SegmentazionePlanimetria(bitmap, regioneLarga, metriPerPixel)
+        // L'analizzatore tiene pronti due modelli dei muri (campiti / a linee sottili) e per ogni
+        // vano sceglie il contorno migliore: così vanno bene sia i disegni CAD recenti sia le
+        // vecchie schede disegnate a mano.
+        val seg = AnalizzatoreVani(bitmap, regioneLarga, metriPerPixel)
         val esito = mutableListOf<PropostaLocaleAi>()
-        if (!seg.utilizzabile) return proposte.filter { it.verticiPx.size >= 3 }.toMutableList()
+        if (!seg.pieni.utilizzabile && !seg.linee.utilizzabile) return proposte.filter { it.verticiPx.size >= 3 }.toMutableList()
         for (p in proposte) {
+            // Vano scala: i gradini disegnati spezzano lo spazio in tanti pezzi e il riempimento
+            // non è affidabile; si usa la forma dell'AI riportata sui muri.
+            val eScala = Regex("scal", RegexOption.IGNORE_CASE).containsMatchIn(p.nome)
             val semi = buildList {
                 p.puntoInterno?.let { add(it) }
                 if (p.verticiPx.size >= 3) add(GeometriaUtils.centroide(p.verticiPx))
             }
             val areaAi = if (p.verticiPx.size >= 3) GeometriaUtils.areaPoligono(p.verticiPx) else null
             var misurato: List<PointF>? = null
-            for (seme in semi) {
-                val pol = seg.poligonoDaPunto(seme, areaAi) ?: continue
+            for (seme in if (eScala && p.verticiPx.size >= 3) emptyList() else semi) {
+                val pol = seg.misura(seme, areaAi)?.vertici ?: continue
                 // Stesso vano già misurato per un'altra proposta (due punti nella stessa stanza):
                 // non lo si duplica.
                 val c = GeometriaUtils.centroide(pol)
@@ -1563,6 +1573,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                 }
             }
         }
+        ultimaDescrizioneDisegno = seg.descrizioneDisegno()
         // Passata di completezza.
         var n = 1
         seg.vaniChiusiMancanti(esito.map { it.verticiPx }).filter { pol ->
