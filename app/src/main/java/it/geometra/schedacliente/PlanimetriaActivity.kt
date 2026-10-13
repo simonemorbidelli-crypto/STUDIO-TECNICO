@@ -114,6 +114,22 @@ class PlanimetriaActivity : AppCompatActivity() {
      * prima ancora che la risposta AI in ritardo del locale saltato arrivasse.
      */
     private var generazioneElaborazioneLocale = 0
+    /**
+     * Numero della "sessione" di rilevamento automatico: cambia a ogni avvio e a ogni fine o
+     * interruzione (vedi terminaOperazioneInCorso). Le risposte AI e i calcoli in background della
+     * fase iniziale (scala, piante, misura dei contorni sui muri) catturano il valore all'avvio e,
+     * se nel frattempo il rilevamento è stato interrotto o riavviato, non fanno nulla.
+     * CORREZIONE v3.76: prima "Interrompi" premuto in questa fase non fermava le risposte già in
+     * viaggio, che facevano ripartire il rilevamento da sole (con chiamate AI non volute e, se nel
+     * frattempo si caricava un'altra planimetria, locali della vecchia disegnati sulla nuova).
+     */
+    private var sessioneRilevamento = 0
+    /** true solo quando si stanno esaminando i locali uno alla volta (dopo la fase iniziale): serve a "Salta locale". */
+    private var faseLocaliInCorso = false
+
+    private fun sessioneAttiva(sessione: Int): Boolean =
+        !isFinishing && !isDestroyed && rilevamentoAutomaticoInCorso && sessione == sessioneRilevamento
+
     /** Azione da eseguire subito dopo che l'utente ha impostato una scala con il tocco di due punti. */
     private var azioneDopoCalibrazione: (() -> Unit)? = null
     /**
@@ -1027,6 +1043,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         val coda = codaRilevamentoSospesa ?: return
         codaRilevamentoSospesa = null
         rilevamentoAutomaticoInCorso = true
+        sessioneRilevamento++
         modalita = Modalita.TRACCIAMENTO
         binding.tvRisultatoPlanimetria.visibility = View.GONE
         binding.tvIstruzioneTocco.visibility = View.VISIBLE
@@ -1057,6 +1074,8 @@ class PlanimetriaActivity : AppCompatActivity() {
         }
 
         rilevamentoAutomaticoInCorso = true
+        faseLocaliInCorso = false
+        val sessione = ++sessioneRilevamento
         modalita = Modalita.TRACCIAMENTO
         binding.tvRisultatoPlanimetria.visibility = View.GONE
         binding.tvIstruzioneTocco.visibility = View.VISIBLE
@@ -1078,7 +1097,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             // Prima la ricerca locale, precisa e senza AI, della barra/tacche blu sul bordo; l'AI
             // sul reticolo resta solo come ripiego se il bordo blu non c'è.
             rilevaScalaDalBordo(bitmapPerParametri) { trovata ->
-                if (isFinishing || isDestroyed) return@rilevaScalaDalBordo
+                if (!sessioneAttiva(sessione)) return@rilevaScalaDalBordo
                 if (trovata != null) {
                     evidenziaScalaEProsegui(trovata, chiaveApi)
                 } else {
@@ -1096,10 +1115,11 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     /** Ripiego con l'AI sul reticolo, se la ricerca locale della barra blu non ha trovato nulla. */
     private fun avviaScalaDaParametriAi(chiaveApi: String, bitmapPerParametri: Bitmap) {
+        val sessione = sessioneRilevamento
         run {
             InterpretaScalaParametri.analizza(chiaveApi, bitmapPerParametri, object : InterpretaScalaParametri.Callback {
                 override fun onSuccesso(trovato: Boolean, x1: Double?, y1: Double?, x2: Double?, y2: Double?, numeroIntervalli: Int, nota: String?) {
-                    if (isFinishing || isDestroyed) return
+                    if (!sessioneAttiva(sessione)) return
                     val bmp = binding.superficieView.bitmap
                     if (trovato && bmp != null && x1 != null && y1 != null && x2 != null && y2 != null) {
                         val p1 = PointF((x1 * bmp.width).toFloat(), (y1 * bmp.height).toFloat())
@@ -1139,7 +1159,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                             aggiornaBarraSchermoIntero()
                             Toast.makeText(this@PlanimetriaActivity, "Scala rilevata automaticamente dal reticolo catastale.", Toast.LENGTH_LONG).show()
                             handlerPrincipale.postDelayed({
-                                if (isFinishing || isDestroyed) return@postDelayed
+                                if (!sessioneAttiva(sessione)) return@postDelayed
                                 binding.superficieView.puntiScalaEvidenziati.clear()
                                 binding.superficieView.azzeraZoom()
                                 avviaRilevamentoVertici(chiaveApi)
@@ -1151,7 +1171,7 @@ class PlanimetriaActivity : AppCompatActivity() {
                 }
 
                 override fun onErrore(messaggio: String) {
-                    if (isFinishing || isDestroyed) return
+                    if (!sessioneAttiva(sessione)) return
                     richiediScalaDaSegmento()
                 }
             })
@@ -1176,6 +1196,8 @@ class PlanimetriaActivity : AppCompatActivity() {
             }
             handlerPrincipale.post {
                 if (isFinishing || isDestroyed) return@post
+                // Nel frattempo è stata caricata un'altra planimetria: questa scala non le appartiene.
+                if (binding.superficieView.bitmap !== bitmap) return@post
                 val r = risultato
                 if (r != null) {
                     scalaX = r.metriPerPixel
@@ -1210,8 +1232,9 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.tvIstruzioneTocco.text = "Scala rilevata dalla ${r.descrizione}: tratto evidenziato = ${String.format(Locale.ITALY, "%.0f", r.metriTraPunti)} m."
         aggiornaBarraSchermoIntero()
         Toast.makeText(this, "Scala rilevata automaticamente dal bordo del foglio.", Toast.LENGTH_LONG).show()
+        val sessione = sessioneRilevamento
         handlerPrincipale.postDelayed({
-            if (isFinishing || isDestroyed) return@postDelayed
+            if (!sessioneAttiva(sessione)) return@postDelayed
             binding.superficieView.puntiScalaEvidenziati.clear()
             binding.superficieView.azzeraZoom()
             avviaRilevamentoVertici(chiaveApi)
@@ -1254,14 +1277,16 @@ class PlanimetriaActivity : AppCompatActivity() {
         // Zone del foglio con muri pieni (le piante vere), calcolate sul telefono in parallelo
         // alla richiesta all'AI: servono ad agganciare i riquadri delle piante al disegno reale.
         zoneDisegno = null
+        val sessione = sessioneRilevamento
         Thread {
             val z = try { RilevatoreZoneDisegno.zone(bitmap) } catch (e: Throwable) { emptyList() }
-            handlerPrincipale.post { zoneDisegno = z }
+            // Solo se è ancora lo stesso rilevamento (altrimenti sarebbero zone di un'altra immagine).
+            handlerPrincipale.post { if (sessione == sessioneRilevamento) zoneDisegno = z }
         }.start()
 
         InterpretePlanimetria.rilevaPiante(chiaveApi, bitmap, object : InterpretePlanimetria.CallbackPiante {
             override fun onSuccesso(piante: List<RettangoloPianta>) {
-                if (isFinishing || isDestroyed) return
+                if (!sessioneAttiva(sessione)) return
                 // Anche con una sola pianta si lavora sul ritaglio della pianta (zoom sul piano)
                 // invece che sull'intera tavola: su un foglio grande i vani piccoli sfuggono.
                 if (piante.isEmpty()) {
@@ -1272,7 +1297,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             }
 
             override fun onErrore(messaggio: String) {
-                if (isFinishing || isDestroyed) return
+                if (!sessioneAttiva(sessione)) return
                 // Se non si riescono a distinguere le piante, si procede comunque con
                 // un'unica analisi sull'intera immagine (comportamento precedente).
                 rilevaLocaliInteraImmagine(chiaveApi, bitmap)
@@ -1282,12 +1307,13 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     /** Rilevamento locali in un'unica chiamata su tutta l'immagine: usato quando è presente una sola pianta, o quando non è stato possibile distinguerne più d'una. */
     private fun rilevaLocaliInteraImmagine(chiaveApi: String, bitmap: Bitmap) {
-        if (isFinishing || isDestroyed) return
+        val sessione = sessioneRilevamento
+        if (!sessioneAttiva(sessione)) return
         binding.tvIstruzioneTocco.text = "Rilevamento automatico dei locali in corso (AI)..."
         aggiornaBarraSchermoIntero()
         InterpretePlanimetria.analizzaVerticiBitmap(chiaveApi, bitmap, object : InterpretePlanimetria.Callback {
             override fun onSuccesso(risultato: JSONObject) {
-                if (isFinishing || isDestroyed) return
+                if (!sessioneAttiva(sessione)) return
                 val proposte = estraiVerticiDaRisultato(risultato.optJSONArray("locali"))
                 // Ogni gruppo di locali si misura sulla zona di disegno (pianta) che lo contiene,
                 // ad alta risoluzione, invece che sull'intera tavola rimpicciolita.
@@ -1297,7 +1323,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             }
 
             override fun onErrore(messaggio: String) {
-                if (isFinishing || isDestroyed) return
+                if (!sessioneAttiva(sessione)) return
                 Toast.makeText(this@PlanimetriaActivity, "Rilevamento non riuscito: $messaggio", Toast.LENGTH_LONG).show()
                 terminaRilevamentoAutomatico()
             }
@@ -1316,7 +1342,8 @@ class PlanimetriaActivity : AppCompatActivity() {
         accumulato: MutableList<PropostaLocaleAi>,
         pianteVuote: MutableList<RettangoloPianta> = mutableListOf()
     ) {
-        if (isFinishing || isDestroyed) return
+        val sessione = sessioneRilevamento
+        if (!sessioneAttiva(sessione)) return
         if (pianteRestanti.isEmpty()) {
             if (pianteVuote.isEmpty()) avviaCodaLocaliRilevati(accumulato)
             else recuperaPianteVuote(chiaveApi, bitmap, accumulato, pianteVuote)
@@ -1343,7 +1370,7 @@ class PlanimetriaActivity : AppCompatActivity() {
 
         InterpretePlanimetria.analizzaVerticiBitmap(chiaveApi, ritaglio, object : InterpretePlanimetria.Callback {
             override fun onSuccesso(risultato: JSONObject) {
-                if (isFinishing || isDestroyed) return
+                if (!sessioneAttiva(sessione)) return
                 val proposte = estraiVerticiDaRisultato(
                     risultato.optJSONArray("locali"),
                     rettangolo.left.toFloat(),
@@ -1367,7 +1394,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             }
 
             override fun onErrore(messaggio: String) {
-                if (isFinishing || isDestroyed) return
+                if (!sessioneAttiva(sessione)) return
                 // Prima un errore (es. risposta troncata) faceva saltare la pianta senza avvisi.
                 pianteVuote.add(pianta)
                 elaboraPianteInSequenza(chiaveApi, bitmap, pianteRestanti, accumulato, pianteVuote)
@@ -1388,7 +1415,8 @@ class PlanimetriaActivity : AppCompatActivity() {
         accumulato: MutableList<PropostaLocaleAi>,
         pianteVuote: List<RettangoloPianta>
     ) {
-        if (isFinishing || isDestroyed) return
+        val sessione = sessioneRilevamento
+        if (!sessioneAttiva(sessione)) return
         binding.tvIstruzioneTocco.text =
             "Nessun locale trovato in \"${pianteVuote.joinToString("\", \"") { it.nome }}\": riprovo sull'intera planimetria..."
         aggiornaBarraSchermoIntero()
@@ -1414,7 +1442,7 @@ class PlanimetriaActivity : AppCompatActivity() {
 
         InterpretePlanimetria.analizzaVerticiBitmap(chiaveApi, bitmap, object : InterpretePlanimetria.Callback {
             override fun onSuccesso(risultato: JSONObject) {
-                if (isFinishing || isDestroyed) return
+                if (!sessioneAttiva(sessione)) return
                 val tutti = estraiVerticiDaRisultato(risultato.optJSONArray("locali")).filter { it.verticiPx.size >= 3 }
                 val rettangoliVuoti = pianteVuote.mapNotNull { rettangoloDaFrazioni(bitmap, it.x0, it.y0, it.x1, it.y1) }
                 val recuperati = tutti.filter { p ->
@@ -1439,7 +1467,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             }
 
             override fun onErrore(messaggio: String) {
-                if (isFinishing || isDestroyed) return
+                if (!sessioneAttiva(sessione)) return
                 concludi(emptyList())
             }
         })
@@ -1476,6 +1504,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         fatto: (MutableList<PropostaLocaleAi>) -> Unit
     ) {
         val metriPerPixel = scalaX
+        val sessione = sessioneRilevamento
         Thread {
             val risultato = try {
                 calcolaLocaliMisurati(bitmap, regione, proposte, metriPerPixel)
@@ -1483,9 +1512,11 @@ class PlanimetriaActivity : AppCompatActivity() {
                 proposte.filter { it.verticiPx.size >= 3 }.toMutableList()
             }
             handlerPrincipale.post {
-                if (isFinishing || isDestroyed) return@post
-                ultimaDescrizioneDisegno?.let { Toast.makeText(this, "Disegno riconosciuto: $it", Toast.LENGTH_LONG).show() }
+                val descrizione = ultimaDescrizioneDisegno
                 ultimaDescrizioneDisegno = null
+                // Rilevamento interrotto o riavviato mentre si misurava: il risultato non serve più.
+                if (!sessioneAttiva(sessione)) return@post
+                descrizione?.let { Toast.makeText(this, "Disegno riconosciuto: $it", Toast.LENGTH_LONG).show() }
                 fatto(risultato)
             }
         }.start()
@@ -1600,7 +1631,8 @@ class PlanimetriaActivity : AppCompatActivity() {
     }
 
     private fun avviaCodaLocaliRilevati(proposte: MutableList<PropostaLocaleAi>) {
-        if (isFinishing || isDestroyed) return
+        if (isFinishing || isDestroyed || !rilevamentoAutomaticoInCorso) return
+        faseLocaliInCorso = true
         codaRilevamentoAi = proposte
         if (codaRilevamentoAi.isEmpty()) {
             binding.tvIstruzioneTocco.text = "Non ho individuato locali con contorno riconoscibile in questa immagine."
@@ -1632,7 +1664,9 @@ class PlanimetriaActivity : AppCompatActivity() {
      * esso ancora in arrivo, poi passa subito al locale successivo in coda.
      */
     private fun saltaLocaleInElaborazione() {
-        if (!rilevamentoAutomaticoInCorso || modalita == Modalita.MODIFICA_LOCALE) return
+        // Nella fase iniziale (scala, piante, misura) non c'è ancora un locale da saltare: prima
+        // il pulsante faceva terminare tutto con "completato" mentre l'analisi era ancora in corso.
+        if (!rilevamentoAutomaticoInCorso || !faseLocaliInCorso || modalita == Modalita.MODIFICA_LOCALE) return
         handlerPrincipale.removeCallbacksAndMessages(null)
         binding.superficieView.puntiLocaleCorrente.clear()
         binding.superficieView.disegnaCorrenteChiuso = false
@@ -1970,12 +2004,19 @@ class PlanimetriaActivity : AppCompatActivity() {
         dialog.rendiPulsantiLeggibili(this)
         val pulsanteConferma = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
         val durataMs = 3000L
-        val inizio = android.os.SystemClock.uptimeMillis()
+        // CORREZIONE v3.76: il tempo conta solo mentre l'app è in primo piano. Prima il conto
+        // continuava anche con l'app in secondo piano (telefonata, cambio app, schermo spento) e al
+        // ritorno si trovavano tutti i locali confermati da soli, senza averli visti.
+        var trascorsoMs = 0L
+        var ultimoTic = android.os.SystemClock.uptimeMillis()
         lateinit var tic: Runnable
         tic = Runnable {
             if (scelto || !dialog.isShowing || isFinishing || isDestroyed) return@Runnable
             if (generazione != generazioneElaborazioneLocale) { scelto = true; dialog.dismiss(); return@Runnable }
-            val restanti = durataMs - (android.os.SystemClock.uptimeMillis() - inizio)
+            val ora = android.os.SystemClock.uptimeMillis()
+            if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) trascorsoMs += ora - ultimoTic
+            ultimoTic = ora
+            val restanti = durataMs - trascorsoMs
             if (restanti <= 0) {
                 scelto = true
                 dialog.dismiss()
@@ -2640,6 +2681,9 @@ class PlanimetriaActivity : AppCompatActivity() {
         modalita = Modalita.NESSUNA
         proposizioneInVerifica = null
         rilevamentoAutomaticoInCorso = false
+        faseLocaliInCorso = false
+        // Invalida qualunque risposta AI o calcolo del rilevamento ancora in arrivo (vedi sessioneRilevamento).
+        sessioneRilevamento++
         codaRilevamentoAi.clear()
         azioneDopoCalibrazione = null
         binding.superficieView.puntiCalibrazione.clear()
@@ -2780,7 +2824,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         // "Salta locale" permette di scartare subito il locale che l'AI sta elaborando/animando
         // (prima ancora che venga chiesto se correggerlo), per chi si accorge che non va rilevato.
         dialogBinding.btnSaltaLocaleSchermoIntero.visibility =
-            if (rilevamentoAutomaticoInCorso && !inModifica) View.VISIBLE else View.GONE
+            if (rilevamentoAutomaticoInCorso && faseLocaliInCorso && !inModifica) View.VISIBLE else View.GONE
         // A differenza di "Salta locale" (che scarta solo il locale in esame in quel momento),
         // questo pulsante interrompe subito TUTTO il rilevamento automatico, qualunque sia il
         // locale in corso o quanti ne restino ancora in coda: prima della sua introduzione
