@@ -66,6 +66,8 @@ class PlanimetriaActivity : AppCompatActivity() {
 
     private var modalita = Modalita.NESSUNA
     private var scalaX: Double? = null
+    /** Zone del foglio con muri pieni (piante), calcolate all'avvio del rilevamento automatico. */
+    private var zoneDisegno: List<Rect>? = null
     private var scalaY: Double? = null
     private var direzioneCalibrazioneCorrente = DirezioneScala.OBLIQUA
     private var calibrazioneEntrambeInCorso = false
@@ -80,7 +82,18 @@ class PlanimetriaActivity : AppCompatActivity() {
     private var nomeModificato: String? = null
 
     /** Un locale individuato dall'AI con una stima (approssimativa) dei suoi vertici in pixel, non ancora verificato dall'utente. */
-    private data class PropostaLocaleAi(val nome: String, val verticiPx: List<PointF>)
+    /**
+     * Locale proposto dal rilevamento automatico. [puntoInterno] è il punto dentro al vano indicato
+     * dall'AI; [precisa] = true quando il contorno è stato misurato dal telefono sui muri del
+     * disegno (SegmentazionePlanimetria) e non stimato a occhio dall'AI: in quel caso non serve
+     * l'affinamento AI successivo.
+     */
+    private data class PropostaLocaleAi(
+        val nome: String,
+        val verticiPx: List<PointF>,
+        val puntoInterno: PointF? = null,
+        val precisa: Boolean = false
+    )
     private var proposteAi: MutableList<PropostaLocaleAi> = mutableListOf()
     private var proposizioneInVerifica: PropostaLocaleAi? = null
 
@@ -802,8 +815,15 @@ class PlanimetriaActivity : AppCompatActivity() {
             val altezza = altezzaRegione ?: bitmap.height.toFloat()
             for (i in 0 until localiAi.length()) {
                 val locale = localiAi.getJSONObject(i)
-                val verticiJson = locale.optJSONArray("vertici") ?: continue
-                if (verticiJson.length() < 3) continue
+                val puntoInterno = locale.optJSONObject("punto_interno")?.let { pi ->
+                    val fx = pi.optDouble("x", Double.NaN)
+                    val fy = pi.optDouble("y", Double.NaN)
+                    if (fx.isNaN() || fy.isNaN() || fx !in 0.0..1.0 || fy !in 0.0..1.0) null
+                    else PointF(origineX + fx.toFloat() * larghezza, origineY + fy.toFloat() * altezza)
+                }
+                val verticiJson = locale.optJSONArray("vertici") ?: org.json.JSONArray()
+                // Un vano con solo il punto interno si tiene: il contorno lo può misurare il telefono.
+                if (verticiJson.length() < 3 && puntoInterno == null) continue
                 val vertici = mutableListOf<PointF>()
                 for (v in 0 until verticiJson.length()) {
                     val punto = verticiJson.optJSONObject(v) ?: continue
@@ -812,7 +832,8 @@ class PlanimetriaActivity : AppCompatActivity() {
                     if (fx.isNaN() || fy.isNaN()) continue
                     vertici.add(PointF(origineX + fx.toFloat() * larghezza, origineY + fy.toFloat() * altezza))
                 }
-                if (vertici.size < 3) continue
+                if (vertici.size < 3 && puntoInterno == null) continue
+                if (vertici.size < 3) vertici.clear()
                 val nome = locale.optString("nome").trim().ifBlank { "Locale ${i + 1}" }
                 val destinazione = locale.optString("destinazione").trim()
                 // CORREZIONE (ottobre 2026): "destinazione" veniva accodata al nome ogni volta
@@ -828,14 +849,14 @@ class PlanimetriaActivity : AppCompatActivity() {
                     nome.contains(destinazione, ignoreCase = true) ||
                     destinazione.contains(nome, ignoreCase = true)
                 val nomeCompleto = if (sonoEquivalenti) nome else "$nome - $destinazione"
-                risultato.add(PropostaLocaleAi(nomeCompleto, vertici))
+                risultato.add(PropostaLocaleAi(nomeCompleto, vertici, puntoInterno))
             }
         }
         return risultato
     }
 
     private fun estraiProposteAi(localiAi: org.json.JSONArray?) {
-        proposteAi = estraiVerticiDaRisultato(localiAi)
+        proposteAi = estraiVerticiDaRisultato(localiAi).filter { it.verticiPx.size >= 3 }.toMutableList()
         disegnaProposteAi()
     }
 
@@ -1220,10 +1241,20 @@ class PlanimetriaActivity : AppCompatActivity() {
         // contiene spesso più piani nella stessa immagine, es. piano seminterrato + piano
         // terra): analizzarli separatamente, uno alla volta e ciascuno ritagliato per conto
         // proprio, evita che l'AI confonda locali o vertici appartenenti a piante diverse.
+        // Zone del foglio con muri pieni (le piante vere), calcolate sul telefono in parallelo
+        // alla richiesta all'AI: servono ad agganciare i riquadri delle piante al disegno reale.
+        zoneDisegno = null
+        Thread {
+            val z = try { RilevatoreZoneDisegno.zone(bitmap) } catch (e: Throwable) { emptyList() }
+            handlerPrincipale.post { zoneDisegno = z }
+        }.start()
+
         InterpretePlanimetria.rilevaPiante(chiaveApi, bitmap, object : InterpretePlanimetria.CallbackPiante {
             override fun onSuccesso(piante: List<RettangoloPianta>) {
                 if (isFinishing || isDestroyed) return
-                if (piante.size <= 1) {
+                // Anche con una sola pianta si lavora sul ritaglio della pianta (zoom sul piano)
+                // invece che sull'intera tavola: su un foglio grande i vani piccoli sfuggono.
+                if (piante.isEmpty()) {
                     rilevaLocaliInteraImmagine(chiaveApi, bitmap)
                 } else {
                     elaboraPianteInSequenza(chiaveApi, bitmap, piante.toMutableList(), mutableListOf())
@@ -1247,7 +1278,10 @@ class PlanimetriaActivity : AppCompatActivity() {
         InterpretePlanimetria.analizzaVerticiBitmap(chiaveApi, bitmap, object : InterpretePlanimetria.Callback {
             override fun onSuccesso(risultato: JSONObject) {
                 if (isFinishing || isDestroyed) return
-                avviaCodaLocaliRilevati(estraiVerticiDaRisultato(risultato.optJSONArray("locali")))
+                val proposte = estraiVerticiDaRisultato(risultato.optJSONArray("locali"))
+                misuraLocaliSulDisegno(bitmap, Rect(0, 0, bitmap.width, bitmap.height), proposte) { misurate ->
+                    avviaCodaLocaliRilevati(misurate)
+                }
             }
 
             override fun onErrore(messaggio: String) {
@@ -1281,6 +1315,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         aggiornaBarraSchermoIntero()
 
         val rettangolo = rettangoloDaFrazioni(bitmap, pianta.x0, pianta.y0, pianta.x1, pianta.y1)
+            ?.let { agganciaAlDisegno(bitmap, it) }
         val ritaglio = rettangolo?.let {
             try {
                 Bitmap.createBitmap(bitmap, it.left, it.top, it.width(), it.height())
@@ -1306,8 +1341,17 @@ class PlanimetriaActivity : AppCompatActivity() {
                 )
                 // Una pianta senza alcun locale trovato non si scarta più in silenzio: si
                 // riprova alla fine sull'immagine intera (vedi recuperaPianteVuote).
-                if (proposte.isEmpty()) pianteVuote.add(pianta) else accumulato.addAll(proposte)
-                elaboraPianteInSequenza(chiaveApi, bitmap, pianteRestanti, accumulato, pianteVuote)
+                if (proposte.isEmpty()) {
+                    pianteVuote.add(pianta)
+                    elaboraPianteInSequenza(chiaveApi, bitmap, pianteRestanti, accumulato, pianteVuote)
+                    return
+                }
+                binding.tvIstruzioneTocco.text = "Misura dei contorni sui muri: \"${pianta.nome}\"..."
+                aggiornaBarraSchermoIntero()
+                misuraLocaliSulDisegno(bitmap, rettangolo, proposte) { misurate ->
+                    accumulato.addAll(misurate)
+                    elaboraPianteInSequenza(chiaveApi, bitmap, pianteRestanti, accumulato, pianteVuote)
+                }
             }
 
             override fun onErrore(messaggio: String) {
@@ -1359,7 +1403,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         InterpretePlanimetria.analizzaVerticiBitmap(chiaveApi, bitmap, object : InterpretePlanimetria.Callback {
             override fun onSuccesso(risultato: JSONObject) {
                 if (isFinishing || isDestroyed) return
-                val tutti = estraiVerticiDaRisultato(risultato.optJSONArray("locali"))
+                val tutti = estraiVerticiDaRisultato(risultato.optJSONArray("locali")).filter { it.verticiPx.size >= 3 }
                 val rettangoliVuoti = pianteVuote.mapNotNull { rettangoloDaFrazioni(bitmap, it.x0, it.y0, it.x1, it.y1) }
                 val recuperati = tutti.filter { p ->
                     if (p.verticiPx.size < 3) return@filter false
@@ -1382,6 +1426,94 @@ class PlanimetriaActivity : AppCompatActivity() {
                 concludi(emptyList())
             }
         })
+    }
+
+    /**
+     * Aggancia il riquadro di una pianta stimato dall'AI (sull'immagine rimpicciolita, quindi
+     * spesso largo o spostato) alle zone del foglio che contengono davvero muri. Se l'aggancio
+     * desse un riquadro molto più grande (piante attaccate tra loro, cornici) si tiene la stima.
+     */
+    private fun agganciaAlDisegno(bitmap: Bitmap, stima: Rect): Rect {
+        val zone = zoneDisegno ?: try { RilevatoreZoneDisegno.zone(bitmap).also { zoneDisegno = it } } catch (e: Throwable) { emptyList() }
+        if (zone.isEmpty()) return stima
+        val margine = (maxOf(bitmap.width, bitmap.height) * 0.01f).toInt()
+        val agganciato = RilevatoreZoneDisegno.agganciaRiquadro(stima, zone, margine)
+        if (!agganciato.intersect(0, 0, bitmap.width, bitmap.height)) return stima
+        val areaStima = stima.width().toLong() * stima.height()
+        val areaAgganciata = agganciato.width().toLong() * agganciato.height()
+        return if (areaAgganciata in (areaStima / 6)..(areaStima * 5 / 2) && agganciato.width() >= 20 && agganciato.height() >= 20) agganciato else stima
+    }
+
+    /**
+     * "L'AI dice cosa c'è, il telefono misura dov'è": per ogni vano proposto dall'AI, partendo dal
+     * suo punto interno, il contorno esatto viene ricavato dai muri del disegno con un riempimento
+     * locale (SegmentazionePlanimetria) sul riquadro della pianta. Se il vano non risulta chiuso
+     * (loggia aperta, porta molto larga, disegno a linee sottili) si tengono i vertici stimati
+     * dall'AI. Infine si aggiungono gli spazi chiusi dai muri che nessuno ha indicato, come
+     * "Locale da verificare", così un vano evidente non resta fuori. Il calcolo gira in background.
+     */
+    private fun misuraLocaliSulDisegno(
+        bitmap: Bitmap,
+        regione: Rect,
+        proposte: List<PropostaLocaleAi>,
+        fatto: (MutableList<PropostaLocaleAi>) -> Unit
+    ) {
+        val metriPerPixel = scalaX
+        Thread {
+            val risultato = try {
+                calcolaLocaliMisurati(bitmap, regione, proposte, metriPerPixel)
+            } catch (e: Throwable) {
+                proposte.filter { it.verticiPx.size >= 3 }.toMutableList()
+            }
+            handlerPrincipale.post {
+                if (isFinishing || isDestroyed) return@post
+                fatto(risultato)
+            }
+        }.start()
+    }
+
+    private fun calcolaLocaliMisurati(
+        bitmap: Bitmap,
+        regione: Rect,
+        proposte: List<PropostaLocaleAi>,
+        metriPerPixel: Double?
+    ): MutableList<PropostaLocaleAi> {
+        val seg = SegmentazionePlanimetria(bitmap, regione, metriPerPixel)
+        val esito = mutableListOf<PropostaLocaleAi>()
+        if (!seg.utilizzabile) return proposte.filter { it.verticiPx.size >= 3 }.toMutableList()
+        for (p in proposte) {
+            val semi = buildList {
+                p.puntoInterno?.let { add(it) }
+                if (p.verticiPx.size >= 3) add(GeometriaUtils.centroide(p.verticiPx))
+            }
+            var misurato: List<PointF>? = null
+            for (seme in semi) {
+                val pol = seg.poligonoDaPunto(seme) ?: continue
+                // Stesso vano già misurato per un'altra proposta (due punti nella stessa stanza):
+                // non lo si duplica.
+                val c = GeometriaUtils.centroide(pol)
+                if (esito.any { it.precisa && GeometriaUtils.puntoDentroPoligono(c, it.verticiPx) }) continue
+                // Coerenza con la stima dell'AI, se c'è: area non troppo diversa (altrimenti il punto
+                // è caduto nel vano accanto o il riempimento è uscito da una porta).
+                if (p.verticiPx.size >= 3) {
+                    val aAi = GeometriaUtils.areaPoligono(p.verticiPx)
+                    val aMis = GeometriaUtils.areaPoligono(pol)
+                    if (aAi > 0 && (aMis / aAi !in 0.33..3.0)) continue
+                }
+                misurato = pol
+                break
+            }
+            when {
+                misurato != null -> esito += p.copy(verticiPx = misurato, precisa = true)
+                p.verticiPx.size >= 3 -> esito += p
+            }
+        }
+        // Passata di completezza.
+        var n = 1
+        seg.vaniChiusiMancanti(esito.map { it.verticiPx }).forEach { pol ->
+            esito += PropostaLocaleAi("Locale da verificare ${n++}", pol, null, precisa = true)
+        }
+        return esito
     }
 
     /** Converte un rettangolo espresso come frazioni (0-1) dell'immagine intera in coordinate pixel, con un piccolo margine di sicurezza. */
@@ -1547,7 +1679,8 @@ class PlanimetriaActivity : AppCompatActivity() {
         val bitmap = binding.superficieView.bitmap
         val chiaveApi = ChiaveApiStore.leggiChiave(this)
 
-        if (bitmap == null || chiaveApi.isBlank()) {
+        // Contorno già misurato sui muri del disegno: niente affinamento AI (sarebbe meno preciso).
+        if (proposta.precisa || bitmap == null || chiaveApi.isBlank()) {
             avviaAnimazioneVertici(proposta, generazione)
             return
         }

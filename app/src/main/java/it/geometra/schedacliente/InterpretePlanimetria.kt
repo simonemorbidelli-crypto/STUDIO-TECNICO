@@ -31,6 +31,12 @@ object InterpretePlanimetria {
 
     private const val ENDPOINT = "https://api.anthropic.com/v1/messages"
     private const val MODELLO = "claude-haiku-5-5"
+    /**
+     * Modello per l'individuazione dei locali (elenco completo dei vani + punto interno di
+     * ciascuno): più attento di Haiku nel non tralasciare vani piccoli o senza scritta
+     * (disimpegni, ripostigli, wc, logge). Il contorno esatto lo misura poi il telefono.
+     */
+    private const val MODELLO_LOCALI = "claude-sonnet-5-5"
     private const val LATO_MASSIMO_PX = 1568
     /** Lato minimo (px) a cui viene ingrandito un ritaglio piccolo prima di inviarlo all'AI: un ritaglio
      *  di un solo locale è spesso molto più piccolo di [LATO_MASSIMO_PX]; inviarlo ingrandito (anche se
@@ -198,7 +204,9 @@ object InterpretePlanimetria {
 
         Thread {
             try {
-                val base64Immagine = codificaBitmap(bitmap)
+                // Ritaglio di una singola pianta: se piccolo lo si ingrandisce, così l'AI vede
+                // anche i vani minori e le scritte che nella tavola intera sono illeggibili.
+                val base64Immagine = codificaBitmap(bitmap, ingrandisciSePiccola = true)
                 val risultato = eseguiChiamataVertici(chiaveApi, base64Immagine)
                 handler.post { callback.onSuccesso(risultato) }
             } catch (e: Exception) {
@@ -468,6 +476,15 @@ object InterpretePlanimetria {
               servono (6, 8, 10 o più), non per forza 4. Le pareti oblique restano oblique.
             - Se l'immagine contiene più piante/piani, individua i locali di TUTTE le piante
               presenti, non solo della prima.
+            - COMPLETEZZA: elenca OGNI vano delimitato da pareti, anche se piccolo, senza
+              scritta o di servizio: disimpegni, corridoi, ingressi, wc, bagni, ripostigli,
+              guardaroba, vano scala, logge, balconi, terrazze, portici, cantine, centrali
+              termiche. Prima di rispondere ricontrolla la pianta zona per zona e aggiungi i
+              vani dimenticati: è molto peggio tralasciare un vano che indicarne uno in più.
+            - Per ogni vano indica anche "punto_interno": un punto {"x":..,"y":..} (stesse
+              frazioni dei vertici) ben DENTRO il vano, nello spazio libero lontano da pareti,
+              porte, scritte e simboli (es. il centro della zona vuota più ampia del vano).
+              Serve al telefono per misurare da solo il contorno esatto del vano.
             - Sii SINTETICO: non aggiungere spiegazioni, commenti o campi diversi da quelli
               richiesti. La risposta deve restare breve anche con molti locali, per evitare
               di essere troncata.
@@ -479,6 +496,7 @@ object InterpretePlanimetria {
                 {
                   "nome": "nome o sigla del locale come scritto sul disegno (stringa vuota se assente)",
                   "destinazione": "uso del locale come scritto sul disegno (stringa vuota se non scritto/leggibile)",
+                  "punto_interno": {"x": 0.17, "y": 0.40},
                   "vertici": [{"x": 0.12, "y": 0.34}, {"x": 0.30, "y": 0.34}, {"x": 0.30, "y": 0.42}, {"x": 0.22, "y": 0.42}, {"x": 0.22, "y": 0.50}, {"x": 0.12, "y": 0.50}]
                 }
               ]
@@ -504,7 +522,7 @@ object InterpretePlanimetria {
         )
 
         val corpo = JSONObject().apply {
-            put("model", MODELLO)
+            put("model", MODELLO_LOCALI)
             // Una pianta con molti locali (e locali irregolari con molti vertici) può superare
             // 4096 token: la risposta troncata non era leggibile e la pianta restava vuota.
             put("max_tokens", 12000)
