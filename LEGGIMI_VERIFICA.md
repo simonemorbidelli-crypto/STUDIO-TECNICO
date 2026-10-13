@@ -1,4 +1,4 @@
-# SchedaCliente v3.75 — pacchetto per la verifica
+# SchedaCliente v3.76 — pacchetto per la verifica
 
 App Android nativa (Kotlin) per lo studio del Geom. Simone Morbidelli: schede cliente,
 planimetrie con calcolo superfici, perizia unità (OMI), documenti Mega con parere AI,
@@ -8,23 +8,27 @@ ripartizione bollette, "ruota del caffè" e altro.
 
 | Percorso | Cosa contiene |
 |---|---|
-| `SchedaCliente-v3.75-debug.apk` | APK di debug già compilato (installabile) |
+| `SchedaCliente-v3.76-debug.apk` | APK di debug già compilato (installabile) |
 | `sorgenti/` | Progetto Gradle completo (senza cartelle `build/` e senza `local.properties`) |
-| `sorgenti/storia-git.bundle` | Storia git completa (commit dalla v3.64 "buon punto di partenza" alla v3.75) |
+| `sorgenti/storia-git.bundle` | Storia git completa (commit dalla v3.64 "buon punto di partenza" alla v3.76) |
 | `anteprime/` | Immagini prodotte dai test (risultati del riconoscimento vani sulle planimetrie catastali) |
 
 ## Come compilare e far girare i test
 
-Requisiti: JDK 17, Android SDK (compileSdk 34), Gradle 8.x (il progetto non ha `gradlew`).
+Requisiti: JDK 17 (provato anche con JDK 21), Android SDK (compileSdk 34), Gradle 8.x (il progetto non ha `gradlew`).
 
 ```bash
 cd sorgenti
 echo "sdk.dir=/percorso/android-sdk" > local.properties
 gradle testDebugUnitTest      # test (Robolectric 4.13, rendering NATIVE)
-gradle assembleDebug          # APK in app/build/outputs/apk/debug/SchedaCliente-v3.75-debug.apk
+gradle assembleDebug          # APK in app/build/outputs/apk/debug/SchedaCliente-v3.76-debug.apk
 ```
 
 Per recuperare la storia git: `git clone storia-git.bundle schedacliente-git`.
+
+Se Maven Central risponde "429 Too Many Requests" (capita su reti condivise), si può usare il
+mirror di Google `https://maven-central.storage-download.googleapis.com/maven2/` con uno script
+di init di Gradle, senza toccare il progetto.
 
 Note:
 - `app/schedacliente-debug.keystore` è una keystore di **debug** fissa (password nel `build.gradle`):
@@ -41,12 +45,13 @@ Note:
 |---|---|---|
 | AnteprimaGraficheTest | 4 | grafiche ruota/riepilogo FDM |
 | CorrezioniRevisioneTest | 6 | ID univoci, guardie doppio salvataggio, centroide |
+| RilevamentoInterruzioneTest | 4 | "Interrompi"/"Salta locale" durante il rilevamento, conferma automatica sospesa in secondo piano |
 | ParereMegaTest | 9 | lettura cartelle Mega pubbliche, preparazione documenti, DOCX |
 | PeriziaTest | 7 | coefficienti superficie commerciale, parsing OMI |
 | RilevatoreScalaBluTest | 4 | scala grafica blu sul bordo delle planimetrie |
 | SuperficieViewTest | 3 | vista planimetria, zoom, annulla |
-| SegmentazioneTest | 12 | contorni dei vani (sintetici + screenshot/PDF reali) |
-| BancoProvaCatastoTest | 2 | 11 piante da 7 planimetrie catastali reali + prova su carta millimetrata |
+| SegmentazioneTest | 12 | contorni dei vani (sintetici + screenshot/PDF reali, con verifica dei vani trovati e delle aree) |
+| BancoProvaCatastoTest | 2 | 11 piante da 7 planimetrie catastali reali (soglia: almeno 70 vani su 79, minimi per pianta) + carta millimetrata (almeno 8 su 9) |
 
 ## Parte più delicata da verificare: riconoscimento automatico dei vani
 
@@ -89,3 +94,16 @@ spazi chiusi di altre proprietà dentro la pianta (es. "altri sub.") vengono pro
   conferma automatica del locale rilevato dopo 3 s, ritorno alla vista intera.
 - Documenti Mega: link pubblico per cliente o dal menu, navigazione cartelle, parere AI in DOCX
   (lingua di correzione it-IT).
+
+## Correzioni v3.76 (dopo la verifica del pacchetto v3.75)
+
+- **"Interrompi" ferma davvero il rilevamento automatico.** Prima, se premuto durante la fase
+  iniziale (ricerca della scala, delle piante, misura dei contorni), le risposte AI e i calcoli
+  già partiti facevano ripartire il rilevamento da soli. Ora ogni rilevamento ha un numero di
+  sessione (`sessioneRilevamento` in `PlanimetriaActivity`) che ogni passo asincrono controlla.
+  La scala trovata sul bordo non si applica più se nel frattempo è stata caricata un'altra immagine.
+- **"Salta locale"** compare solo quando c'è davvero un locale in esame (prima, nella fase
+  iniziale, chiudeva tutto con "completato").
+- **Conferma automatica dopo 3 s**: il tempo scorre solo con l'app in primo piano.
+- **Test**: il banco di prova e i test su immagini reali ora hanno soglie (prima stampavano i
+  risultati ma non potevano fallire); nuovo `RilevamentoInterruzioneTest`.
