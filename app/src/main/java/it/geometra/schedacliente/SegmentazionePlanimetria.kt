@@ -36,6 +36,8 @@ class SegmentazionePlanimetria(
 ) {
     companion object {
         const val LATO_LAVORO = 1400
+        /** Solo per i test: stampa perché un riempimento è stato scartato. */
+        @JvmField var DEBUG = false
     }
 
     private val regione = Rect(regione).apply { intersect(0, 0, bitmap.width, bitmap.height) }
@@ -75,12 +77,24 @@ class SegmentazionePlanimetria(
         // Apertura: via linee e scritte più sottili di ~5 px di lavoro (i tramezzi restano: a questa
         // risoluzione sono più spessi).
         val isola = (LATO_LAVORO * 0.07).roundToInt()
-        val aperti = dilata(erodi(scuro, 2), 2)
+        // Disegni misti: muri campiti e, nello stesso foglio, muri a doppia linea sottile (spesso i
+        // muri esterni con le finestre). Le coppie di linee lunghe parallele vicine si riempiono e
+        // contano come muro pieno, così l'apertura non le cancella.
+        val apertiSoli = dilata(erodi(scuro, 2), 2)
         // Scritte a mano grandi (es. "ripost", "negozio"): tratti più sottili di un muro. Si
         // tolgono anche isole più estese purché quasi nulla resista a un'erosione di 3 px, cosa
         // che un tronco di muro vero (anche staccato tra due porte) invece supera.
-        val muriPieni = togliIsole(aperti, isola, erodi(aperti, 3), (LATO_LAVORO * 0.15).roundToInt())
-        val frazionePieni = muriPieni.count { it }.toDouble() / muriPieni.size
+        fun pulisci(m: BooleanArray) = togliIsole(m, isola, erodi(m, 3), (LATO_LAVORO * 0.15).roundToInt())
+        val pieniSoli = pulisci(apertiSoli)
+        // Il tipo di disegno si decide sui soli muri campiti.
+        val frazionePieni = pieniSoli.count { it }.toDouble() / pieniSoli.size
+        // Disegni misti: muri campiti e, nello stesso foglio, muri a doppia linea sottile (spesso i
+        // muri esterni con le finestre). Le coppie di linee lunghe parallele vicine si riempiono e
+        // contano come muro pieno, così l'apertura non le cancella.
+        val muriPieni = if (frazionePieni >= 0.03) {
+            val doppie = muriDoppiaLinea(scuro)
+            pulisci(BooleanArray(w * h) { apertiSoli[it] || doppie[it] })
+        } else pieniSoli
         // Disegni coi muri a doppia linea sottile (molte planimetrie catastali): l'apertura li
         // cancellerebbe. Allora i muri sono le linee stesse (leggermente ingrossate per sigillare
         // i tratti), tolte solo le scritte isolate: la linea interna del muro delimita il vano.
@@ -95,6 +109,13 @@ class SegmentazionePlanimetria(
             ?: (LATO_LAVORO * 0.012).roundToInt()
         muriChiusi = dilata(muri, raggioPorte)
         muriChiusiPerRaggio[raggioPorte] = muriChiusi
+    }
+
+    /** Solo per diagnosi nei test: muri (nero), muri chiusi col raggio [r] (rosso). */
+    fun mascheraDiagnosi(r: Int): Bitmap {
+        val c = chiusiCon(r)
+        val px = IntArray(w * h) { i -> when { muri[i] -> Color.BLACK; c[i] -> Color.rgb(255, 150, 150); else -> Color.WHITE } }
+        return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
     }
 
     private fun chiusiCon(r: Int): BooleanArray = muriChiusiPerRaggio.getOrPut(r) { dilata(muri, r) }
@@ -120,7 +141,7 @@ class SegmentazionePlanimetria(
             val r = (raggioPorte * molt).roundToInt()
             val chiusi = chiusiCon(r)
             val seme = puntoLiberoVicino(sx, sy, r * 2, chiusi) ?: continue
-            val nucleo = riempi(seme.first, seme.second, chiusi) ?: continue
+            val nucleo = riempi(seme.first, seme.second, chiusi) ?: run { if (DEBUG) { val vis = BooleanArray(w*h); val c = componente(seme.first, seme.second, vis, muriChiusi = chiusi); println("DBG r=$r null area=${c.size} max=${areaMassimaPx()} min=${areaMinimaPx()} bordo=${c.any { val px = it % w; val py = it / w; px == 0 || py == 0 || px == w - 1 || py == h - 1 }}") }; null } ?: continue
             val pol = poligonoDaNucleo(nucleo, r) ?: continue
             // Con la stima dell'AI: se il vano trovato è molto più grande (ha inglobato un vano
             // accanto passando da una porta) si riprova chiudendo aperture più larghe.
@@ -575,6 +596,44 @@ class SegmentazionePlanimetria(
         return BooleanArray(w * h) { i -> muriPieni[i] || (linee[i] && (fasciaO[i] || fasciaV[i])) }
     }
 
+    /**
+     * Muri disegnati con due linee sottili parallele: si cercano le linee lunghe (orizzontali e
+     * verticali, almeno ~1/16 del riquadro) e si riempie lo spazio tra due di esse quando distano
+     * quanto lo spessore di un muro. Una linea singola (reticolo, confine di proprietà) resta fuori.
+     */
+    private fun muriDoppiaLinea(scuro: BooleanArray): BooleanArray {
+        val lungo = (LATO_LAVORO * 0.03).roundToInt()      // semi-lunghezza minima della linea
+        val spessoreMax = (LATO_LAVORO * 0.02).roundToInt() // distanza massima tra le due linee
+        val out = BooleanArray(w * h)
+        for (orizz in booleanArrayOf(true, false)) {
+            // tolleranza a lievi inclinazioni/interruzioni: ingrossa di 1 px di traverso, chiude buchi di 3 px
+            val base = filtroAsse(scuro, 1, true, !orizz)
+            val chiusa = filtroAsse(filtroAsse(base, 3, true, orizz), 3, false, orizz)
+            val linee = filtroAsse(filtroAsse(chiusa, lungo, false, orizz), lungo, true, orizz)
+            // accoppiamento: lungo la direzione trasversale, due tratti di linea separati da 2..spessoreMax px
+            val n1 = if (orizz) w else h      // posizioni lungo la linea
+            val n2 = if (orizz) h else w      // posizioni trasversali
+            for (a in 0 until n1) {
+                var fineTratto = -1000
+                var t = 0
+                while (t < n2) {
+                    val idx = if (orizz) t * w + a else a * w + t
+                    if (linee[idx]) {
+                        var u = t
+                        while (u + 1 < n2 && linee[if (orizz) (u + 1) * w + a else a * w + u + 1]) u++
+                        val vuoto = t - fineTratto - 1
+                        if (fineTratto >= 0 && vuoto in 2..spessoreMax) {
+                            for (z in fineTratto..u) out[if (orizz) z * w + a else a * w + z] = true
+                        }
+                        fineTratto = u
+                        t = u + 1
+                    } else t++
+                }
+            }
+        }
+        return out
+    }
+
     /** Chiusura dei muri lungo una sola direzione: riempie i tratti liberi lunghi meno di 2·r tra due muri sulla stessa riga/colonna. */
     private fun chiusura1D(r: Int, orizzontale: Boolean): BooleanArray {
         val dil = filtroAsse(muri, r, true, orizzontale)
@@ -685,7 +744,7 @@ object RilevatoreZoneDisegno {
         return zone
     }
 
-    /** Aggancia il riquadro stimato dall'AI alle zone di disegno che interseca (lo allarga o stringe sul disegno vero). */
+    /** Aggancia il riquadro stimato dall'AI alle zone di disegno che interseca (lo allarga fino a comprendere il disegno vero). */
     fun agganciaRiquadro(stima: Rect, zone: List<Rect>, margine: Int): Rect {
         val coinvolte = zone.filter { z ->
             val inter = Rect(z)
@@ -695,6 +754,10 @@ object RilevatoreZoneDisegno {
         val r = Rect(coinvolte[0])
         coinvolte.drop(1).forEach { r.union(it) }
         r.inset(-margine, -margine)
+        // Solo allargamento: le zone si basano sui muri campiti e possono non comprendere parti
+        // della pianta disegnate a linee sottili (es. una cantina sporgente), che un riquadro più
+        // stretto taglierebbe fuori. Lo spazio bianco in più non disturba l'analisi.
+        r.union(stima)
         return r
     }
 

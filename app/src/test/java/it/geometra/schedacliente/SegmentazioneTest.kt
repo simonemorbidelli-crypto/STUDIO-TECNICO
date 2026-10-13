@@ -314,4 +314,43 @@ class SegmentazioneTest {
         java.io.File("build/anteprime").mkdirs()
         java.io.FileOutputStream("build/anteprime/due_piani.png").use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
+
+    /** PDF reale con due piante (II P. e P.T.), reso a 4000 px come nell'app. */
+    @Test
+    fun pdfDuePiani() {
+        val stream = javaClass.classLoader!!.getResourceAsStream("pdf_due_piani.png") ?: return
+        val bmp = android.graphics.BitmapFactory.decodeStream(stream).copy(Bitmap.Config.ARGB_8888, true)
+        val zone = RilevatoreZoneDisegno.zone(bmp)
+        println("PDF2 zone: " + zone.joinToString())
+        val out = bmp.copy(Bitmap.Config.ARGB_8888, true); val cv = Canvas(out)
+        val pen = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 5f }
+        fun disegna(pol: List<PointF>?, col: Int) { if (pol == null) return; pen.color = col
+            for (i in pol.indices) { val a = pol[i]; val b = pol[(i + 1) % pol.size]; cv.drawLine(a.x, a.y, b.x, b.y, pen) } }
+        fun prova(nome: String, stima: Rect, semi: Map<String, PointF>) {
+            val m = (maxOf(bmp.width, bmp.height) * 0.01f).toInt()
+            val agg = RilevatoreZoneDisegno.agganciaRiquadro(stima, zone, m)
+            println("PDF2 $nome stima=$stima agganciato=$agg")
+            val seg = SegmentazionePlanimetria(bmp, agg, null)
+            println("PDF2 $nome utilizzabile=${seg.utilizzabile} frazione=${seg.frazioneMuri} raggio=${seg.raggioPorte}")
+            java.io.File("build/anteprime").mkdirs()
+            java.io.FileOutputStream("build/anteprime/pdf2_mask_$nome.png").use { seg.mascheraDiagnosi(51).compress(Bitmap.CompressFormat.PNG, 100, it) }
+            val trovati = ArrayList<List<PointF>>()
+            semi.forEach { (n, p) ->
+                SegmentazionePlanimetria.DEBUG = n == "cuc" || n == "C" || n == "cantina"
+                if (SegmentazionePlanimetria.DEBUG) println("--- $n")
+                val pol = seg.poligonoDaPunto(PointF(p.x + 900, p.y + (if (nome == "su") 1050 else 2030)))
+                println("PDF2 $nome/$n: ${pol?.size} " + (pol?.joinToString { "(${it.x.toInt() - 900},${it.y.toInt() - (if (nome == "su") 1050 else 2030)})" } ?: ""))
+                disegna(pol, Color.RED); pol?.let { trovati += it }
+            }
+            seg.vaniChiusiMancanti(trovati).forEach { println("PDF2 $nome mancante: " + it.joinToString { p -> "(${p.x.toInt() - 900},${p.y.toInt() - (if (nome == "su") 1050 else 2030)})" }); disegna(it, Color.BLUE) }
+        }
+        prova("su", Rect(920, 1080, 1880, 1640), linkedMapOf("A" to PointF(170f, 140f), "B" to PointF(380f, 140f), "wc" to PointF(110f, 300f),
+            "dis" to PointF(300f, 280f), "L9" to PointF(485f, 280f), "rip" to PointF(300f, 350f), "cuc" to PointF(300f, 470f),
+            "C" to PointF(160f, 420f), "scala" to PointF(490f, 500f)))
+        prova("giu", Rect(1130, 2060, 1500, 2600), linkedMapOf("cantina" to PointF(360f, 160f), "portico" to PointF(350f, 275f),
+            "portico2" to PointF(500f, 275f), "legnaia" to PointF(350f, 450f), "scala" to PointF(500f, 450f)))
+        java.io.File("build/anteprime").mkdirs()
+        java.io.FileOutputStream("build/anteprime/pdf2_su.png").use { Bitmap.createBitmap(out, 900, 1050, 1000, 600).compress(Bitmap.CompressFormat.PNG, 100, it) }
+        java.io.FileOutputStream("build/anteprime/pdf2_giu.png").use { Bitmap.createBitmap(out, 900, 2030, 1000, 620).compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 }

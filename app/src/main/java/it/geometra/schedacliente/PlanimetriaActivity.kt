@@ -1448,7 +1448,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         if (!agganciato.intersect(0, 0, bitmap.width, bitmap.height)) return stima
         val areaStima = stima.width().toLong() * stima.height()
         val areaAgganciata = agganciato.width().toLong() * agganciato.height()
-        return if (areaAgganciata in (areaStima / 6)..(areaStima * 5 / 2) && agganciato.width() >= 20 && agganciato.height() >= 20) agganciato else stima
+        return if (areaAgganciata <= areaStima * 5 / 2 && agganciato.width() >= 20 && agganciato.height() >= 20) agganciato else stima
     }
 
     /**
@@ -1509,7 +1509,11 @@ class PlanimetriaActivity : AppCompatActivity() {
         proposte: List<PropostaLocaleAi>,
         metriPerPixel: Double?
     ): MutableList<PropostaLocaleAi> {
-        val seg = SegmentazionePlanimetria(bitmap, regione, metriPerPixel)
+        // Margine in più attorno al riquadro della pianta: se il riquadro stimato taglia un pezzo
+        // di pianta, i vani sul bordo risulterebbero "aperti" e non misurabili.
+        val m = (maxOf(bitmap.width, bitmap.height) * 0.04f).toInt()
+        val regioneLarga = Rect(regione).apply { inset(-m, -m); intersect(0, 0, bitmap.width, bitmap.height) }
+        val seg = SegmentazionePlanimetria(bitmap, regioneLarga, metriPerPixel)
         val esito = mutableListOf<PropostaLocaleAi>()
         if (!seg.utilizzabile) return proposte.filter { it.verticiPx.size >= 3 }.toMutableList()
         for (p in proposte) {
@@ -1553,7 +1557,10 @@ class PlanimetriaActivity : AppCompatActivity() {
         }
         // Passata di completezza.
         var n = 1
-        seg.vaniChiusiMancanti(esito.map { it.verticiPx }).forEach { pol ->
+        seg.vaniChiusiMancanti(esito.map { it.verticiPx }).filter { pol ->
+            // solo spazi della pianta stessa, non del margine aggiunto (potrebbe toccare un'altra pianta)
+            val c = GeometriaUtils.centroide(pol); regione.contains(c.x.toInt(), c.y.toInt())
+        }.forEach { pol ->
             esito += PropostaLocaleAi("Locale da verificare ${n++}", pol, null, precisa = true)
         }
         return esito
