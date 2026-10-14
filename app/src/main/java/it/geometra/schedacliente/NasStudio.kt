@@ -49,14 +49,22 @@ object NasStudio {
     private const val LETTURE_RICERCA_MAX = 400
 
     /** Dove sono le pratiche: \\host\condivisione\cartella (cartella vuota = radice della condivisione). */
-    data class Percorso(val host: String, val porta: Int, val condivisione: String, val cartella: String) {
-        override fun toString(): String =
-            "\\\\" + host + (if (porta != 445) ":$porta" else "") + "\\" + condivisione + (if (cartella.isEmpty()) "" else "\\$cartella")
+    data class Percorso(
+        val host: String, val porta: Int, val condivisione: String, val cartella: String,
+        /** true = WebDAV (https://host:5003/webdav/Condivisione/cartella) invece di SMB (\\\\host\\Condivisione). */
+        val webdav: Boolean = false,
+        /** Solo WebDAV: true = HTTPS (porta 5003 sul NAS Zyxel), false = HTTP (5002, non cifrato). */
+        val sicuro: Boolean = true
+    ) {
+        override fun toString(): String = if (webdav)
+            (if (sicuro) "https://" else "http://") + host + ":" + porta + "/webdav/" + condivisione + (if (cartella.isEmpty()) "" else "/" + cartella.replace('\\', '/'))
+        else "\\\\" + host + (if (porta != 445) ":$porta" else "") + "\\" + condivisione + (if (cartella.isEmpty()) "" else "\\$cartella")
     }
 
-    data class Accesso(val percorso: Percorso, val utente: String, val password: String, val dominio: String = "")
+    /** [impronta]: solo WebDAV/HTTPS, impronta SHA-256 del certificato del NAS accettato dall'utente (vuota = accetta solo certificati riconosciuti). */
+    data class Accesso(val percorso: Percorso, val utente: String, val password: String, val dominio: String = "", val impronta: String = "")
 
-    class ErroreNas(messaggio: String, val cartellaNonTrovata: Boolean = false, causa: Throwable? = null) : IOException(messaggio, causa)
+    class ErroreNas(messaggio: String, val cartellaNonTrovata: Boolean = false, causa: Throwable? = null, val improntaDaConfermare: String? = null) : IOException(messaggio, causa)
 
     // ---------------------------------------------------------------------
     // Percorso scritto dall'utente
@@ -69,6 +77,7 @@ object NasStudio {
      */
     fun analizzaPercorso(testo: String): Percorso? {
         var t = testo.trim().trim('"')
+        if (t.lowercase().startsWith("http://") || t.lowercase().startsWith("https://")) return analizzaWebDav(t)
         if (t.lowercase().startsWith("smb://")) t = t.substring(6)
         t = t.replace('/', '\\').trimStart('\\').trimEnd('\\')
         val parti = t.split('\\').map { it.trim() }.filter { it.isNotEmpty() }
@@ -78,6 +87,18 @@ object NasStudio {
         val porta = hostPorta.substringAfter(':', "445").toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
         if (host.isBlank() || host.any { it.isWhitespace() }) return null
         return Percorso(host, porta, parti[1], parti.drop(2).joinToString("\\"))
+    }
+
+    /** https://host:5003/webdav/Condivisione/cartella (http = porta 5002). Serve almeno host e nome della condivisione. */
+    private fun analizzaWebDav(testo: String): Percorso? {
+        val sicuro = testo.lowercase().startsWith("https://")
+        val resto = testo.substring(if (sicuro) 8 else 7).trim().trimEnd('/')
+        val parti = resto.split('/').map { it.trim() }.filter { it.isNotEmpty() }
+        if (parti.size < 3 || !parti[1].equals("webdav", ignoreCase = true)) return null
+        val host = parti[0].substringBefore(':')
+        val porta = parti[0].substringAfter(':', if (sicuro) "5003" else "5002").toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
+        if (host.isBlank() || host.any { it.isWhitespace() }) return null
+        return Percorso(host, porta, parti[2], parti.drop(3).joinToString("\\"), webdav = true, sicuro = sicuro)
     }
 
     // ---------------------------------------------------------------------
@@ -90,12 +111,12 @@ object NasStudio {
     /** Cartelle (una per cliente) nella cartella delle pratiche, in ordine alfabetico, senza quelle di sistema/nascoste. */
     fun elencaCartelle(accesso: Accesso): List<String> = conCondivisione(accesso) { share ->
         val base = accesso.percorso.cartella
-        if (base.isNotEmpty() && !share.folderExists(base)) {
+        if (base.isNotEmpty() && !share.cartellaEsiste(base)) {
             throw ErroreNas("Sul NAS non trovo la cartella \"$base\" nella condivisione \"${accesso.percorso.condivisione}\"", cartellaNonTrovata = true)
         }
-        share.list(base)
-            .filter { eCartella(it.fileAttributes) && visibile(it.fileName, it.fileAttributes) }
-            .map { it.fileName }
+        share.elenca(base)
+            .filter { it.cartella && visibile(it) }
+            .map { it.nome }
             .sortedBy { it.lowercase() }
     }
 
@@ -117,7 +138,7 @@ object NasStudio {
     fun leggiLivello(accesso: Accesso, cartellaCliente: String, relativo: String): Livello = conCondivisione(accesso) { share ->
         val radiceSmb = unisci(accesso.percorso.cartella, cartellaCliente)
         val daLeggere = unisci(radiceSmb, relativo.replace('/', '\\'))
-        if (!share.folderExists(daLeggere)) {
+        if (!share.cartellaEsiste(daLeggere)) {
             throw ErroreNas(
                 if (relativo.isEmpty()) "Sul NAS non trovo più la cartella \"$cartellaCliente\" (rinominata o spostata?)"
                 else "Sul NAS non trovo più la cartella \"$relativo\" (rinominata o spostata?)",
@@ -127,18 +148,18 @@ object NasStudio {
         val handleCartella = if (relativo.isEmpty()) RADICE else "/$relativo"
         val cartelle = ArrayList<MegaCartellaPubblica.CartellaMega>()
         val file = ArrayList<MegaCartellaPubblica.FileMega>()
-        for (voce in share.list(daLeggere)) {
-            val nome = voce.fileName
-            if (!visibile(nome, voce.fileAttributes)) continue
+        for (voce in share.elenca(daLeggere)) {
+            val nome = voce.nome
+            if (!visibile(voce)) continue
             if (cartelle.size + file.size >= ELEMENTI_MAX) {
                 throw ErroreNas("Questa cartella contiene troppi elementi (oltre $ELEMENTI_MAX) per essere mostrata")
             }
             val percorso = if (relativo.isEmpty()) nome else "$relativo/$nome"
-            if (eCartella(voce.fileAttributes)) {
+            if (voce.cartella) {
                 cartelle += MegaCartellaPubblica.CartellaMega("/$percorso", nome, handleCartella, percorso)
             } else {
                 file += MegaCartellaPubblica.FileMega(
-                    handle = "/$percorso", nome = nome, percorso = percorso, dimensione = voce.endOfFile,
+                    handle = "/$percorso", nome = nome, percorso = percorso, dimensione = voce.dimensione,
                     chiaveAes = ByteArray(0), iv = ByteArray(0), genitore = handleCartella
                 )
             }
@@ -161,9 +182,9 @@ object NasStudio {
                 for (padre in corrente) {
                     if (letture++ >= LETTURE_RICERCA_MAX) break
                     val figli = try {
-                        share.list(unisci(accesso.percorso.cartella, padre))
-                            .filter { eCartella(it.fileAttributes) && visibile(it.fileName, it.fileAttributes) }
-                            .map { it.fileName }
+                        share.elenca(unisci(accesso.percorso.cartella, padre))
+                            .filter { it.cartella && visibile(it) }
+                            .map { it.nome }
                     } catch (e: Exception) { emptyList() }
                     val buoni = cartellePerCliente(figli, cognome, nome)
                     buoni.forEach { trovati += "$padre\\$it" }
@@ -182,10 +203,7 @@ object NasStudio {
         }
         return conCondivisione(accesso) { share ->
             val percorso = unisci(accesso.percorso.cartella, cartellaCliente, file.percorso.replace('/', '\\'))
-            share.openFile(
-                percorso, EnumSet.of(AccessMask.GENERIC_READ), null,
-                SMB2ShareAccess.ALL, SMB2CreateDisposition.FILE_OPEN, null
-            ).use { f -> f.inputStream.use { it.readBytes() } }
+share.leggi(percorso)
         }
     }
 
@@ -221,15 +239,28 @@ object NasStudio {
 
     private val NOMI_NASCOSTI = setOf("thumbs.db", "desktop.ini", ".ds_store", "\$recycle.bin", "#recycle", "@recycle", "lost+found")
 
-    private fun visibile(nome: String, attributi: Long): Boolean {
+    private fun visibile(v: VoceArchivio): Boolean {
+        val nome = v.nome
         if (nome == "." || nome == "..") return false
         val n = nome.lowercase()
         if (n in NOMI_NASCOSTI || n.startsWith(".") || n.startsWith("@") || n.startsWith("~$")) return false
-        return !EnumWithValue.EnumUtils.isSet(attributi, FileAttributes.FILE_ATTRIBUTE_HIDDEN) &&
-            !EnumWithValue.EnumUtils.isSet(attributi, FileAttributes.FILE_ATTRIBUTE_SYSTEM)
+        return !v.nascosto
     }
 
-    private fun eCartella(attributi: Long) = EnumWithValue.EnumUtils.isSet(attributi, FileAttributes.FILE_ATTRIBUTE_DIRECTORY)
+    /** Archivio SMB: elenca/legge dentro una condivisione Windows. */
+    private class ArchivioSmb(private val share: DiskShare) : ArchivioRete {
+        override fun elenca(percorso: String) = share.list(percorso).map {
+            VoceArchivio(
+                it.fileName, EnumWithValue.EnumUtils.isSet(it.fileAttributes, FileAttributes.FILE_ATTRIBUTE_DIRECTORY), it.endOfFile,
+                EnumWithValue.EnumUtils.isSet(it.fileAttributes, FileAttributes.FILE_ATTRIBUTE_HIDDEN) ||
+                    EnumWithValue.EnumUtils.isSet(it.fileAttributes, FileAttributes.FILE_ATTRIBUTE_SYSTEM)
+            )
+        }
+        override fun cartellaEsiste(percorso: String) = share.folderExists(percorso)
+        override fun leggi(percorso: String): ByteArray = share.openFile(
+            percorso, EnumSet.of(AccessMask.GENERIC_READ), null, SMB2ShareAccess.ALL, SMB2CreateDisposition.FILE_OPEN, null
+        ).use { f -> f.inputStream.use { it.readBytes() } }
+    }
 
     private fun unisci(vararg parti: String): String = parti.filter { it.isNotEmpty() }.joinToString("\\")
 
@@ -240,9 +271,10 @@ object NasStudio {
         .withSecurityProvider(BCSecurityProvider())
         .build()
 
-    private fun <T> conCondivisione(accesso: Accesso, blocco: (DiskShare) -> T): T {
+    private fun <T> conCondivisione(accesso: Accesso, blocco: (ArchivioRete) -> T): T {
         val p = accesso.percorso
         try {
+            if (p.webdav) return blocco(ArchivioWebDav(accesso))
             SMBClient(configurazione()).use { client ->
                 client.connect(p.host, p.porta).use { connessione ->
                     val sessione = connessione.authenticate(
@@ -251,7 +283,7 @@ object NasStudio {
                     try {
                         val share = sessione.connectShare(p.condivisione) as? DiskShare
                             ?: throw ErroreNas("\"${p.condivisione}\" sul NAS non è una cartella condivisa di file")
-                        return share.use { blocco(it) }
+                        return share.use { blocco(ArchivioSmb(it)) }
                     } finally {
                         try { sessione.close() } catch (_: Exception) { }
                     }
@@ -270,6 +302,11 @@ object NasStudio {
         var guardia = 0
         while (causa != null && guardia++ < 10) {
             when (causa) {
+                is CertificatoNonFidato -> return ErroreNas(
+                    "Il NAS usa un certificato proprio, non riconosciuto da Android. Impronta del certificato: ${causa.impronta}. " +
+                        "Se è quella del tuo NAS puoi fidarti: confermala.", causa = e, improntaDaConfermare = causa.impronta
+                )
+                is java.security.cert.CertificateException -> return ErroreNas(causa.message ?: "Certificato del NAS non valido", causa = e)
                 is SMBApiException -> return when (causa.status) {
                     NtStatus.STATUS_LOGON_FAILURE ->
                         ErroreNas("Utente o password del NAS non corretti", causa = e)
@@ -287,7 +324,8 @@ object NasStudio {
                     "Non trovo il NAS \"${p.host}\": scrivi il suo indirizzo IP (es. 192.168.1.20), che trovi nel pannello del NAS", causa = e
                 )
                 is ConnectException, is NoRouteToHostException, is SocketTimeoutException -> return ErroreNas(
-                    "NAS non raggiungibile (${p.host}). Sei sul Wi-Fi dello studio, oppure con la VPN accesa? L'indirizzo è giusto?", causa = e
+                    if (p.webdav) "NAS non raggiungibile (${p.host}:${p.porta}). Controlla l'indirizzo, la porta (HTTPS 5003 / HTTP 5002) e, fuori studio, che la porta sia aperta nel router verso il NAS"
+                    else "NAS non raggiungibile (${p.host}). Sei sul Wi-Fi dello studio, oppure con la VPN accesa? L'indirizzo è giusto?", causa = e
                 )
             }
             causa = causa.cause

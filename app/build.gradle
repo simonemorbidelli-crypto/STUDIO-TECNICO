@@ -9,8 +9,8 @@ android {
         applicationId "it.geometra.schedacliente"
         minSdk 24
         targetSdk 34
-        versionCode 84
-        versionName "3.84"
+        versionCode 85
+        versionName "3.85"
     }
 
     // Keystore di debug fissa (invece di quella generata automaticamente, diversa a ogni
@@ -98,9 +98,13 @@ dependencies {
     // Zyxel NAS326) per il parere/relazione dai documenti (v3.78). Porta con sé BouncyCastle, usato
     // per l'accesso NTLM (su Android manca l'algoritmo MD4 nel provider di sistema).
     implementation 'com.hierynomus:smbj:0.15.0'
+    // Collegamento WebDAV/HTTPS al NAS (v3.85): HttpURLConnection non conosce il metodo PROPFIND.
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 
     // Solo per i test sul computer (non entrano nell'APK): rendering di controllo delle
     // grafiche della ruota e del riepilogo FDM.
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.13'
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+    testImplementation 'com.squareup.okhttp3:okhttp-tls:4.12.0'
 }

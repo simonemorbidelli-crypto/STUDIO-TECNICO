@@ -8,13 +8,14 @@ import androidx.security.crypto.MasterKey
 /**
  * Percorso, utente e password del NAS dello studio (v3.78). Cifrati sul telefono come la chiave
  * AI (EncryptedSharedPreferences, chiave di cifratura nell'Android Keystore); la password viene
- * usata solo per collegarsi al NAS e non viene mai inviata altrove.
+ * usata solo per collegarsi al NAS (per WebDAV/HTTPS si ricorda anche l'impronta del certificato accettato) e non viene mai inviata altrove.
  */
 object NasCredenzialiStore {
     private const val PREFS_SICURE = "scheda_cliente_prefs_sicure"
     private const val PERCORSO = "nas_percorso"
     private const val UTENTE = "nas_utente"
     private const val PASSWORD = "nas_password"
+    private const val IMPRONTA = "nas_impronta"
 
     private fun prefs(context: Context): SharedPreferences {
         val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
@@ -25,10 +26,10 @@ object NasCredenzialiStore {
         )
     }
 
-    data class Dati(val percorso: String, val utente: String, val password: String)
+    data class Dati(val percorso: String, val utente: String, val password: String, val impronta: String = "")
 
     fun leggi(context: Context): Dati = prefs(context).let {
-        Dati(it.getString(PERCORSO, "") ?: "", it.getString(UTENTE, "") ?: "", it.getString(PASSWORD, "") ?: "")
+        Dati(it.getString(PERCORSO, "") ?: "", it.getString(UTENTE, "") ?: "", it.getString(PASSWORD, "") ?: "", it.getString(IMPRONTA, "") ?: "")
     }
 
     /** Solo per i test automatici (nel simulatore non c'è il portachiavi cifrato di Android). */
@@ -41,14 +42,14 @@ object NasCredenzialiStore {
         val d = leggi(context)
         val percorso = NasStudio.analizzaPercorso(d.percorso) ?: return null
         if (d.utente.isBlank()) return null
-        return NasStudio.Accesso(percorso, d.utente, d.password)
+        return NasStudio.Accesso(percorso, d.utente, d.password, impronta = d.impronta)
     }
 
-    fun salva(context: Context, percorso: String, utente: String, password: String) {
-        prefs(context).edit().putString(PERCORSO, percorso).putString(UTENTE, utente).putString(PASSWORD, password).apply()
+    fun salva(context: Context, percorso: String, utente: String, password: String, impronta: String = "") {
+        prefs(context).edit().putString(PERCORSO, percorso).putString(UTENTE, utente).putString(PASSWORD, password).putString(IMPRONTA, impronta).apply()
     }
 
     fun rimuovi(context: Context) {
-        prefs(context).edit().remove(PERCORSO).remove(UTENTE).remove(PASSWORD).apply()
+        prefs(context).edit().remove(PERCORSO).remove(UTENTE).remove(PASSWORD).remove(IMPRONTA).apply()
     }
 }

@@ -152,13 +152,13 @@
                         android:layout_marginTop="10dp"
                         android:textColor="@color/text_primary"
                         android:lineSpacingExtra="3dp"
-                        android:text="Cartella del NAS che contiene le pratiche, una cartella per cliente (come la vedi da Esplora risorse, es. \\\\192.168.1.20\\Pratiche). Usa l'indirizzo IP del NAS. Funziona sul Wi-Fi dello studio; fuori studio solo con la VPN accesa sul telefono. L'app legge soltanto: non modifica né cancella nulla sul NAS. Utente e password restano cifrati su questo telefono." />
+                        android:text="Cartella del NAS che contiene le pratiche, una cartella per cliente (come la vedi da Esplora risorse, es. \\\\192.168.1.20\\Pratiche). Usa l'indirizzo IP del NAS. Funziona sul Wi-Fi dello studio; fuori studio solo con la VPN accesa sul telefono. In alternativa puoi usare il WebDAV del NAS, scrivendo https://indirizzo:5003/webdav/NomeCartellaCondivisa (alla prima connessione ti chiederà di confermare il certificato). L'app legge soltanto: non modifica né cancella nulla sul NAS. Utente e password restano cifrati su questo telefono." />
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:hint="Cartella delle pratiche (es. \\\\192.168.1.20\\Pratiche)">
+                        android:hint="Cartella pratiche (\\\\192.168.1.20\\Pratiche oppure https://nome.ddns.net:5003/webdav/Pratiche)">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etNasPercorso"
                             android:layout_width="match_parent"

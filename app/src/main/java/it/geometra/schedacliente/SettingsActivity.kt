@@ -100,9 +100,12 @@ class SettingsActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             // Si salva sempre (anche se ora il NAS non è raggiungibile, es. fuori studio), poi si prova.
-            NasCredenzialiStore.salva(this, percorso.toString(), utente, password)
+            // L'impronta del certificato accettata vale solo per lo stesso indirizzo.
+            val precedente = NasCredenzialiStore.leggi(this)
+            val impronta = if (NasStudio.analizzaPercorso(precedente.percorso)?.let { it.host == percorso.host && it.porta == percorso.porta } == true) precedente.impronta else ""
+            NasCredenzialiStore.salva(this, percorso.toString(), utente, password, impronta)
             binding.etNasPercorso.setText(percorso.toString())
-            provaNas(NasStudio.Accesso(percorso, utente, password))
+            provaNas(NasStudio.Accesso(percorso, utente, password, impronta = impronta))
         }
 
         binding.btnRimuoviNas.setOnClickListener {
@@ -123,8 +126,13 @@ class SettingsActivity : AppCompatActivity() {
                 val n = NasStudio.prova(accesso)
                 true to "✅ Collegamento riuscito: $n cartelle di pratiche in ${accesso.percorso}."
             } catch (e: Exception) {
-                false to "⚠️ Salvato, ma il collegamento non è riuscito: ${e.message}"
+                val daConfermare = (e as? NasStudio.ErroreNas)?.improntaDaConfermare
+                if (daConfermare != null) {
+                    runOnUiThread { chiediFiduciaCertificato(accesso, daConfermare) }
+                    null
+                } else false to "⚠️ Salvato, ma il collegamento non è riuscito: ${e.message}"
             }
+            if (esito == null) return@Thread
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 binding.btnSalvaNas.isEnabled = true
@@ -133,6 +141,24 @@ class SettingsActivity : AppCompatActivity() {
                 binding.tvStatoNas.text = esito.second
             }
         }.start()
+    }
+
+    /** WebDAV/HTTPS: il NAS ha un certificato proprio. Si mostra l'impronta; se l'utente conferma si ricorda e si riprova. */
+    private fun chiediFiduciaCertificato(accesso: NasStudio.Accesso, impronta: String) {
+        binding.btnSalvaNas.isEnabled = true
+        binding.progressNas.visibility = View.GONE
+        binding.tvStatoNas.text = "Serve la tua conferma sul certificato del NAS."
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Certificato del NAS")
+            .setMessage("Il NAS usa un certificato proprio (normale per un Zyxel). Controlla che questa impronta sia quella del tuo NAS " +
+                "(nel pannello del NAS, impostazioni del certificato/HTTPS) e poi conferma. Da ora l'app accetterà solo questo certificato.\n\n$impronta")
+            .setPositiveButton("È il mio NAS: fidati") { _, _ ->
+                val d = NasCredenzialiStore.leggi(this)
+                NasCredenzialiStore.salva(this, d.percorso, d.utente, d.password, impronta)
+                provaNas(accesso.copy(impronta = impronta))
+            }
+            .setNegativeButton("Annulla") { _, _ -> binding.tvStatoNas.text = "Collegamento non confermato." }
+            .show()
     }
 
     private fun aggiornaStato() {
