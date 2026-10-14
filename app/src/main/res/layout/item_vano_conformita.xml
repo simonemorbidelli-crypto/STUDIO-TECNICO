@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingTop="4dp">
+
+    <EditText
+        android:id="@+id/etNomeVano"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="2"
+        android:hint="Vano"
+        android:inputType="textCapSentences"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/etAreaVano"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1.1"
+        android:hint="mq"
+        android:inputType="numberDecimal"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/etAltezzaVano"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1.1"
+        android:hint="h (m)"
+        android:inputType="numberDecimal"
+        android:textSize="14sp" />
+
+    <CheckBox
+        android:id="@+id/cbAbitabile"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:contentDescription="Locale abitabile (altezza minima 2,70 m)"
+        android:text="ab."
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/btnTogliVano"
+        android:layout_width="44dp"
+        android:layout_height="48dp"
+        android:gravity="center"
+        android:contentDescription="Rimuovi il vano"
+        android:text="✕"
+        android:textColor="#5A5A5A"
+        android:textSize="18sp" />
+</LinearLayout>

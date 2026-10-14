@@ -278,6 +278,12 @@ class MainActivity : AppCompatActivity() {
                         .putExtra(ParereMegaActivity.EXTRA_ORIGINE, ParereMegaActivity.ORIGINE_NAS)
                 )
             },
+            VoceMenuPrincipale(
+                android.R.drawable.ic_menu_compass,
+                "Verifica di conformità →\ncatasto, titolo edilizio, stato di fatto"
+            ) {
+                startActivity(Intent(this, ConformitaActivity::class.java))
+            },
             VoceMenuPrincipale(android.R.drawable.ic_menu_preferences, "Impostazioni") {
                 startActivity(Intent(this, SettingsActivity::class.java))
             }

@@ -54,6 +54,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ConformitaActivity"
+            android:exported="false"
+            android:label="Verifica di conformità"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:label="Impostazioni" />

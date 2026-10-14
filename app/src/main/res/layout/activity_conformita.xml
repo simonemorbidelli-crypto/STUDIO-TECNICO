@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Verifica di conformità"
+            app:titleTextColor="@android:color/white"
+            app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
+            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Confronta vano per vano catasto, titolo edilizio e stato di fatto, e atto con visura. L'app calcola gli scostamenti e le soglie di tolleranza: è un supporto, la valutazione di conformità resta tua."
+                android:textSize="13sp"
+                android:textColor="#3A4540" />
+
+            <TextView
+                style="@style/TestoTitoloCalcolo"
+                android:layout_marginTop="16dp"
+                android:text="1 · CLIENTE E DATI DELL'UNITÀ" />
+
+            <Spinner
+                android:id="@+id/spinCliente"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="6dp" />
+
+            <CheckBox
+                android:id="@+id/cbLavori"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Lavori conclusi entro il 24/5/2024 (fasce 2-6% del comma 1-bis); altrimenti vale il 2%" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:hint="Superficie utile assentita dal titolo (mq, facoltativa)"
+                app:helperText="Decide la fascia di tolleranza; se vuota si usa la somma dei vani del titolo">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etSuperficieUtile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView
+                style="@style/TestoTitoloCalcolo"
+                android:layout_marginTop="20dp"
+                android:text="2 · VANI PER FONTE" />
+
+            <LinearLayout
+                android:id="@+id/sezioniFonti"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                style="@style/TestoTitoloCalcolo"
+                android:layout_marginTop="20dp"
+                android:text="3 · CONFRONTO" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Riferimento (la fonte &quot;giusta&quot;)"
+                android:textSize="13sp" />
+
+            <Spinner
+                android:id="@+id/spinRiferimento"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Confrontata con"
+                android:textSize="13sp" />
+
+            <Spinner
+                android:id="@+id/spinConfrontata"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnConfronta"
+                style="@style/PulsanteRuotaPrimario"
+                android:layout_marginTop="10dp"
+                android:text="Confronta le fonti" />
+
+            <TextView
+                android:id="@+id/tvRisultato"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@color/card_background"
+                android:padding="12dp"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textIsSelectable="true"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCondividiRisultato"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:text="Condividi il risultato"
+                android:visibility="gone" />
+
+            <TextView
+                style="@style/TestoTitoloCalcolo"
+                android:layout_marginTop="24dp"
+                android:text="4 · ATTO E VISURA" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Copia i dati dall'atto e dalla visura: l'app segnala i campi diversi. Foglio, particella, sub, rendita e consistenza si confrontano come numeri; gli intestatari senza badare all'ordine di nome e cognome."
+                android:textSize="13sp"
+                android:textColor="#3A4540" />
+
+            <LinearLayout
+                android:id="@+id/contenitoreCampi"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnConfrontaCampi"
+                style="@style/PulsanteRuotaPrimario"
+                android:layout_marginTop="10dp"
+                android:text="Confronta atto e visura" />
+
+            <TextView
+                android:id="@+id/tvRisultatoCampi"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@color/card_background"
+                android:padding="12dp"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textIsSelectable="true"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCondividiCampi"
+                style="@style/PulsanteRuotaSecondario"
+                android:layout_marginTop="8dp"
+                android:text="Condividi il confronto atto/visura"
+                android:visibility="gone" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="40dp" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
