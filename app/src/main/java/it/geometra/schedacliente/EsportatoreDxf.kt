@@ -34,6 +34,8 @@ import java.util.Locale
  */
 object EsportatoreDxf {
 
+    private const val PROPORZIONE_FINESTRA = 1.6
+
     fun genera(locali: List<LocaleTracciato>, scalaX: Double, scalaY: Double): String {
         val sb = StringBuilder()
 
@@ -84,6 +86,9 @@ object EsportatoreDxf {
         val centroVistaY = (estMinY + estMaxY) / 2.0
         val altezzaVista = (estMaxY - estMinY).coerceAtLeast(1.0)
         val larghezzaVista = (estMaxX - estMinX).coerceAtLeast(1.0)
+        // Altezza di vista tale che il disegno stia INTERO anche in una finestra larga (circa 16:10): un disegno
+        // più largo che alto, con la sola altezza del disegno, uscirebbe ai lati.
+        val altezzaFinestra = maxOf(altezzaVista, larghezzaVista / PROPORZIONE_FINESTRA)
 
         fun testo(valore: String, xCentro: Double, yCentro: Double, altezza: Double) {
             // Nessuna giustificazione DXF (gruppi 72/11 etc.): per restare compatibili con il
@@ -115,6 +120,17 @@ object EsportatoreDxf {
         riga(10, estMinX); riga(20, estMinY); riga(30, 0.0)
         riga(9, "\$EXTMAX")
         riga(10, estMaxX); riga(20, estMaxY); riga(30, 0.0)
+        // Limiti del foglio e vista corrente (v3.86): alcuni lettori (soprattutto quelli per telefono e i
+        // programmi che non leggono la tabella VPORT) usano questi valori dell'intestazione per
+        // inquadrare il disegno all'apertura.
+        riga(9, "\$LIMMIN")
+        riga(10, estMinX); riga(20, estMinY)
+        riga(9, "\$LIMMAX")
+        riga(10, estMaxX); riga(20, estMaxY)
+        riga(9, "\$VIEWCTR")
+        riga(10, centroVistaX); riga(20, centroVistaY)
+        riga(9, "\$VIEWSIZE")
+        riga(40, altezzaFinestra)
         riga(0, "ENDSEC")
 
         // TABLES: definizione dei layer usati (LOCALI per le polilinee, TESTO per le etichette)
@@ -145,8 +161,8 @@ object EsportatoreDxf {
         riga(15, 1.0); riga(25, 1.0)
         riga(16, 0.0); riga(26, 0.0); riga(36, 1.0)
         riga(17, centroVistaX); riga(27, centroVistaY); riga(37, 0.0)
-        riga(40, altezzaVista)
-        riga(41, larghezzaVista / altezzaVista)
+        riga(40, altezzaFinestra)
+        riga(41, PROPORZIONE_FINESTRA)
         riga(42, 50.0)
         riga(43, 0.0)
         riga(44, 0.0)
