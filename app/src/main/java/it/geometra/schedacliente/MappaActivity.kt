@@ -196,9 +196,18 @@ class MappaActivity : AppCompatActivity() {
         /** Collegamenti che la pagina può far aprire al browser (download dei dati, schede). */
         fun urlApribile(url: String): Boolean {
             val u = try { java.net.URI(url) } catch (e: Exception) { return false }
+            val host = (u.host ?: return false).lowercase()
             return u.scheme == "https" && u.userInfo == null &&
-                (u.host == HOST || u.host == "www.regione.toscana.it")
+                (host == HOST || host == "regione.toscana.it" || host.endsWith(".regione.toscana.it") ||
+                    host in COLLEGAMENTI_AMMESSI)
         }
+
+        /** Altri siti a cui rimandano le schede del Geoscopio (leggi, normativa, licenze, ARPAT): solo https. */
+        private val COLLEGAMENTI_AMMESSI = setOf(
+            "www.rete.toscana.it", "sira.arpat.toscana.it", "it.wikipedia.org", "www.gazzettaufficiale.it",
+            "eur-lex.europa.eu", "creativecommons.org", "trasparenza.cultura.gov.it", "www.normattiva.it"
+        )
+
 
         fun scarica(client: OkHttpClient, metodo: String, url: String, corpo: String): String {
             require(urlAmmesso(url)) { "Indirizzo non ammesso" }

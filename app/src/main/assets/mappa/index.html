@@ -144,7 +144,11 @@ var DEF=[
  {id:"fab",nome:"Catasto – solo fabbricati",srv:"catasto",lay:"rt_cat.idcatfabbr.rt",fmt:"image/png",tr:true,op:.9,on:false,sel:[["rt_cat.idcatfabbr.rt","Catasto – fabbricati"]]},
  {id:"com",nome:"Confini comunali",srv:"amb",lay:"rt_ambamm.idcomuni.rt.poly",fmt:"image/png",tr:true,op:1,on:false,sel:[["rt_ambamm.idcomuni.rt.poly","Confini comunali"]]}];
 var REV=STATO.rev||0;
-function mkWms(url,lay,fmt,tr,op,z){var o={layers:lay,format:fmt,transparent:tr,version:"1.3.0",opacity:op,attribution:ATTR_RT,maxZoom:21,tileSize:256,zIndex:z};if(REV)o._r=REV;return L.tileLayer.wms(url,o)}
+/* WMS che non accettano EPSG:3857 (Agenzia delle Entrate): si chiede in EPSG:4258 (ETRS89 geografico, asse lat,lon) */
+L.TileLayer.WmsGeo=L.TileLayer.WMS.extend({
+ getTileUrl:function(c){var b=this._tileCoordsToNwSe(c),nw=b[0],se=b[1],u=L.TileLayer.prototype.getTileUrl.call(this,c);
+  return u+L.Util.getParamString(this.wmsParams,u,this.options.uppercase)+(this.options.uppercase?"&BBOX=":"&bbox=")+[se.lat,nw.lng,nw.lat,se.lng].join(",")}});
+function mkWms(url,lay,fmt,tr,op,z,st){var o={layers:lay,format:fmt,transparent:tr,version:"1.3.0",opacity:op,attribution:ATTR_RT,maxZoom:21,tileSize:256,zIndex:z};if(st)o.styles=st;if(REV)o._r=REV;if(/agenziaentrate\.gov\.it/.test(url)){o.crs={code:"EPSG:4258"};return new L.TileLayer.WmsGeo(url,o)}return L.tileLayer.wms(url,o)}
 function statoLiv(id,d){STATO["l_"+id]={on:d.on,op:d.op};salva()}
 DEF.forEach(function(d,i){
  var s=STATO["l_"+d.id]||{};d.on=s.on!==undefined?s.on:d.on;d.op=s.op!==undefined?s.op:d.op;
@@ -208,13 +212,13 @@ L.TileLayer.ArcgisExport=L.TileLayer.extend({getTileUrl:function(c){
  return this._url+"/export?bbox="+bb+"&bboxSR=3857&imageSR=3857&size=256,256&dpi=96&format=png32&transparent=true&layers=show:"+this.options.lay+"&f=image"+(REV?"&_r="+REV:"")}});
 function mkArcgis(u,lay,op,z){return new L.TileLayer.ArcgisExport(u,{lay:lay,opacity:op,attribution:"© Autorità di bacino distrettuale dell'Appennino Settentrionale",maxZoom:21,tileSize:256,zIndex:z})}
 var EXTRA=[];var EXTRA_SALVATI=STATO.extra||[];
-function salvaExtra(){STATO.extra=EXTRA.map(function(e){return{u:e.u,l:e.l,t:e.t,op:e.op}});salva()}
-function aggiungiExtra(u,l,t,op){
- var e={u:u,l:l,t:t,op:op==null?.85:op};e.layer=/\/MapServer$/.test(u)?mkArcgis(u,l,e.op,40+EXTRA.length):mkWms(u,l,"image/png",true,e.op,40+EXTRA.length);
+function salvaExtra(){STATO.extra=EXTRA.map(function(e){return{u:e.u,l:e.l,t:e.t,op:e.op,st:e.st||"",q:e.q}});salva()}
+function aggiungiExtra(u,l,t,op,st,q){
+ var e={u:u,l:l,t:t,op:op==null?.85:op,st:st||"",q:q};e.layer=/\/MapServer$/.test(u)?mkArcgis(u,l,e.op,40+EXTRA.length):mkWms(u,l,"image/png",true,e.op,40+EXTRA.length,e.st);
  e.layer.on("tileerror",function(){msg("Il livello \""+t+"\" non risponde qui")});e.layer.addTo(map);EXTRA.push(e);salvaExtra();return e}
-function togliExtra(u,l){EXTRA=EXTRA.filter(function(e){if(e.u==u&&e.l==l){map.removeLayer(e.layer);return false}return true});salvaExtra()}
-function haExtra(u,l){return EXTRA.some(function(e){return e.u==u&&e.l==l})}
-EXTRA_SALVATI.forEach(function(e){aggiungiExtra(e.u,e.l,e.t,e.op)});
+function togliExtra(u,l,st){EXTRA=EXTRA.filter(function(e){if(e.u==u&&e.l==l&&(st===undefined||(e.st||"")==(st||""))){map.removeLayer(e.layer);return false}return true});salvaExtra()}
+function haExtra(u,l,st){return EXTRA.some(function(e){return e.u==u&&e.l==l&&(st===undefined||(e.st||"")==(st||""))})}
+EXTRA_SALVATI.forEach(function(e){aggiungiExtra(e.u,e.l,e.t,e.op,e.st,e.q)});
 
 /* ---- pannello livelli ---- */
 var pan=document.getElementById("pannello"),ris=document.getElementById("risultati"),infoEl=document.getElementById("info");
@@ -255,7 +259,7 @@ function disegnaExtra(){var el=document.getElementById("extraAttivi");if(!el)ret
  if(!EXTRA.length){el.innerHTML='<p class="pic">Nessun livello aggiunto. Apri un servizio e spunta gli strati che vuoi vedere.</p>';return}
  var h='<h4>Livelli aggiunti</h4>';EXTRA.forEach(function(e,i){h+='<div class="srv"><label><input type="checkbox" checked data-x="'+i+'"> '+esc(e.t)+'</label><input class="op" type="range" min="10" max="100" value="'+Math.round(e.op*100)+'" data-xo="'+i+'"></div>'});
  el.innerHTML=h;
- el.querySelectorAll("input[data-x]").forEach(function(c){c.onchange=function(){var e=EXTRA[+c.dataset.x];togliExtra(e.u,e.l);disegnaExtra();disegnaServizi(document.getElementById("fSrv").value.trim().toLowerCase())}});
+ el.querySelectorAll("input[data-x]").forEach(function(c){c.onchange=function(){var e=EXTRA[+c.dataset.x];togliExtra(e.u,e.l,e.st||"");disegnaExtra();disegnaServizi(document.getElementById("fSrv").value.trim().toLowerCase())}});
  el.querySelectorAll("input[data-xo]").forEach(function(c){c.oninput=function(){var e=EXTRA[+c.dataset.xo];e.op=c.value/100;e.layer.setOpacity(e.op);salvaExtra()}})}
 var SRV_APERTI={};
 function disegnaServizi(f){var el=document.getElementById("listaSrv");if(!el)return;var h="";
@@ -280,7 +284,7 @@ function aggiornaTutto(){
  DEF.forEach(function(d){var era=d.on;if(d.layer)map.removeLayer(d.layer);d.layer=mkWms(SERVIZI[d.srv],d.lay,d.fmt,d.tr,d.op,d.z||20);
   d.layer.on("tileerror",function(){msg("Il servizio della Regione non risponde ("+d.nome+")")});if(era)d.layer.addTo(map)});
  impostaOfc();
- var ex=EXTRA.map(function(e){return{u:e.u,l:e.l,t:e.t,op:e.op}});EXTRA.forEach(function(e){map.removeLayer(e.layer)});EXTRA=[];ex.forEach(function(e){aggiungiExtra(e.u,e.l,e.t,e.op)});
+ var ex=EXTRA.map(function(e){return{u:e.u,l:e.l,t:e.t,op:e.op,st:e.st,q:e.q}});EXTRA.forEach(function(e){map.removeLayer(e.layer)});EXTRA=[];ex.forEach(function(e){aggiungiExtra(e.u,e.l,e.t,e.op,e.st,e.q)});
  impostaBase(baseId);
  if(window.Android&&Android.svuotaCache)Android.svuotaCache();
  disegnaPannello();pan.style.display="block";

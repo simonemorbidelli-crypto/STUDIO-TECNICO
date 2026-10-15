@@ -20,7 +20,26 @@ chiudiTutto=function(){_ct();menu.style.display="none";$("leg").style.display="n
 var leg=$("leg");
 var LEG={v:STATO.legV||"cartoteca",f:""};
 function titoloLivello(l){return l.d||l.w}
-function haLiv(l){return l.w&&l.s!=null&&haExtra(S[l.s],l.w)}
+function haLiv(l){return l.w&&l.s!=null&&haExtra(S[l.s],l.w,l.st||"")}
+/* ---- regole di accensione del Geoscopio (Tolomeo): categorie mutuamente esclusive ---- */
+(function collega(){GEOS.V.forEach(function(v){(function w(t,p){t.forEach(function(n){n._p=p;(n.l||[]).forEach(function(l){l._c=n});w(n.c||[],n)})})(v.t,null)})})();
+function acc(l){if(l.w&&l.s!=null&&!haLiv(l))aggiungiExtra(S[l.s],l.w,titoloLivello(l),undefined,l.st||"",l.q?1:0)}
+function spe(l){if(l.w&&l.s!=null)togliExtra(S[l.s],l.w,l.st||"")}
+function tuttiL(n){var r=(n.l||[]).filter(function(l){return l.w&&l.s!=null});(n.c||[]).forEach(function(c){r=r.concat(tuttiL(c))});return r}
+function livelloAcceso(l){ /* strato acceso: se la sua categoria è mutuamente esclusiva spegne gli altri strati della stessa categoria */
+ acc(l);var c=l._c;if(c&&c.x)(c.l||[]).forEach(function(o){if(o!==l)spe(o)})}
+var CATN=[];
+function categoriaAcceso(c,on){ /* casella di categoria: accende gli strati (o li spegne); se la categoria madre ha sottocategorie esclusive spegne le sorelle */
+ if(!on){tuttiL(c).forEach(spe);return 0}
+ var P=c._p;if(P&&P.xc)(P.c||[]).forEach(function(s){if(s!==c)tuttiL(s).forEach(spe)});
+ var da=[];(function w(n){var ls=(n.l||[]).filter(function(l){return l.w&&l.s!=null});
+  if(n.x&&ls.length){var d=ls.filter(function(l){return l.on})[0]||ls[0];da.push(d)}else ls.forEach(function(l){da.push(l)});
+  (n.c||[]).forEach(w)})(c);
+ if(da.length>25){msg("Troppi strati ("+da.length+"): accendili uno per uno");return -1}
+ da.forEach(acc);return da.length}
+function sincronizzaAlbero(){
+ document.querySelectorAll("#legT input[data-k]").forEach(function(c){c.checked=!!haLiv(LIVELLI[+c.dataset.k])});
+ document.querySelectorAll("#legT input[data-c]").forEach(function(c){var n=CATN[+c.dataset.c],ls=tuttiL(n),k=0;ls.forEach(function(l){if(haLiv(l))k++});c.checked=k>0&&k==ls.length;c.indeterminate=k>0&&k<ls.length})}
 function filtra(nodo,f){ /* true se il nodo contiene qualcosa che corrisponde al filtro */
  if(!f)return true;
  if((nodo.n||"").toLowerCase().indexOf(f)>=0)return true;
@@ -29,12 +48,13 @@ function filtra(nodo,f){ /* true se il nodo contiene qualcosa che corrisponde al
 var LIVELLI=[];
 function htmlNodo(n,dep,f,forza){
  if(!filtra(n,f))return "";
- var h='<details class="cat"'+(f||forza||dep==0?" open":"")+'><summary>'+esc(n.n||"(senza nome)")+'</summary>';
+ var nl=tuttiL(n).length,ic=CATN.length;CATN.push(n);
+ var h='<details class="cat"'+(f||forza||dep==0?" open":"")+'><summary>'+(nl&&!n.xc&&!(n.x&&(n.l||[]).length)?'<input type="checkbox" data-c="'+ic+'" title="Accendi o spegni tutta la categoria"> ':"")+esc(n.n||"(senza nome)")+'</summary>'+(n.i?'<div class="pic">'+esc(n.i)+'</div>':"");
  (n.l||[]).forEach(function(l){
   if(f&&titoloLivello(l).toLowerCase().indexOf(f)<0&&(n.n||"").toLowerCase().indexOf(f)<0)return;
   var k=LIVELLI.length;LIVELLI.push(l);
   h+='<div class="lay">';
-  if(l.w&&l.s!=null)h+='<label><input type="checkbox" data-k="'+k+'"'+(haLiv(l)?" checked":"")+'> '+esc(titoloLivello(l))+'</label>';
+  if(l.w&&l.s!=null)h+='<label><input type="checkbox" data-k="'+k+'"'+(haLiv(l)?" checked":"")+'> '+esc(titoloLivello(l))+'</label>'+(n.x?' <span class="pic" title="Categoria a scelta esclusiva: un solo strato per volta">◉</span>':"");
   else h+=esc(titoloLivello(l));
   if(l.u)h+=' <button class="mini" data-d="'+k+'">📥 Scarica</button>';
   if(l.m)h+=' <button class="mini" data-m="'+k+'">ℹ️ Scheda</button>';
@@ -55,14 +75,17 @@ function disegnaLegenda(){
  disegnaAlbero()}
 function disegnaAlbero(){
  var v=GEOS.V.filter(function(x){return x.id==LEG.v})[0]||GEOS.V[0];
- LIVELLI=[];var h="";v.t.forEach(function(c){h+=htmlNodo(c,0,LEG.f,false)});
+ LIVELLI=[];CATN=[];var h="";v.t.forEach(function(c){h+=htmlNodo(c,0,LEG.f,false)});
  var el=$("legT");el.innerHTML=h||'<p class="pic">Nessun elemento corrisponde alla ricerca.</p>';
  el.querySelectorAll("input[data-k]").forEach(function(c){c.onchange=function(){
-  var l=LIVELLI[+c.dataset.k],u=S[l.s];
-  if(c.checked){aggiungiExtra(u,l.w,titoloLivello(l));
+  var l=LIVELLI[+c.dataset.k];
+  if(c.checked){livelloAcceso(l);
    if(/cartoteca|scarica|download/i.test(l.w+" "+(l.i||"")+" "+l.d)){SEL.on=true;aggiornaSel();msg("Tocca la mappa per selezionare l'elemento da scaricare")}}
-  else togliExtra(u,l.w);
-  disegnaExtra()}});
+  else spe(l);
+  disegnaExtra();sincronizzaAlbero()}});
+ el.querySelectorAll("input[data-c]").forEach(function(c){var n=CATN[+c.dataset.c],ls=tuttiL(n),k=0;ls.forEach(function(l){if(haLiv(l))k++});c.checked=k>0&&k==ls.length;c.indeterminate=k>0&&k<ls.length;
+  c.onclick=function(ev){ev.stopPropagation()};
+  c.onchange=function(){var r=categoriaAcceso(n,c.checked);disegnaExtra();sincronizzaAlbero();if(r===-1)c.checked=false}});
  el.querySelectorAll("[data-d]").forEach(function(b){b.onclick=function(){apri(LIVELLI[+b.dataset.d].u)}});
  el.querySelectorAll("[data-m]").forEach(function(b){b.onclick=function(){apri(LIVELLI[+b.dataset.m].m)}})}
 
@@ -72,29 +95,36 @@ window.SEL=SEL;
 function aggiornaSel(){var b=menu.querySelector('[data-a=sel]');b.textContent=(SEL.on?"✅":"🎯")+" Seleziona oggetto sulla mappa"}
 function pulisciSel(){SEL.hl.clearLayers();$("sel").style.display="none";if(window.marker&&marker){map.removeLayer(marker);marker=null}}
 function nomeFile(u){var m=u.split("?")[0].split("/").pop();return m||u}
+function encU(u){try{return encodeURI(decodeURI(u))}catch(e){return u}}
+function etLink(a,u){ /* etichetta del collegamento: il suo testo; se è solo «>>>» o vuoto, il testo della riga che lo contiene */
+ var t=(a.textContent||"").replace(/\s+/g," ").trim();
+ if(!t||/^[>»\s]+$/.test(t)){var tr=a.closest("tr,td,font");t=tr?(tr.textContent||"").replace(/\s+/g," ").replace(/[>»]+/g," ").trim():""}
+ return t||nomeFile(u)}
 function riceviInfo(testoHtml){ /* una risposta HTML del Geoscopio -> blocchi {righe, link}, uno per elemento selezionato */
  var d=new DOMParser().parseFromString(testoHtml,"text/html"),blocchi=[];
  d.querySelectorAll("script,style,img").forEach(function(x){x.remove()});
  var tabs=Array.prototype.filter.call(d.querySelectorAll("table"),function(t){return !t.querySelector("table")});
  tabs.forEach(function(t){
   var righe=[],link=[];
-  t.querySelectorAll("a[href]").forEach(function(a){var u=a.getAttribute("href");if(ok(u)&&!/^https:\/\/www\.regione\.toscana\.it\/?$/.test(u))link.push({u:u,t:(a.textContent||"").replace(/\s+/g," ").trim()||nomeFile(u)})});
+  t.querySelectorAll("a[href]").forEach(function(a){var u=a.getAttribute("href");if(ok(u)&&!/^https:\/\/www\.regione\.toscana\.it\/?$/.test(u))link.push({u:encU(u),t:etLink(a,u)})});
   t.querySelectorAll("tr").forEach(function(tr){
    var x=(tr.textContent||"").replace(/\s+/g," ").trim();
    if(!x||/^(Firenze,|Punto selezionato|Coordinate|Distribuzione con Licenza|Strato:)/.test(x))return;
-   if(tr.querySelector("a[href]"))return;
-   righe.push(x)});
+   if(tr.querySelector("a[href]")){ /* riga con collegamenti: si tiene il testo se oltre ai collegamenti ha un valore (es. «Reddito Dominicale / Agrario: 0 / 0») */
+    var rest=x;tr.querySelectorAll("a[href]").forEach(function(a){var at=(a.textContent||"").replace(/\s+/g," ").trim();if(at)rest=rest.split(at).join(" ")});
+    if(!/[A-Za-zÀ-ÿ0-9]/.test(rest.replace(/[>»]+/g," ")))return}
+   righe.push(x.replace(/\s*>>+\s*$/,""))});
   if(/Punto selezionato/.test(t.textContent||""))return;
   if(righe.length||link.length)blocchi.push({righe:righe,link:link})});
  /* link che stanno fuori dalle tabelle interne (es. "Sezione 2 - Scheda analitico descrittiva >>>"): scheda, cartografia, disciplina */
  var fuori=[],visti={};
  Array.prototype.forEach.call(d.querySelectorAll("a[href]"),function(a){
   var u=(a.getAttribute("href")||"").trim();
-  if(!ok(u)||/^https:\/\/www\.regione\.toscana\.it\/?$/.test(u))return;
+  if(!ok(u)||/^https:\/\/www\.regione\.toscana\.it\/?$/.test(u))return;u=encU(u);
   for(var k=0;k<blocchi.length;k++)for(var m=0;m<blocchi[k].link.length;m++)if(blocchi[k].link[m].u===u)return;
   var inInterna=false;for(var t=0;t<tabs.length;t++)if(tabs[t].contains(a))inInterna=true;
   if(inInterna)return;
-  u=encodeURI(decodeURI(u));if(visti[u])return;visti[u]=1;
+  if(visti[u])return;visti[u]=1;
   var et="",n=a.previousSibling;
   while(n&&!(n.nodeType==1&&n.nodeName=="BR")){if(n.nodeType==3)et=n.textContent+et;else if(n.nodeType==1&&n.nodeName!="A")et=n.textContent+et;else break;n=n.previousSibling}
   et=et.replace(/\s+/g," ").trim();
@@ -119,9 +149,10 @@ function stratiAccesi(){ /* tutti gli strati ACCESI e interrogabili: livelli pri
  var v=[],visti={},nonInterr=[];
  function aggiungi(o){var k=o.u+"|"+o.l;if(visti[k])return;visti[k]=1;v.push(o)}
  DEF.forEach(function(d){if(!d.on)return;
-  if(d.sel)d.sel.forEach(function(x){aggiungi({u:SERVIZI[d.srv],l:x[0],t:x[1],tipo:"plain"})});
+  if(d.sel)d.sel.forEach(function(x){aggiungi({u:SERVIZI[d.srv],l:x[0],t:x[1],tipo:"html"})});
   else nonInterr.push(d.nome)});
  EXTRA.forEach(function(e){
+  if(e.q===0){nonInterr.push(e.t);return}
   if(/\/MapServer$/.test(e.u))aggiungi({u:e.u,l:e.l,t:e.t,tipo:"agx"});
   else if(REG.test(e.u))aggiungi({u:e.u,l:e.l,t:e.t,tipo:"html"})});
  return {v:v,nonInterr:nonInterr}}
@@ -287,7 +318,7 @@ $("stpNo").onclick=function(){$("stp").style.display="none"};
 var VINC={on:false};
 function livG(g){return g.l}
 function statoGruppo(g){var n=0;g.l.forEach(function(l){if(haExtra(l.u,l.w))n++});return n==0?0:(n==g.l.length?2:1)}
-function accendiLiv(l){if(!haExtra(l.u,l.w))aggiungiExtra(l.u,l.w,l.t,.6)}
+function accendiLiv(l){if(!haExtra(l.u,l.w))aggiungiExtra(l.u,l.w,l.t,.6,"",l.q===0?0:undefined)}
 function pannelloIstr(){
  var el=$("istrBox");if(!el)return;
  var h='<div class="pic">Accendi con un tocco tutti gli strati di un gruppo: sono solo dati attuali ed essenziali (niente dati storici). Dati di consultazione: per l\'istruttoria fa fede il dato ufficiale degli enti competenti.</div>';
