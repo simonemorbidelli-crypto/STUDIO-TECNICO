@@ -78,7 +78,7 @@ function riceviInfo(testoHtml){ /* una risposta HTML del Geoscopio -> blocchi {r
  var tabs=Array.prototype.filter.call(d.querySelectorAll("table"),function(t){return !t.querySelector("table")});
  tabs.forEach(function(t){
   var righe=[],link=[];
-  t.querySelectorAll("a[href]").forEach(function(a){var u=a.getAttribute("href");if(ok(u))link.push({u:u,t:(a.textContent||"").replace(/\s+/g," ").trim()||nomeFile(u)})});
+  t.querySelectorAll("a[href]").forEach(function(a){var u=a.getAttribute("href");if(ok(u)&&!/^https:\/\/www\.regione\.toscana\.it\/?$/.test(u))link.push({u:u,t:(a.textContent||"").replace(/\s+/g," ").trim()||nomeFile(u)})});
   t.querySelectorAll("tr").forEach(function(tr){
    var x=(tr.textContent||"").replace(/\s+/g," ").trim();
    if(!x||/^(Firenze,|Punto selezionato|Coordinate|Distribuzione con Licenza|Strato:)/.test(x))return;
@@ -86,6 +86,22 @@ function riceviInfo(testoHtml){ /* una risposta HTML del Geoscopio -> blocchi {r
    righe.push(x)});
   if(/Punto selezionato/.test(t.textContent||""))return;
   if(righe.length||link.length)blocchi.push({righe:righe,link:link})});
+ /* link che stanno fuori dalle tabelle interne (es. "Sezione 2 - Scheda analitico descrittiva >>>"): scheda, cartografia, disciplina */
+ var fuori=[],visti={};
+ Array.prototype.forEach.call(d.querySelectorAll("a[href]"),function(a){
+  var u=(a.getAttribute("href")||"").trim();
+  if(!ok(u)||/^https:\/\/www\.regione\.toscana\.it\/?$/.test(u))return;
+  for(var k=0;k<blocchi.length;k++)for(var m=0;m<blocchi[k].link.length;m++)if(blocchi[k].link[m].u===u)return;
+  var inInterna=false;for(var t=0;t<tabs.length;t++)if(tabs[t].contains(a))inInterna=true;
+  if(inInterna)return;
+  u=encodeURI(decodeURI(u));if(visti[u])return;visti[u]=1;
+  var et="",n=a.previousSibling;
+  while(n&&!(n.nodeType==1&&n.nodeName=="BR")){if(n.nodeType==3)et=n.textContent+et;else if(n.nodeType==1&&n.nodeName!="A")et=n.textContent+et;else break;n=n.previousSibling}
+  et=et.replace(/\s+/g," ").trim();
+  fuori.push({u:u,t:et||nomeFile(u)})});
+ if(fuori.length){
+  if(blocchi.length==1)blocchi[0].link=blocchi[0].link.concat(fuori);
+  else blocchi.push({righe:blocchi.length?["Documenti collegati"]:[],link:fuori})}
  return blocchi}
 function evidenzia(u,lay,bbox){
  var url=u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS="+encodeURIComponent(lay)+"&QUERY_LAYERS="+encodeURIComponent(lay)+"&STYLES=&CRS=EPSG:3857&BBOX="+bbox.b+"&WIDTH="+bbox.w+"&HEIGHT="+bbox.h+"&I="+bbox.i+"&J="+bbox.j+"&INFO_FORMAT=text/gml&FEATURE_COUNT=1";
@@ -279,14 +295,18 @@ function pannelloIstr(){
   h+='<div class="srv"><label><input type="checkbox" data-g="'+g.id+'"> <b>'+esc(g.n)+'</b> <span class="pic">('+g.l.length+' strati)</span></label> <a href="#" data-gd="'+g.id+'">dettaglio</a><div id="gd_'+g.id+'" style="display:none">';
   g.l.forEach(function(l,k){h+='<div class="lay"><label><input type="checkbox" data-gl="'+g.id+':'+k+'"'+(haExtra(l.u,l.w)?" checked":"")+'> '+esc(l.t)+'</label></div>'});
   h+='</div></div>'});
- h+='<div class="f"><button id="bVinc" style="flex:1;padding:9px">'+(VINC.on?"✅ ":"📍 ")+'Vincoli nel punto che tocco</button></div><div class="pic">Tocca il pulsante, poi un punto della mappa: restano accesi solo i vincoli che interessano quel punto.</div>';
+ h+='<div class="f"><button id="bVinc" style="flex:1;padding:9px">'+(VINC.on?"✅ ":"📍 ")+'Vincoli nel punto che tocco</button></div><div class="f"><button id="bVincOff" style="flex:1;padding:9px">🧹 Spegni tutti i vincoli accesi</button></div><div class="pic">Tocca il pulsante, poi un punto della mappa: restano accesi solo i vincoli che interessano quel punto.</div>';
  el.innerHTML=h;
  ISTR.forEach(function(g){var c=el.querySelector('[data-g="'+g.id+'"]'),st=statoGruppo(g);c.checked=st==2;c.indeterminate=st==1;
   c.onchange=function(){if(c.checked)g.l.forEach(accendiLiv);else g.l.forEach(function(l){togliExtra(l.u,l.w)});disegnaExtra();pannelloIstr()}});
  el.querySelectorAll("[data-gd]").forEach(function(a){a.onclick=function(ev){ev.preventDefault();var d=$("gd_"+a.dataset.gd);d.style.display=d.style.display=="none"?"block":"none"}});
  el.querySelectorAll("[data-gl]").forEach(function(c){c.onchange=function(){var p=c.dataset.gl.split(":"),g=ISTR.filter(function(x){return x.id==p[0]})[0],l=g.l[+p[1]];
   if(c.checked)accendiLiv(l);else togliExtra(l.u,l.w);disegnaExtra();pannelloIstr();var d=$("gd_"+g.id);if(d)d.style.display="block"}});
- $("bVinc").onclick=function(){togliVinc(!VINC.on)}}
+ $("bVinc").onclick=function(){togliVinc(!VINC.on)};
+ $("bVincOff").onclick=spegniVincoli}
+function spegniVincoli(){ /* spegne tutti i vincoli di istruttoria accesi (a mano o con «Vincoli nel punto che tocco») */
+ var n=0;ISTR.forEach(function(g){g.l.forEach(function(l){if(haExtra(l.u,l.w))n++;togliExtra(l.u,l.w)})});
+ disegnaExtra();pulisciSel();pannelloIstr();msg(n?("Spenti "+n+" vincoli"):"Nessun vincolo acceso")}
 window.pannelloIstr=function(){pannelloIstr();if(window.bottoniPannello)bottoniPannello()};
 function togliVinc(on){VINC.on=on;if(on){SEL.on=false;aggiornaSel();chiudiTutto();msg("Tocca un punto della mappa: ti mostro e accendo solo i vincoli presenti lì")}else{pulisciSel();msg("Ricerca dei vincoli nel punto disattivata")}pannelloIstr()}
 var VINC_GRUPPI={idro:1,pai:1,pae:1,arc:1,cul:1,nat:1};
@@ -346,11 +366,11 @@ function vincoliPunto(ev){
   var el=$("selR");if(!el)return;
   var h="";
   if(!elenco.length)h+='<div class="selb">Nessuno dei '+interr.length+' strati di vincolo controllati interessa questo punto.</div>';
-  else{h+='<div class="selb"><b>'+elenco.length+' vincoli in questo punto</b> (accesi sulla mappa)</div>';
+  else{h+='<div class="selb"><b>'+elenco.length+' vincoli in questo punto</b> (accesi sulla mappa) <button id="vOff" class="mini">🧹 Spegni tutti i vincoli</button></div>';
    elenco.forEach(function(x){h+='<div class="selb"><b>'+esc(x.l.t)+'</b>';x.attr.forEach(function(r){h+='<div>'+esc(r)+'</div>'});h+='</div>'})}
   if(errori)h+='<div class="selb pic">Attenzione: '+errori+' interrogazioni non sono riuscite, l\'elenco può essere incompleto.</div>';
   h+='<p class="pic">Verifica indicativa sui dati WMS della Regione Toscana: per l\'istruttoria fa fede il dato ufficiale degli enti competenti. PAI dissesti e PGRA sono dell\'Autorità di bacino dell\'Appennino Settentrionale (bacino Arno; altri bacini non inclusi).</p>';
-  el.innerHTML=h})}
+  el.innerHTML=h;var vo=$("vOff");if(vo)vo.onclick=spegniVincoli})}
 
 /* ---------- spegni tutto / espandi / comprimi ---------- */
 function spegniTutto(){

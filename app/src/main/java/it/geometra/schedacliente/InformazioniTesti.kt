@@ -53,6 +53,7 @@ object InformazioniTesti {
 <p><b>v3.97</b> – Menu ⋮ riordinato (sottomenu «Scheda Cliente» e «Parere / Relazione con l'AI»); mappa: CTR 1:10.000 pulito, macchina del tempo che parte dall'ortofoto 2024/2025 1:5.000 a colori, menu a tocco prolungato (nota, vai a posizione, indicatore xy, quota, cerchio), «Seleziona oggetto» che interroga tutti gli strati accesi e solo quelli</p>
 <p><b>v3.98</b> – «Seleziona oggetto»: la scheda mostra solo gli oggetti presenti nel punto toccato, senza l'elenco di tutti gli strati accesi</p>
 <p><b>v3.99</b> – «Seleziona oggetto»: gli strati WMS (vincoli paesaggistici, ecc.) compaiono solo se hanno davvero un elemento nel punto toccato (prima comparivano tutti con titolo e link); limite portato a 60 strati per tocco</p>
+<p><b>v4.00</b> – «Seleziona oggetto»: tornano i collegamenti alla scheda del vincolo, alla cartografia e alla disciplina (prima si vedeva solo il link generico alla home della Regione); nuovo pulsante «🧹 Spegni tutti i vincoli accesi» per togliere in un colpo i vincoli accesi con «Vincoli nel punto che tocco»</p>
 """
 
     val GUIDA_INESPERTI: String get() = InformazioniGuida.NOVIZI
