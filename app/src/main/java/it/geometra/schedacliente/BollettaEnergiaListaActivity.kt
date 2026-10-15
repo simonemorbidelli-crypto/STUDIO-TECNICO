@@ -29,6 +29,7 @@ class BollettaEnergiaListaActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
 
         adapter = BollettaEnergiaAdapter(
             emptyList(),

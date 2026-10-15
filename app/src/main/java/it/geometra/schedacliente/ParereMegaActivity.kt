@@ -103,6 +103,7 @@ class ParereMegaActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
         onBackPressedDispatcher.addCallback(this, indietroRisaleCartella)
 
         modoNas = intent.getStringExtra(EXTRA_ORIGINE) == ORIGINE_NAS

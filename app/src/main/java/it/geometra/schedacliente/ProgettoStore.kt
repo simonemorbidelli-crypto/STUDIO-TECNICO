@@ -90,11 +90,25 @@ object ProgettoStore {
         idEsistente: Long? = null
     ): Long {
         val id = idEsistente ?: IdUnivoci.nuovo(elenca(context).map { it.id }.toSet())
-        val cartella = cartellaProgetto(context, id).apply { mkdirs() }
+        scrivi(cartellaProgetto(context, id).apply { mkdirs() }, id, nome, bitmap, scalaX, scalaY, locali)
+        return id
+    }
 
-        val fileImmagine = File(cartella, "immagine.jpg")
-        FileOutputStream(fileImmagine).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+    private fun scrivi(
+        cartella: File,
+        id: Long,
+        nome: String,
+        bitmap: Bitmap?,
+        scalaX: Double?,
+        scalaY: Double?,
+        locali: List<LocaleTracciato>
+    ) {
+        cartella.mkdirs()
+        if (bitmap != null) {
+            val fileImmagine = File(cartella, "immagine.jpg")
+            FileOutputStream(fileImmagine).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+            }
         }
 
         val localiJson = JSONArray()
@@ -132,11 +146,49 @@ object ProgettoStore {
             fileDati.writeText(json.toString())
             fileTemporaneo.delete()
         }
-        return id
     }
 
-    fun carica(context: Context, id: Long): ProgettoPlanimetria? {
-        val cartella = cartellaProgetto(context, id)
+    // --- Ultimo lavoro (salvato in automatico all'uscita, non compare nell'elenco dei progetti) ---
+
+    private fun cartellaUltimo(context: Context): File = File(context.filesDir, "ultimo_lavoro_planimetria")
+
+    private const val ID_ULTIMO = -1L
+
+    /** Salva l'ultimo lavoro. L'immagine (pesante) si riscrive solo se [scriviImmagine] è vero. */
+    fun salvaUltimo(
+        context: Context,
+        bitmap: Bitmap,
+        scalaX: Double?,
+        scalaY: Double?,
+        locali: List<LocaleTracciato>,
+        scriviImmagine: Boolean
+    ) {
+        val cartella = cartellaUltimo(context)
+        val serveImmagine = scriviImmagine || !File(cartella, "immagine.jpg").exists()
+        scrivi(cartella, ID_ULTIMO, "Ultimo lavoro", if (serveImmagine) bitmap else null, scalaX, scalaY, locali)
+    }
+
+    /** Dati dell'ultimo lavoro (senza caricare l'immagine), o null se non c'è nulla da riprendere. */
+    fun riepilogoUltimo(context: Context): RiepilogoProgetto? {
+        val cartella = cartellaUltimo(context)
+        val fileDati = File(cartella, "dati.json")
+        if (!fileDati.exists() || !File(cartella, "immagine.jpg").exists()) return null
+        return try {
+            val json = JSONObject(fileDati.readText())
+            val localiJson = json.getJSONArray("locali")
+            var tot = 0.0
+            for (i in 0 until localiJson.length()) tot += localiJson.getJSONObject(i).optDouble("areaM2", 0.0)
+            RiepilogoProgetto(ID_ULTIMO, "Ultimo lavoro", json.optLong("dataSalvataggio", 0L), localiJson.length(), tot)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun caricaUltimo(context: Context): ProgettoPlanimetria? = leggi(cartellaUltimo(context), ID_ULTIMO)
+
+    fun carica(context: Context, id: Long): ProgettoPlanimetria? = leggi(cartellaProgetto(context, id), id)
+
+    private fun leggi(cartella: File, id: Long): ProgettoPlanimetria? {
         val fileDati = File(cartella, "dati.json")
         val fileImmagine = File(cartella, "immagine.jpg")
         if (!fileDati.exists() || !fileImmagine.exists()) return null

@@ -49,6 +49,7 @@ class ConformitaActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
         store = ConformitaStore(this)
 
         clienti = ClienteStore(this).caricaTutti().sortedBy { it.nomeCompleto().lowercase() }

@@ -76,6 +76,7 @@ class CalcoliActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
 
         binding.spinnerCategoriaImu.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_dropdown_item, categorieImu.map { it.first }

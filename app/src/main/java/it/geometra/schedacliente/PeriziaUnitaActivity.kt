@@ -70,6 +70,7 @@ class PeriziaUnitaActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
 
         intent.getStringExtra(EXTRA_LOCALI)?.let { json ->
             val array = JSONArray(json)

@@ -61,7 +61,29 @@ class MappaActivity : AppCompatActivity() {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 7)
         }
-        web.loadUrl("file:///android_asset/mappa/index.html")
+        val giaUsata = getSharedPreferences(PREF, Context.MODE_PRIVATE).getBoolean(MAPPA_USATA, false)
+        if (savedInstanceState != null || !giaUsata) {
+            caricaMappa(false)
+        } else {
+            val dialog = android.app.AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
+                .setTitle("Mappa")
+                .setMessage("Vuoi ripartire dall'ultima visualizzazione (posizione, sfondo e strati accesi) oppure aprire una mappa nuova da zero?")
+                .setPositiveButton("Ultima visualizzazione") { _, _ -> caricaMappa(false) }
+                .setNegativeButton("Mappa nuova") { _, _ -> caricaMappa(true) }
+                .setCancelable(false)
+                .show()
+            dialog.rendiPulsantiLeggibili(this)
+        }
+    }
+
+    /** Con [daZero] la pagina dimentica posizione, sfondo e strati dell'ultima volta. */
+    private fun caricaMappa(daZero: Boolean) {
+        web.loadUrl("file:///android_asset/mappa/index.html" + if (daZero) "?nuova=1" else "")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putBoolean(MAPPA_USATA, true).apply()
     }
 
     override fun onResume() {
@@ -75,7 +97,7 @@ class MappaActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (web.canGoBack()) web.goBack() else super.onBackPressed()
+        if (web.canGoBack()) web.goBack() else NavigazioneIndietro.chiediDaSezione(this)
     }
 
     private fun js(codice: String) = runOnUiThread { web.evaluateJavascript(codice, null) }
@@ -157,6 +179,7 @@ class MappaActivity : AppCompatActivity() {
     companion object {
         private const val PREF = "mappa"
         private const val CHIAVE = "chiave_google"
+        private const val MAPPA_USATA = "mappa_usata"
         private const val HOST = "www502.regione.toscana.it"
         private const val HOST_AUTORITA = "geodataserver.appenninosettentrionale.it"
         private const val LIMITE = 6 * 1024 * 1024

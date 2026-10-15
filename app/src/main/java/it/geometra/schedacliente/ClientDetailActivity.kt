@@ -18,6 +18,7 @@ class ClientDetailActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbarDetail)
         binding.toolbarDetail.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
 
         store = ClienteStore(this)
         clienteId = intent.getLongExtra("cliente_id", -1)

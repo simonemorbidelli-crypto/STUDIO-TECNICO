@@ -93,6 +93,7 @@ var SERV_OFC=[ // ortofoto: servizi del Geoscopio, dal 1954 al 2025
  {n:"2021-2025",u:RT+"ows_ofc/com.rt.wms.RTmap/wms?map=owsofc_rt",f:/^rt_ofc\./},
  {n:"grigio migliorato",u:RT+"ofc_cached/wms?",f:/\.grey\.rt@96dpi$/,gr:"grigio migliorato"}];
 var ATTR_RT='© <a href="https://www.regione.toscana.it/geoscopio">Regione Toscana – Geoscopio</a>';
+if(/[?&]nuova=1/.test(location.search)){try{localStorage.removeItem("mappa_stato")}catch(e){}}
 var STATO={};try{STATO=JSON.parse(localStorage.getItem("mappa_stato")||"{}")}catch(e){}
 function salva(){try{localStorage.setItem("mappa_stato",JSON.stringify(STATO))}catch(e){}}
 function msg(t){var m=document.getElementById("msg");m.textContent=t;m.style.display="block";clearTimeout(msg.t);msg.t=setTimeout(function(){m.style.display="none"},4000)}

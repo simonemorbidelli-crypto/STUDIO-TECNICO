@@ -114,6 +114,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         impostaTitoloConVersione()
+        NavigazioneIndietro.installaPaginaIniziale(this)
 
         store = ClienteStore(this)
 
@@ -292,6 +293,9 @@ class MainActivity : AppCompatActivity() {
             },
             VoceMenuPrincipale(android.R.drawable.ic_menu_preferences, "Impostazioni") {
                 startActivity(Intent(this, SettingsActivity::class.java))
+            },
+            VoceMenuPrincipale(android.R.drawable.ic_menu_info_details, "Informazioni\nstoria, guida all'uso, copyright") {
+                startActivity(Intent(this, InformazioniActivity::class.java))
             }
         )
 

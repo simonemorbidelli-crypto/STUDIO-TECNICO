@@ -105,6 +105,7 @@ class BollettaEnergiaFormActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
 
         val idEsistente = intent.getLongExtra(EXTRA_BOLLETTA_ID, -1L).takeIf { it != -1L }
         if (idEsistente != null) {

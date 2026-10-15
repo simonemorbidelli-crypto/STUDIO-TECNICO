@@ -81,6 +81,7 @@ class PeriziaCompletaActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
 
         dati = intent.getStringExtra(EXTRA_DATI)?.let { try { DatiPerizia.daJson(it) } catch (e: Exception) { null } }
         binding.tvDatiCalcolati.text = dati?.let { riassunto(it) }

@@ -185,6 +185,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
 
         binding.btnCaricaImmagine.setOnClickListener {
             sceltaFileLauncher.launch(arrayOf("image/*", "application/pdf"))
@@ -235,6 +236,59 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.superficieView.onStoriaCambiata = { aggiornaPulsantiAnnulla() }
 
         disegnaElencoLocali()
+
+        if (savedInstanceState == null) proponiRipresaUltimoLavoro()
+    }
+
+    /** Ultima immagine già scritta nel salvataggio automatico (per non riscriverla a ogni uscita). */
+    private var bitmapUltimoScritto: Bitmap? = null
+
+    /**
+     * All'ingresso nella sezione: se c'è un lavoro lasciato aperto l'ultima volta, chiede se
+     * riprenderlo o cominciare un nuovo progetto.
+     */
+    private fun proponiRipresaUltimoLavoro() {
+        val ultimo = ProgettoStore.riepilogoUltimo(this) ?: return
+        val dialog = AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
+            .setTitle("Riprendere il lavoro?")
+            .setMessage(
+                "Hai lasciato un progetto aperto il ${ultimo.dataFormattata()} " +
+                    "(${ultimo.numeroLocali} locali). Vuoi ripartire dall'ultimo progetto su cui lavoravi " +
+                    "oppure iniziare un nuovo progetto?"
+            )
+            .setPositiveButton("Riprendi l'ultimo") { _, _ ->
+                val progetto = ProgettoStore.caricaUltimo(this)
+                if (progetto == null) {
+                    avviso("Non sono riuscito a riaprire l'ultimo progetto")
+                } else {
+                    applicaProgetto(progetto)
+                    bitmapUltimoScritto = progetto.bitmap
+                    avviso("Ultimo progetto ripreso")
+                }
+            }
+            .setNegativeButton("Nuovo progetto", null)
+            .setCancelable(false)
+            .show()
+        dialog.rendiPulsantiLeggibili(this)
+    }
+
+    /** Salvataggio automatico dell'ultimo lavoro quando si esce dalla schermata o dall'app. */
+    override fun onStop() {
+        super.onStop()
+        val bitmap = binding.superficieView.bitmap ?: return
+        val serveImmagine = bitmap !== bitmapUltimoScritto
+        val localiDaSalvare = locali.toList()
+        val sx = scalaX
+        val sy = scalaY
+        val contesto = applicationContext
+        bitmapUltimoScritto = bitmap
+        Thread {
+            try {
+                ProgettoStore.salvaUltimo(contesto, bitmap, sx, sy, localiDaSalvare, serveImmagine)
+            } catch (e: Exception) {
+                // Salvataggio automatico non riuscito: il lavoro resta comunque a schermo.
+            }
+        }.start()
     }
 
     override fun onDestroy() {
@@ -602,7 +656,11 @@ class PlanimetriaActivity : AppCompatActivity() {
             avviso("Non sono riuscito ad aprire il progetto salvato")
             return
         }
+        applicaProgetto(progetto)
+        avviso("Progetto \"${progetto.nome}\" caricato")
+    }
 
+    private fun applicaProgetto(progetto: ProgettoPlanimetria) {
         terminaOperazioneInCorso()
         immagineSelezionata = null
         eraFilePdf = false
@@ -644,8 +702,6 @@ class PlanimetriaActivity : AppCompatActivity() {
         aggiornaTotale()
         abilitaControlli(true)
         aggiornaPulsanteVisualizza()
-
-        avviso("Progetto \"${progetto.nome}\" caricato")
     }
 
     // ---------------------------------------------------------------------

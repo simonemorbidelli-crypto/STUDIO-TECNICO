@@ -22,6 +22,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        NavigazioneIndietro.installa(this)
 
         aggiornaStato()
         binding.etApiKey.setText(ChiaveApiStore.leggiChiave(this))
