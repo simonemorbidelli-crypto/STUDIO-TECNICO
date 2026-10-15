@@ -49,58 +49,12 @@ object InformazioniTesti {
 <p><b>v3.93</b> – Mappa: PAI dissesti e PGRA dell'Autorità di bacino dell'Appennino Settentrionale nell'istruttoria e nei vincoli nel punto.</p>
 <p><b>v3.94</b> – Tasto «indietro» con conferma (sezione → pagina iniziale, uscita dall'app); ripresa dell'ultimo progetto in «Aree locali da planimetria» e dell'ultima visualizzazione della mappa; sezione Informazioni.</p>
 <p><b>v3.95</b> – Storia dell'applicazione ricostruita dalla chat originale.</p>
+<p><b>v3.96</b> – Guide per utenti inesperti ed esperti riscritte per intero: scheda cliente, dettatura, Mega e NAS, planimetria, perizia, conformità, mappa (adattando il manuale del Geoscopio) e impostazioni.</p>
 """
 
-    val GUIDA_INESPERTI: String = """
-<h2>Guida per chi comincia</h2>
-<p>Questa guida ti accompagna passo per passo. Il menu con i tre puntini in alto a destra nella pagina iniziale è il punto da cui si raggiungono tutte le sezioni.</p>
+    val GUIDA_INESPERTI: String get() = InformazioniGuida.NOVIZI
 
-<h3>1. Le schede dei clienti</h3>
-<p>Nella pagina iniziale compili il modulo (nome, comune, tipo di pratica…) e tocchi <b>Salva</b>: la scheda compare nell'elenco. Per <b>cercare</b> usa il campo di ricerca; per cambiare l'ordine tocca <b>Ordina</b>. Per <b>modificare</b> una scheda tieni premuto il dito su di essa; per <b>eliminarla</b> falla scorrere di lato. Toccando una scheda si apre il suo dettaglio.</p>
-
-<h3>2. Il backup</h3>
-<p>Dal menu scegli <b>Salva backup su Drive o cloud</b> o <b>Condividi backup</b> per avere una copia delle schede; con <b>Importa backup</b> le rimetti sul telefono (anche su un telefono nuovo). Conviene farlo ogni tanto.</p>
-
-<h3>3. Calcolare le superfici dei locali</h3>
-<p>Menu → <b>Aree locali da planimetria</b>. Carica una planimetria (da file, PDF o con una foto), poi:</p>
-<p>• <b>Imposta scala</b>: indica due punti di cui conosci la distanza (o lascia che l'app legga la scala dal foglio).<br>• <b>Nuovo locale</b>: tocca gli angoli della stanza uno dopo l'altro e chiudi il locale: l'app calcola la superficie.<br>• <b>Rilevamento automatico</b> (serve la chiave AI nelle Impostazioni): l'app propone i locali, tu li confermi o li correggi.<br>• Con <b>Salva progetto</b> (menu in alto a destra) conservi il lavoro; <b>Apri progetto salvato</b> lo riprende.<br>• Puoi esportare in <b>PDF</b> o <b>DXF</b> e passare alla <b>Perizia unità</b>.</p>
-<p>Quando esci e poi rientri nella sezione, l'app ti chiede se vuoi <b>riprendere l'ultimo progetto</b> o cominciarne uno nuovo: il lavoro viene salvato da solo quando esci.</p>
-
-<h3>4. La mappa</h3>
-<p>Menu → <b>Mappa e WMS Regione Toscana</b>. Al primo ingresso si apre la mappa; dalle volte successive l'app ti chiede se ripartire dall'ultima visualizzazione o da una mappa nuova.</p>
-<p>• Il pulsante <b>☰</b> apre il pannello degli strati (catasto, CTR, ortofoto, tutti i servizi della Regione).<br>• <b>🏛 Istruttoria urbanistico-edilizia</b>: spunta un gruppo (idrogeologici, PAI/PGRA, paesaggistici, archeologici…) e si accendono tutti i suoi strati.<br>• <b>📍 Vincoli nel punto che tocco</b> (menu ⋯): tocca un punto della mappa e restano accesi solo i vincoli che lo interessano, con l'elenco in basso.<br>• <b>⏹ Spegni tutto e comprimi</b> riporta la mappa pulita.<br>• <b>Macchina del tempo</b> (menu ⋯): sfoglia le ortofoto dal 1954 a oggi, o confronta due anni trascinando la barra.<br>• <b>Stampa</b> (menu ⋯) crea un PDF della vista.</p>
-<p>I vincoli mostrati sono un aiuto alla consultazione: per l'istruttoria fa fede il dato ufficiale degli enti competenti.</p>
-
-<h3>5. Documenti, pareri e perizie</h3>
-<p>Dalla scheda cliente o dal menu puoi collegare una cartella <b>Mega</b> o la cartella del cliente sul <b>NAS dello studio</b>, scegliere i file da far leggere e farti preparare un <b>parere o una relazione</b> in Word. Per la <b>Perizia di stima completa</b> e la <b>Verifica di conformità</b> segui le schermate: ti chiedono i dati un passo alla volta.</p>
-
-<h3>6. Le Impostazioni</h3>
-<p>Qui inserisci la <b>chiave AI</b> (necessaria per dettatura e funzioni con l'AI), i dati del <b>NAS</b> e personalizzi i <b>tipi di pratica</b>.</p>
-
-<h3>7. Il tasto «indietro» del telefono</h3>
-<p>In ogni sezione ti chiede se tornare alla pagina iniziale, uscire solo dalla sezione o restare. Nella pagina iniziale ti chiede conferma prima di chiudere l'app.</p>
-"""
-
-    val GUIDA_ESPERTI: String = """
-<h2>Guida per utenti esperti</h2>
-<p>Riepilogo operativo, senza passaggi ovvi.</p>
-
-<h3>Navigazione e stato</h3>
-<p>• Back: sezione → dialogo (pagina iniziale / esci dalla sezione / resta); home → conferma di uscita (<code>finishAffinity</code>). La freccia della barra torna subito indietro. «Pagina iniziale» usa <code>CLEAR_TOP|SINGLE_TOP</code> su MainActivity.<br>• Planimetria: salvataggio automatico dell'ultimo lavoro in <code>onStop</code> (immagine riscritta solo se cambiata); all'ingresso propone «Riprendi l'ultimo / Nuovo progetto». I progetti nominati restano in «Salva / Apri progetto salvato».<br>• Mappa: stato (centro, zoom, sfondo, strati, opacità, macchina del tempo) in <code>localStorage</code>; all'ingresso «Ultima visualizzazione / Mappa nuova» (la seconda cancella lo stato).</p>
-
-<h3>Schede e backup</h3>
-<p>Dettatura con AI (chiave Anthropic personale, cifrata sul telefono). Backup JSON su file/Drive/cloud o condivisione; importazione da qualsiasi provider di documenti. Tipi di pratica e comuni personalizzabili.</p>
-
-<h3>Planimetria</h3>
-<p>Scala per calibrazione a due punti, da etichetta o dalle tacche del foglio. Rilevamento automatico: l'AI individua piante e vani, il telefono misura i contorni sui muri (modello «pieni» o «linee», scelto per vano) e propone «Locale da verificare» per gli spazi chiusi non indicati. Modifica vertici con aggiungi/rimuovi/annulla, rinomina, elimina; pressione lunga di 2 s in visualizzazione per correggere un locale. Export PDF e DXF (vista corrente e limiti in intestazione). Limiti noti: canne fumarie e rientranze entro ~45 cm vengono raddrizzate; spazi di altre proprietà vanno scartati a mano.</p>
-
-<h3>Perizia, conformità, documenti</h3>
-<p>Perizia unità: superficie commerciale per destinazione (DPR 138/98 all. C / Manuale OMI), quotazioni OMI, rettifica percentuale. Perizia completa in Word con allegati da telefono, NAS o Mega. Verifica di conformità: catasto, titolo edilizio, stato di fatto, atto/visura. Parere AI da Mega (link pubblico di cartella) o NAS (SMB2/3 o WebDAV/HTTPS, sola lettura; fuori studio serve VPN).</p>
-
-<h3>Mappa</h3>
-<p>• Sfondi: OpenStreetMap, satellite Esri, Google (con chiave).<br>• Strati: catasto, CTR, ortofoto 1954 → oggi, tutti i WMS del Geoscopio (legende, cartoteca, selezione con scheda e download).<br>• <b>Istruttoria</b>: gruppi idrogeologici, PAI/PGRA, paesaggistici (art. 136, art. 142 lett. a–i, DM 426/2020, UNESCO), archeologici, beni architettonici, aree protette/Natura 2000, strumenti urbanistici vigenti; solo dati correnti. Spunta di gruppo o per singolo strato (stato indeterminato se parziale).<br>• <b>Vincoli nel punto</b>: GetFeatureInfo (±60 m) sui servizi della Regione e <code>identify</code> sul server ArcGIS dell'Autorità di bacino; accende solo i vincoli presenti. Gli usi civici contano solo se il campo PRES_UC è compilato. Il DM 426/2020 non è interrogabile.<br>• <b>PAI/PGRA</b>: PAI dissesti (adottato 28/03/2024, in salvaguardia) e PGRA (aggiornamento 01/12/2025) per il bacino dell'Arno. Altri bacini non inclusi.<br>• <b>Macchina del tempo</b>: tutti i voli (esclusi i falsi colori) in elenco e cursore; confronto a due anni con barra trascinabile.<br>• <b>Spegni tutto e comprimi</b>, <b>Espandi/Comprimi tutto</b> nel pannello ☰. Stampa in PDF in A4.</p>
-<p>Le verifiche sui vincoli sono indicative: per l'istruttoria fa fede il dato ufficiale.</p>
-"""
+    val GUIDA_ESPERTI: String get() = InformazioniGuida.ESPERTI
 
     val COPYRIGHT: String = """
 <h2>Copyright</h2>
