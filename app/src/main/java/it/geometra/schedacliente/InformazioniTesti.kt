@@ -8,11 +8,19 @@ object InformazioniTesti {
 <p>Sono il <b>Geom. Simone Morbidelli</b>, geometra iscritto al Collegio dei Geometri della Provincia di Arezzo (albo n. 1335). Lavoro in provincia di Arezzo, soprattutto nel Valdarno superiore: rilievi e pratiche catastali, conformità urbanistica ed edilizia, certificazione energetica (APE), consulenza IMU, stime immobiliari e supporto tecnico alle compravendite.</p>
 
 <h2>Come è nato il progetto</h2>
-<p><b>SchedaCliente</b> è nata per avere sempre a portata di mano, sul telefono, le schede dei clienti dello studio. Da lì l'ho fatta crescere un passo alla volta, sviluppandola insieme a Claude (l'assistente di Anthropic), aggiungendo le funzioni che mi servivano davvero nel lavoro di ogni giorno: ricerca e ordinamento delle schede, backup e importazione, dettatura vocale delle pratiche con l'aiuto dell'intelligenza artificiale, i calcoli utili, il calcolo delle superfici dei locali da planimetria, i documenti di pratica da Mega e dal NAS dello studio, la verifica di conformità e la mappa con i dati della Regione Toscana.</p>
-<p>La versione <b>3.64</b> è il punto da cui sono ripartito per le migliorie qui sotto: l'elenco dettagliato delle build comincia da lì.</p>
+<p>Tutto è partito da una richiesta semplice, fatta a Claude in una chat: <i>«Fai un'app in cui compilo una scheda cliente per studio di geometra»</i>. Da lì <b>SchedaCliente</b> è cresciuta un passo alla volta, build dopo build, aggiungendo solo ciò che mi serviva davvero nel lavoro quotidiano. I dati restano sul telefono, in locale; l'app è pensata per l'uso nel mio studio e può essere adattata ad altri studi.</p>
+<p>La versione <b>3.64</b> è stata un buon punto di partenza (l'ho fissata anche come tag nel repository): le migliorie più recenti sono elencate di seguito con il numero di build.</p>
 
 <h2>Le migliorie, build per build</h2>
-<p><b>Fino alla v3.64</b> – schede clienti con tipi di pratica personalizzabili, ricerca e ordinamento, backup su Drive/cloud, dettatura con AI, calcoli utili, ripartizione bolletta elettrica, planimetria con calcolo delle aree. <i>(Non ho il dettaglio build per build di questo periodo.)</i></p>
+<p><b>v1.0</b> – Prima versione: scheda cliente con i dati dello studio.</p>
+<p><b>v1.3 – v1.6</b> – Prime rifiniture della scheda e delle funzioni di base.</p>
+<p><b>v2.0</b> – Prima grande revisione dell'app.</p>
+<p><b>v2.3 – v2.6</b> – Arriva la <i>Ruota del caffè</i>, poi affinata nelle build successive (le build esatte sono approssimative).</p>
+<p><b>v2.7 – v2.9</b> – Consolidamento delle funzioni e correzioni.</p>
+<p><b>v3.0 – v3.5</b> – Nuova serie 3.x con ulteriori funzioni e miglioramenti di uso.</p>
+<p><b>v3.19 – v3.22</b> – Altre migliorie incrementali.</p>
+<p><b>Tra la v3.x e la v3.64</b> (build esatte non ricostruite con certezza) – foto da fotocamera, revisione completa dell'app, registro FDM con riepilogo su Drive, nuove icone (v3.52), miglioramenti alla ruota, <i>Bolletta energia</i> con lettura OCR/PDF, <i>Mega</i> con parere in Word, versione mostrata nel titolo, analizzatore dei vani validato su 7 planimetrie PDF.</p>
+<p><b>v3.64</b> – Punto di partenza stabile per le migliorie successive.</p>
 <p><b>v3.65</b> – Rinomina del locale in modifica; nuova sezione <i>Perizia unità</i> (superficie commerciale con coefficienti OMI, quotazioni OMI, valore di mercato).</p>
 <p><b>v3.66</b> – Rilevamento dei locali per pianta, con misura dei contorni sui muri e passata finale di completezza.</p>
 <p><b>v3.67</b> – Muri a doppia linea, portefinestre larghe, esclusione degli sguanci, aggancio ai muri dei poligoni proposti dall'AI.</p>
@@ -40,6 +48,7 @@ object InformazioniTesti {
 <p><b>v3.92</b> – Mappa: <i>Istruttoria urbanistico-edilizia</i> (gruppi di vincoli accendibili con un tocco), <i>Vincoli nel punto che tocco</i>, pulsanti «Spegni tutto e comprimi», «Espandi tutto», «Comprimi tutto»; macchina del tempo con tutti i voli (anche 1965).</p>
 <p><b>v3.93</b> – Mappa: PAI dissesti e PGRA dell'Autorità di bacino dell'Appennino Settentrionale nell'istruttoria e nei vincoli nel punto.</p>
 <p><b>v3.94</b> – Tasto «indietro» con conferma (sezione → pagina iniziale, uscita dall'app); ripresa dell'ultimo progetto in «Aree locali da planimetria» e dell'ultima visualizzazione della mappa; sezione Informazioni.</p>
+<p><b>v3.95</b> – Storia dell'applicazione ricostruita dalla chat originale.</p>
 """
 
     val GUIDA_INESPERTI: String = """
