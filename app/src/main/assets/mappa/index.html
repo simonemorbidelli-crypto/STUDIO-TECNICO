@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="stylesheet" href="leaflet.css">
+<style>
+html,body{margin:0;height:100%;font-family:sans-serif}
+#mappa{position:absolute;inset:0}
+.leaflet-top.leaflet-right{margin-top:62px}
+#barra{position:absolute;z-index:1000;top:8px;left:8px;right:8px;display:flex;gap:6px}
+#cerca{flex:1;min-width:0;padding:9px 10px;border:1px solid #999;border-radius:8px;font-size:15px}
+.bt{background:#fff;border:1px solid #999;border-radius:8px;padding:6px 10px;font-size:16px;line-height:1}
+.bt svg{width:22px;height:22px;display:block}
+#pannello,#risultati,#info{position:absolute;z-index:1000;left:8px;right:8px;bottom:8px;background:#fffffff5;border:1px solid #999;border-radius:10px;padding:8px 12px;display:none;font-size:14px;overflow:auto}
+#pannello{max-height:62%}
+#risultati{max-height:55%}
+#misura{position:absolute;z-index:1000;left:8px;right:8px;bottom:8px;background:#fffffff5;border:1px solid #999;border-radius:10px;padding:8px 10px;display:none;font-size:14px;max-height:50%;overflow:auto}
+#misura .tb{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+#misura .tb button{padding:7px 9px;font-size:14px;border:1px solid #999;border-radius:6px;background:#fff}
+#misura .tb button.on{background:#ffd9a8;border-color:#e07000}
+#misRis{white-space:pre-wrap;font-size:13px}
+#info{max-height:45%;font-size:13px;white-space:pre-wrap}
+#pannello h4{margin:6px 0 4px}
+#pannello label{display:block;padding:3px 0}
+#pannello details{border-top:1px solid #ccc;padding:4px 0}
+#pannello summary{font-weight:bold;padding:6px 0}
+.op{width:100%}
+.f{display:flex;gap:6px;margin:4px 0}
+.f input,.f select{flex:1;min-width:0;padding:8px;border:1px solid #999;border-radius:6px;font-size:15px}
+.f button{padding:8px 12px;font-size:15px}
+.riga{padding:9px 4px;border-bottom:1px solid #ddd}
+.srv{padding:7px 2px;border-bottom:1px solid #eee}
+.srv>div.t{cursor:pointer}
+.lay{padding:2px 0 2px 10px;font-size:13px}
+.grp{padding:3px 0 1px 10px;font-weight:bold;font-size:13px;color:#444}
+.pic{font-size:12px;color:#666}
+#menu{position:absolute;z-index:1001;top:54px;right:8px;background:#fffffff5;border:1px solid #999;border-radius:10px;padding:4px;display:none;font-size:15px;min-width:230px}
+#menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:11px 10px;font-size:15px;border-bottom:1px solid #eee}
+#menu button:last-child{border-bottom:0}
+#leg,#sel,#stp{position:absolute;z-index:1000;left:8px;right:8px;bottom:8px;background:#fffffff5;border:1px solid #999;border-radius:10px;padding:8px 12px;display:none;font-size:14px;overflow:auto}
+#leg{max-height:68%}#sel{max-height:48%;font-size:13px}
+#leg details.cat{border-top:1px solid #ddd;padding:2px 0 2px 6px}#leg details.cat summary{font-weight:bold;padding:5px 0;font-size:13px}
+#leg .lay{padding:3px 0 3px 8px;font-size:13px}
+.mini{padding:3px 8px;font-size:12px;border:1px solid #999;border-radius:6px;background:#fff}
+.selh{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.selb{padding:6px 0;border-top:1px solid #ddd}
+.selo{padding:4px 0;border-top:1px dashed #ccc}.selo:first-of-type{border-top:0}
+button.dl{margin:3px 0;padding:8px 10px;font-size:13px;text-align:left;border:1px solid #06c;color:#06c;background:#fff;border-radius:6px;max-width:100%}
+#tempo{position:absolute;z-index:1000;left:8px;right:8px;bottom:8px;background:#fffffff5;border:1px solid #999;border-radius:10px;padding:6px 10px;display:none;font-size:13px}
+#tempo .r{display:flex;align-items:center;gap:6px}#tempo .r button{padding:6px 10px;font-size:15px}
+#tempo input[type=range]{flex:1;min-width:0}#tmY{font-weight:bold;font-size:16px;min-width:72px;text-align:center}
+#tmD{font-size:11px;color:#555;margin:2px 0}#tmJ{display:none;width:100%;margin-top:4px;padding:5px}
+#tmDiv{position:absolute;z-index:999;top:0;bottom:0;width:30px;margin-left:-15px;display:none;touch-action:none}
+#tmDiv:before{content:"";position:absolute;left:14px;width:3px;top:0;bottom:0;background:#fff;box-shadow:0 0 3px #000}
+#tmDiv:after{content:"◀▶";position:absolute;top:50%;left:0;width:30px;margin-top:-14px;text-align:center;background:#fff;border:1px solid #666;border-radius:14px;font-size:10px;line-height:26px;height:26px}
+#stampaBox{display:none}
+body.stampa #stampaBox{display:block}
+body.stampa #barra,body.stampa #menu,body.stampa #pannello,body.stampa #risultati,body.stampa #info,body.stampa #misura,body.stampa #leg,body.stampa #sel,body.stampa #stp,body.stampa #tempo,body.stampa #tmDiv,body.stampa #msg,body.stampa .leaflet-control-container{display:none!important}
+#stampaBox .it{position:absolute;z-index:1002;top:10px;left:10px;background:#fffffff0;border:1px solid #444;padding:6px 10px;font-size:15px;max-width:70%}
+#stampaBox .it span{font-size:12px;color:#333}
+#stampaBox .lg{position:absolute;z-index:1002;bottom:34px;left:10px;background:#fffffff0;border:1px solid #444;padding:6px 8px;font-size:11px;max-width:48%;max-height:46%;overflow:hidden}
+#stampaBox .lg img{max-width:100%}
+#stampaBox .fo{position:absolute;z-index:1002;bottom:6px;left:10px;right:10px;font-size:10px;background:#ffffffe0;padding:2px 6px}
+@media print{@page{margin:0}}
+#msg{position:absolute;z-index:1000;top:54px;left:8px;right:60px;text-align:center;font-size:13px;color:#fff;background:#000a;border-radius:8px;padding:4px;display:none}
+</style></head><body>
+<div id="mappa"></div>
+<div id="barra"><button class="bt" id="bCerca" style="flex:1;text-align:left">🔍 Trova sulla mappa</button><button class="bt" id="bMis" title="Strumenti di misura"><svg viewBox="0 0 24 24" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></button>
+<button class="bt" id="bGps" title="La mia posizione"><svg viewBox="0 0 24 24" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6" fill="#222"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5"/></svg></button>
+<button class="bt" id="bAltro" title="Altri strumenti: legenda, cartoteca, macchina del tempo, stampa">⋯</button>
+<button class="bt" id="bLiv" title="Livelli">☰</button></div>
+<div id="menu"><button data-a="tempo">🕰 Macchina del tempo (ortofoto per anno)</button><button data-a="leg">📚 Legenda e cartoteca (download)</button><button data-a="sel">🎯 Seleziona oggetto sulla mappa</button><button data-a="desel">✖ Deseleziona tutto</button><button data-a="stampa">🖨 Stampa / salva PDF</button></div>
+<div id="leg"></div><div id="sel"></div>
+<div id="tempo"><div class="r"><button id="tmP">◀</button><span id="tmY"></span><button id="tmN">▶</button><input type="range" id="tmS" min="0" max="11" step="1"><button id="tmX" title="Chiudi">✕</button></div><div id="tmD"></div><label><input type="checkbox" id="tmC"> Confronta due anni (trascina la barra sulla mappa)</label><select id="tmJ"></select></div>
+<div id="tmDiv"></div>
+<div id="stp"><b>Stampa / salva PDF</b><div class="f"><input id="stpT" placeholder="Titolo della mappa (facoltativo)"></div><label><input type="checkbox" id="stpL" checked> Includi la legenda dei livelli accesi</label><div class="f"><button id="stpGo">Stampa / salva PDF</button><button id="stpNo">Annulla</button></div><div class="pic">Si apre la stampa di Android: scegli «Salva come PDF» per ottenere il file.</div></div>
+<div id="stampaBox"></div>
+<div id="msg"></div><div id="misura"></div><div id="pannello"></div><div id="risultati"></div><div id="info"></div>
+<script src="leaflet.js"></script>
+<script src="proj4.js"></script>
+<script src="catalogo.js"></script>
+<script src="legende.js"></script>
+<script>
+var RT="https://www502.regione.toscana.it/";
+var SERVIZI={
+ catasto:RT+"ows_catasto/com.rt.wms.RTmap/ows?map=owscatasto",
+ ctr:RT+"ows_ctr/com.rt.wms.RTmap/ows?map=owsctr",
+ amb:RT+"wmsraster/com.rt.wms.RTmap/wms?map=wmsambamm",
+ topon:RT+"wmsraster/com.rt.wms.RTmap/wms?map=wmstoponomastica"};
+var SERV_OFC=[ // ortofoto: servizi del Geoscopio, dal 1954 al 2025
+ {n:"storiche 1954-2017",u:RT+"wmsraster/com.rt.wms.RTmap/wms?map=wmsofc",f:/^rt_ofc\./},
+ {n:"2016-2022",u:RT+"ows_ofc/com.rt.wms.RTmap/wms?map=owsofc",f:/^rt_ofc\./},
+ {n:"2021-2025",u:RT+"ows_ofc/com.rt.wms.RTmap/wms?map=owsofc_rt",f:/^rt_ofc\./},
+ {n:"grigio migliorato",u:RT+"ofc_cached/wms?",f:/\.grey\.rt@96dpi$/,gr:"grigio migliorato"}];
+var ATTR_RT='© <a href="https://www.regione.toscana.it/geoscopio">Regione Toscana – Geoscopio</a>';
+var STATO={};try{STATO=JSON.parse(localStorage.getItem("mappa_stato")||"{}")}catch(e){}
+function salva(){try{localStorage.setItem("mappa_stato",JSON.stringify(STATO))}catch(e){}}
+function msg(t){var m=document.getElementById("msg");m.textContent=t;m.style.display="block";clearTimeout(msg.t);msg.t=setTimeout(function(){m.style.display="none"},4000)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+/* ---- rete: tutte le richieste passano dall'app (solo Geoscopio, https) ---- */
+var ATTESE={},CONT=0;
+function rete(metodo,url,corpo){return new Promise(function(ok,ko){
+ if(!window.Android){ko("Servizio non disponibile");return}
+ var id="r"+(++CONT);ATTESE[id]={ok:ok,ko:ko};Android.richiedi(id,metodo,url,corpo||"")})}
+window.rispostaRete=function(id,t){var a=ATTESE[id];delete ATTESE[id];if(a)a.ok(t)};
+window.erroreRete=function(id,m){var a=ATTESE[id];delete ATTESE[id];if(a)a.ko(m)};
+function xml(t){var d=new DOMParser().parseFromString(t,"text/xml");if(d.getElementsByTagName("parsererror").length)throw"Risposta non valida";return d}
+
+/* ---- mappa e sfondi ---- */
+var chiaveGoogle=(window.Android&&Android.chiaveGoogle())||"";
+var map=L.map("mappa",{zoomControl:false,center:STATO.c||[43.7,11.1],zoom:STATO.z||9,maxZoom:21});
+L.control.zoom({position:"topright"}).addTo(map);
+map.attributionControl.setPrefix(false);
+map.on("moveend",function(){var c=map.getCenter();STATO.c=[c.lat,c.lng];STATO.z=map.getZoom();salva()});
+var BASI={
+ osm:{nome:"OpenStreetMap",mk:function(){return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,maxNativeZoom:19,attribution:"© OpenStreetMap"})}},
+ sat:{nome:"Satellite (Esri)",mk:function(){return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:21,maxNativeZoom:19,attribution:"Esri, Maxar, Earthstar Geographics"})}}};
+BASI.nessuno={nome:"Nessuno sfondo (solo livelli)",mk:function(){return L.layerGroup()}};
+function sessioneGoogle(tipo,cb){
+ var prev=STATO["gs_"+tipo];
+ if(prev&&prev.exp>Date.now()+3600000){return cb(prev.tok)}
+ fetch("https://tile.googleapis.com/v1/createSession?key="+encodeURIComponent(chiaveGoogle),{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({mapType:tipo=="sat"?"satellite":"roadmap",language:"it-IT",region:"IT",layerTypes:tipo=="sat"?["layerRoadmap"]:[],overlay:false})})
+ .then(function(r){return r.json()}).then(function(j){
+   if(!j.session){msg("Google: "+((j.error&&j.error.message)||"sessione non creata"));return}
+   STATO["gs_"+tipo]={tok:j.session,exp:parseInt(j.expiry||0)*1000};salva();cb(j.session)})
+ .catch(function(){msg("Google non raggiungibile")});}
+if(chiaveGoogle){
+ [["roadmap","gmap","Google Mappa","road"],["satellite","gsat","Google Satellite","sat"]].forEach(function(x){
+  BASI[x[1]]={nome:x[2],mk:function(){var tl=L.tileLayer("",{maxZoom:21,attribution:"© Google"});
+   sessioneGoogle(x[3],function(tok){tl.setUrl("https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session="+tok+"&key="+encodeURIComponent(chiaveGoogle))});return tl}}})}
+var baseId=STATO.base&&BASI[STATO.base]?STATO.base:(BASI.gsat?"gsat":"sat");
+var baseLayer=null;
+function impostaBase(id){baseId=id;STATO.base=id;salva();if(baseLayer)map.removeLayer(baseLayer);baseLayer=BASI[id].mk();baseLayer.addTo(map);if(baseLayer.bringToBack)baseLayer.bringToBack();document.getElementById("mappa").style.background=id=="nessuno"?"#fff":"#ddd"}
+impostaBase(baseId);
+
+/* ---- livelli principali ---- */
+var DEF=[
+ {id:"ctr",nome:"Carta Tecnica Regionale (CTR)",srv:"ctr",lay:"rt_ctr",fmt:"image/png",tr:true,op:.8,on:false},
+ {id:"cat",nome:"Catasto terreni e fabbricati (tutto)",srv:"catasto",lay:"rt_cat.idcatacque.rt,rt_cat.idcatstrade.rt,rt_cat.idcatfabbr.rt,rt_cat.idcatpart.rt,rt_cat.idetichettecatpart.rt,rt_cat.idcatbdfog.rt,rt_cat.idcattopon.rt",fmt:"image/png",tr:true,op:.9,on:true,info:true,ql:"rt_cat.idcatpart.rt"},
+ {id:"part",nome:"Catasto – solo particelle e numeri",srv:"catasto",lay:"rt_cat.idcatpart.rt,rt_cat.idetichettecatpart.rt",fmt:"image/png",tr:true,op:.9,on:false,info:true,ql:"rt_cat.idcatpart.rt"},
+ {id:"fab",nome:"Catasto – solo fabbricati",srv:"catasto",lay:"rt_cat.idcatfabbr.rt",fmt:"image/png",tr:true,op:.9,on:false},
+ {id:"com",nome:"Confini comunali",srv:"amb",lay:"rt_ambamm.idcomuni.rt.poly",fmt:"image/png",tr:true,op:1,on:false}];
+var REV=STATO.rev||0;
+function mkWms(url,lay,fmt,tr,op,z){var o={layers:lay,format:fmt,transparent:tr,version:"1.3.0",opacity:op,attribution:ATTR_RT,maxZoom:21,tileSize:256,zIndex:z};if(REV)o._r=REV;return L.tileLayer.wms(url,o)}
+function statoLiv(id,d){STATO["l_"+id]={on:d.on,op:d.op};salva()}
+DEF.forEach(function(d,i){
+ var s=STATO["l_"+d.id]||{};d.on=s.on!==undefined?s.on:d.on;d.op=s.op!==undefined?s.op:d.op;
+ d.z=20+i;d.layer=mkWms(SERVIZI[d.srv],d.lay,d.fmt,d.tr,d.op,d.z);
+ d.layer.on("tileerror",function(){msg("Il servizio della Regione non risponde ("+d.nome+")")});
+ if(d.on)d.layer.addTo(map)});
+
+/* ---- ortofoto: tutti gli strati 1954 → oggi ---- */
+var OFC={on:false,op:1,voci:null,sel:STATO.ofcSel||null,layer:null};
+if(STATO.ofc){OFC.on=!!STATO.ofc.on;OFC.op=STATO.ofc.op!=null?STATO.ofc.op:1}
+function anno(t){var m=(t||"").match(/\b(19|20)\d\d\b/);return m?+m[0]:0}
+function caricaOfc(){
+ if(OFC.voci)return Promise.resolve(OFC.voci);
+ if(OFC.p)return OFC.p;
+ var falliti=[];
+ function leggi(sv,riprova){return rete("GET",sv.u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities").then(function(t){
+   return layerCap(xml(t)).filter(function(l){return l.name&&sv.f.test(l.name)&&!/\.qu$/.test(l.name)&&!/quadro di unione/i.test(l.title)}).map(function(l){l.srv=sv.u;l.gr=sv.gr;return l})})
+  .catch(function(){if(riprova)return leggi(sv,false);falliti.push(sv.n);return []})}
+ OFC.p=Promise.all(SERV_OFC.map(function(sv){return leggi(sv,true)}))
+ .then(function(a){var v=[].concat.apply([],a);
+   v.forEach(function(l){var r=(l.title+" "+l.name).match(/\b(20\d\d)\s*\/\s*(20\d\d)\b/);l.anno=anno(l.title)||anno(l.name);l.periodo=r?r[1]+"/"+r[2]:String(l.anno);l.falso=/false color|nir|grey/i.test(l.title)});
+   v.sort(function(a,b){return b.anno-a.anno||(a.falso-b.falso)||a.title.localeCompare(b.title)});
+   OFC.voci=v;OFC.p=null;OFC.falliti=falliti;
+   if(!v.length)msg("Elenco ortofoto non disponibile: controlla la connessione e tocca «Aggiorna mappa e strati»");
+   else if(falliti.length){OFC.voci=null;msg("Alcuni elenchi ortofoto non sono stati caricati ("+falliti.join(", ")+"): tocca «Aggiorna mappa e strati» per riprovare")}
+   return v});
+ return OFC.p}
+function impostaOfc(){
+ if(OFC.layer){map.removeLayer(OFC.layer);OFC.layer=null}
+ if(!OFC.on||!OFC.sel)return;
+ OFC.layer=mkWms(OFC.sel.u,OFC.sel.l,"image/jpeg",false,OFC.op,5);OFC.layer.addTo(map);
+ OFC.layer.on("tileerror",function(){msg("Ortofoto non disponibile qui (zona non coperta da questo volo)")})}
+function titoloCorto(l){
+ var sc=(l.name.match(/\.(\d+)k/)||[])[1];var scala=sc?"1:"+(+sc*1000).toLocaleString("it-IT"):"";
+ var v;var T=l.title;
+ if(/banda nir/i.test(T))v="banda NIR";
+ else if(/(\dR \dG \dB)/.test(T))v="falso colore "+T.match(/(\dR \dG \dB)/)[1].replace(/ /g,"");
+ else if(/grey/i.test(T))v="grigio migliorato";
+ else if(/\bcol\b|colore|RGB/i.test(T))v="colore";
+ else v="";
+ var extra=(T.match(/aulla|fi po|apuane|grosseto/i)||[""])[0];
+ return (l.periodo||l.anno)+" · "+[scala,v,extra].filter(Boolean).join(" · ")}
+if(!OFC.sel)OFC.sel={u:SERV_OFC[2].u,l:"rt_ofc.5k24.32bit",t:"2024 · 1:5.000 · colore"};
+impostaOfc();
+
+/* ---- capabilities generiche ---- */
+function layerCap(doc){var out=[];
+ (function walk(el,d,grp){
+  Array.prototype.forEach.call(el.children,function(c){if(c.localName!="Layer")return;
+   var n=null,t="";Array.prototype.forEach.call(c.children,function(x){if(x.localName=="Name"&&n===null)n=x.textContent;if(x.localName=="Title"&&!t)t=x.textContent});
+   out.push({name:n,title:t||n||"",depth:d});walk(c,d+1)})})(doc.documentElement.getElementsByTagName("Capability")[0]||doc.documentElement,0);
+ return out}
+var CAPS={};
+function capServizio(u){if(CAPS[u])return Promise.resolve(CAPS[u]);
+ return rete("GET",u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities").then(function(t){return CAPS[u]=layerCap(xml(t))})}
+
+/* ---- livelli aggiunti dal sottomenu "Tutti i WMS" ---- */
+var EXTRA=[];var EXTRA_SALVATI=STATO.extra||[];
+function salvaExtra(){STATO.extra=EXTRA.map(function(e){return{u:e.u,l:e.l,t:e.t,op:e.op}});salva()}
+function aggiungiExtra(u,l,t,op){
+ var e={u:u,l:l,t:t,op:op==null?.85:op};e.layer=mkWms(u,l,"image/png",true,e.op,40+EXTRA.length);
+ e.layer.on("tileerror",function(){msg("Il livello \""+t+"\" non risponde qui")});e.layer.addTo(map);EXTRA.push(e);salvaExtra();return e}
+function togliExtra(u,l){EXTRA=EXTRA.filter(function(e){if(e.u==u&&e.l==l){map.removeLayer(e.layer);return false}return true});salvaExtra()}
+function haExtra(u,l){return EXTRA.some(function(e){return e.u==u&&e.l==l})}
+EXTRA_SALVATI.forEach(function(e){aggiungiExtra(e.u,e.l,e.t,e.op)});
+
+/* ---- pannello livelli ---- */
+var pan=document.getElementById("pannello"),ris=document.getElementById("risultati"),infoEl=document.getElementById("info");
+function chiudiTutto(){pan.style.display="none";ris.style.display="none";infoEl.style.display="none"}
+var aperti=STATO.aperti||{};
+function ricordaAperti(){pan.querySelectorAll("details[data-k]").forEach(function(d){aperti[d.dataset.k]=d.open});STATO.aperti=aperti;salva()}
+function disegnaPannello(){
+ function det(k,tit,corpo){return '<details data-k="'+k+'"'+(aperti[k]?" open":"")+'><summary>'+tit+'</summary>'+corpo+'</details>'}
+ var b="";for(var k in BASI)b+='<label><input type="radio" name="b" value="'+k+'"'+(k==baseId?" checked":"")+'> '+BASI[k].nome+'</label>';
+ b+=chiaveGoogle?'<label style="font-size:12px"><a href="#" id="kg">Cambia o rimuovi la chiave Google</a></label>':'<label style="color:#666;font-size:12px">Sfondo Google: serve una chiave (Map Tiles API). <a href="#" id="kg">Inserisci chiave</a></label>';
+ var l='';DEF.forEach(function(d){l+='<label><input type="checkbox" data-l="'+d.id+'"'+(d.on?" checked":"")+'> '+esc(d.nome)+'</label><input class="op" type="range" min="10" max="100" value="'+Math.round(d.op*100)+'" data-o="'+d.id+'">'});
+ l+='<p class="pic">Tocca la mappa con il catasto acceso per leggere foglio, particella, qualità e superficie. Dati di consultazione, senza valore certificativo.</p>';
+ var o='<label><input type="checkbox" id="ofcOn"'+(OFC.on?" checked":"")+'> Mostra ortofoto</label><div class="f"><select id="ofcSel"><option>Carico l\'elenco…</option></select></div><input class="op" type="range" min="10" max="100" value="'+Math.round(OFC.op*100)+'" id="ofcOp"><p class="pic" id="ofcInfo">Un solo anno alla volta. Dove un volo non copre la zona la mappa resta vuota.</p>';
+ var x='<div id="extraAttivi"></div><div class="f"><input id="fSrv" placeholder="Filtra servizi"></div><div id="listaSrv"></div>';
+ pan.innerHTML='<div class="f"><button id="bAgg" style="flex:1;padding:9px;font-size:14px">🔄 Aggiorna mappa e strati (svuota cache)</button></div>'+det("sfondo","Sfondo",b)+det("liv","Livelli principali",l)+det("ofc","Ortofoto 1954 → oggi",o)+det("wms","Tutti i WMS della Regione ("+CATALOGO.length+")",x);
+ document.getElementById("bAgg").onclick=aggiornaTutto;
+ pan.querySelectorAll("details").forEach(function(d){d.ontoggle=ricordaAperti});
+ pan.querySelectorAll("input[name=b]").forEach(function(e){e.onchange=function(){impostaBase(e.value)}});
+ pan.querySelectorAll("input[data-l]").forEach(function(e){e.onchange=function(){var d=DEF.filter(function(z){return z.id==e.dataset.l})[0];d.on=e.checked;if(e.checked)d.layer.addTo(map);else map.removeLayer(d.layer);statoLiv(d.id,d)}});
+ pan.querySelectorAll("input[data-o]").forEach(function(e){e.oninput=function(){var d=DEF.filter(function(z){return z.id==e.dataset.o})[0];d.op=e.value/100;d.layer.setOpacity(d.op);statoLiv(d.id,d)}});
+ var kg=document.getElementById("kg");if(kg)kg.onclick=function(ev){ev.preventDefault();if(window.Android)Android.chiediChiaveGoogle()};
+ /* ortofoto */
+ var sel=document.getElementById("ofcSel");
+ document.getElementById("ofcOn").onchange=function(){OFC.on=this.checked;STATO.ofc={on:OFC.on,op:OFC.op};salva();impostaOfc()};
+ document.getElementById("ofcOp").oninput=function(){OFC.op=this.value/100;STATO.ofc={on:OFC.on,op:OFC.op};salva();if(OFC.layer)OFC.layer.setOpacity(OFC.op)};
+ caricaOfc().then(function(v){
+  if(!document.getElementById("ofcSel"))return;
+  var h="",ult=null;v.forEach(function(l,i){var s=OFC.sel&&OFC.sel.u==l.srv&&OFC.sel.l==l.name;if(l.anno!=ult){if(ult!==null)h+='</optgroup>';h+='<optgroup label="Anno '+l.anno+'">';ult=l.anno}h+='<option value="'+i+'"'+(s?" selected":"")+'>'+esc(titoloCorto(l))+'</option>'});if(ult!==null)h+='</optgroup>';
+  sel.innerHTML=h||"<option>Elenco non disponibile</option>";
+  document.getElementById("ofcInfo").textContent=v.length+" strati di ortofoto disponibili, dal "+(v.length?v[v.length-1].anno+" al "+v[0].anno:"")+". Se ne vede uno alla volta; dove il volo non copre la zona la mappa resta vuota. Per confrontare gli anni usa «⋯ → Macchina del tempo».";
+  sel.onchange=function(){var l=v[+sel.value];OFC.sel={u:l.srv,l:l.name,t:titoloCorto(l)};STATO.ofcSel=OFC.sel;OFC.on=true;document.getElementById("ofcOn").checked=true;STATO.ofc={on:true,op:OFC.op};salva();impostaOfc()}});
+ /* WMS */
+ disegnaExtra();disegnaServizi("");
+ document.getElementById("fSrv").oninput=function(){disegnaServizi(this.value.trim().toLowerCase())};
+}
+function disegnaExtra(){var el=document.getElementById("extraAttivi");if(!el)return;
+ if(!EXTRA.length){el.innerHTML='<p class="pic">Nessun livello aggiunto. Apri un servizio e spunta gli strati che vuoi vedere.</p>';return}
+ var h='<h4>Livelli aggiunti</h4>';EXTRA.forEach(function(e,i){h+='<div class="srv"><label><input type="checkbox" checked data-x="'+i+'"> '+esc(e.t)+'</label><input class="op" type="range" min="10" max="100" value="'+Math.round(e.op*100)+'" data-xo="'+i+'"></div>'});
+ el.innerHTML=h;
+ el.querySelectorAll("input[data-x]").forEach(function(c){c.onchange=function(){var e=EXTRA[+c.dataset.x];togliExtra(e.u,e.l);disegnaExtra();disegnaServizi(document.getElementById("fSrv").value.trim().toLowerCase())}});
+ el.querySelectorAll("input[data-xo]").forEach(function(c){c.oninput=function(){var e=EXTRA[+c.dataset.xo];e.op=c.value/100;e.layer.setOpacity(e.op);salvaExtra()}})}
+var SRV_APERTI={};
+function disegnaServizi(f){var el=document.getElementById("listaSrv");if(!el)return;var h="";
+ CATALOGO.forEach(function(s,i){if(f&&s.n.toLowerCase().indexOf(f)<0&&!SRV_APERTI[i])return;
+  h+='<div class="srv"><div class="t" data-s="'+i+'">'+(SRV_APERTI[i]?"▾ ":"▸ ")+esc(s.n)+'</div>'+(SRV_APERTI[i]?'<div id="srv'+i+'" class="lay">Carico gli strati…</div>':"")+'</div>'});
+ el.innerHTML=h||'<p class="pic">Nessun servizio.</p>';
+ el.querySelectorAll("[data-s]").forEach(function(d){d.onclick=function(){var i=+d.dataset.s;SRV_APERTI[i]=!SRV_APERTI[i];disegnaServizi(f);if(SRV_APERTI[i])riempiServizio(i)}});
+ Object.keys(SRV_APERTI).forEach(function(i){if(SRV_APERTI[i])riempiServizio(+i)})}
+function riempiServizio(i){var s=CATALOGO[i],el=document.getElementById("srv"+i);if(!el)return;
+ capServizio(s.u).then(function(ls){var e2=document.getElementById("srv"+i);if(!e2)return;
+  var n=ls.filter(function(l){return l.name}).length;
+  var h='<div class="pic">'+n+' strati</div>';
+  ls.forEach(function(l,k){if(!l.name){h+='<div class="grp" style="padding-left:'+(10+l.depth*6)+'px">'+esc(l.title)+'</div>';return}
+   h+='<div class="lay" style="padding-left:'+(10+l.depth*6)+'px"><label><input type="checkbox" data-n="'+k+'"'+(haExtra(s.u,l.name)?" checked":"")+'> '+esc(l.title)+' <span class="pic">'+esc(l.name)+'</span></label></div>'});
+  e2.innerHTML=h;
+  e2.querySelectorAll("input[data-n]").forEach(function(c){c.onchange=function(){var l=ls[+c.dataset.n];
+   if(c.checked)aggiungiExtra(s.u,l.name,s.n+" – "+l.title);else togliExtra(s.u,l.name);disegnaExtra()}})
+ }).catch(function(m){var e2=document.getElementById("srv"+i);if(e2)e2.innerHTML='<span class="pic">Servizio non raggiungibile ('+esc(m)+')</span>'})}
+function aggiornaTutto(){
+ REV=Date.now();STATO.rev=REV;salva();
+ CAPS={};OFC.voci=null;OFC.p=null;
+ DEF.forEach(function(d){var era=d.on;if(d.layer)map.removeLayer(d.layer);d.layer=mkWms(SERVIZI[d.srv],d.lay,d.fmt,d.tr,d.op,d.z||20);
+  d.layer.on("tileerror",function(){msg("Il servizio della Regione non risponde ("+d.nome+")")});if(era)d.layer.addTo(map)});
+ impostaOfc();
+ var ex=EXTRA.map(function(e){return{u:e.u,l:e.l,t:e.t,op:e.op}});EXTRA.forEach(function(e){map.removeLayer(e.layer)});EXTRA=[];ex.forEach(function(e){aggiungiExtra(e.u,e.l,e.t,e.op)});
+ impostaBase(baseId);
+ if(window.Android&&Android.svuotaCache)Android.svuotaCache();
+ disegnaPannello();pan.style.display="block";
+ msg("Cache svuotata: livelli ed elenchi ricaricati dalla Regione")}
+document.getElementById("bLiv").onclick=function(){if(pan.style.display=="block"){pan.style.display="none"}else{chiudiTutto();disegnaPannello();pan.style.display="block"}};
+
+/* ---- interrogazione catasto al tocco ---- */
+var marker=null;
+map.on("click",function(ev){
+ if(MIS.modo){misClick(ev);return}
+ if(window.selezioneClick&&selezioneClick(ev))return;
+ chiudiTutto();
+ if(marker)map.removeLayer(marker);marker=L.circleMarker(ev.latlng,{radius:7,color:"#c00",weight:3,fillOpacity:.2}).addTo(map);
+ var d=DEF.filter(function(x){return x.on&&x.info})[0];if(!d)return;
+ var sz=map.getSize(),b=map.getBounds(),sw=L.CRS.EPSG3857.project(b.getSouthWest()),ne=L.CRS.EPSG3857.project(b.getNorthEast()),pt=map.latLngToContainerPoint(ev.latlng);
+ var url=SERVIZI[d.srv]+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS="+d.lay+(d.lay.indexOf(d.ql)<0?","+d.ql:"")+"&QUERY_LAYERS="+d.ql+"&STYLES=&CRS=EPSG:3857&BBOX="+[sw.x,sw.y,ne.x,ne.y].join(",")+"&WIDTH="+sz.x+"&HEIGHT="+sz.y+"&I="+Math.round(pt.x)+"&J="+Math.round(pt.y)+"&INFO_FORMAT=text/plain&FEATURE_COUNT=1";
+ infoEl.textContent="Interrogo il catasto…";infoEl.style.display="block";
+ rete("GET",url).then(mostraInfo).catch(function(m){infoEl.textContent="Errore: "+m})});
+var CAMPI=[["comune","Comune"],["foglio","Foglio"],["particella","Particella"],["qualita","Qualità"],["classe","Classe"],["sup","Superficie (mq)"],["reddito_domenicale","Reddito dominicale (€)"],["reddito_agrario","Reddito agrario (€)"],["belfiore","Cod. Belfiore"],["siglaprov","Prov."],["contiene_fabbricati","Contiene fabbricati (1=sì)"]];
+function mostraInfo(testo){var righe=[],v={};
+ (testo||"").split("\n").forEach(function(l){var m=l.match(/^\s+(\w+) = '(.*)'\s*$/);if(m&&!(m[1] in v))v[m[1]]=m[2]});
+ CAMPI.forEach(function(c){if(v[c[0]]!==undefined&&v[c[0]]!==""){var x=v[c[0]];if(c[0]=="foglio"||c[0]=="particella")x=x.replace(/^0+(?=\d)/,"");if(c[0].indexOf("reddito")==0)x=parseFloat(x).toFixed(2);righe.push(c[1]+": "+x)}});
+ infoEl.textContent=righe.length?righe.join("\n")+"\n\nFonte: Regione Toscana – Geoscopio. Solo consultazione.":"Nessun elemento catastale in questo punto (oppure zoom troppo lontano: avvicinati).";infoEl.style.display="block"}
+
+/* ---- ricerche sul Geoscopio (WFS) ---- */
+var NSW='xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0"';
+function fLike(campo,v){return '<fes:PropertyIsLike wildCard="*" singleChar="?" escapeChar="!" matchCase="false"><fes:ValueReference>'+campo+'</fes:ValueReference><fes:Literal>*'+xmlEsc(v.replace(/[*?!]/g," ").trim())+'*</fes:Literal></fes:PropertyIsLike>'}
+function fEq(campo,v){return '<fes:PropertyIsEqualTo><fes:ValueReference>'+campo+'</fes:ValueReference><fes:Literal>'+xmlEsc(v)+'</fes:Literal></fes:PropertyIsEqualTo>'}
+function xmlEsc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]})}
+function wfs(url,tipo,filtro,n){return '<wfs:GetFeature service="WFS" version="2.0.0" count="'+(n||25)+'" '+NSW+'><wfs:Query typeNames="'+tipo+'" srsName="EPSG:3857"><fes:Filter>'+filtro+'</fes:Filter></wfs:Query></wfs:GetFeature>'}
+function ff(el,nome){var x=el.getElementsByTagName("ms:"+nome)[0]||el.getElementsByTagName("ms:"+nome.toUpperCase())[0]||el.getElementsByTagName("ms:"+nome.toLowerCase())[0];return x?x.textContent:""}
+function membri(doc){return Array.prototype.slice.call(doc.getElementsByTagName("wfs:member"))}
+function eccezione(doc){var x=doc.getElementsByTagName("ows:ExceptionText")[0];if(x)throw x.textContent}
+function bboxDa(el){ // primo Envelope in EPSG:3857
+ var lo=el.getElementsByTagName("gml:lowerCorner")[0],up=el.getElementsByTagName("gml:upperCorner")[0];if(!lo||!up)return null;
+ var a=lo.textContent.trim().split(/\s+/).map(Number),b=up.textContent.trim().split(/\s+/).map(Number);
+ var p1=L.CRS.EPSG3857.unproject(L.point(a[0],a[1])),p2=L.CRS.EPSG3857.unproject(L.point(b[0],b[1]));
+ return L.latLngBounds(p1,p2)}
+var evid=null;
+function vaiA(b,etichetta){if(!b||!b.isValid()){msg("Posizione non disponibile");return}
+ if(evid)map.removeLayer(evid);evid=L.rectangle(b,{color:"#ff7800",weight:3,fill:false}).addTo(map);
+ map.fitBounds(b.pad(.3),{maxZoom:19});chiudiTutto();if(etichetta)msg(etichetta)}
+function mostraRisultati(titolo,righe){
+ var h='<b>'+esc(titolo)+'</b>';
+ righe.forEach(function(r,i){h+='<div class="riga" data-i="'+i+'">'+esc(r.testo)+(r.sub?'<div class="pic">'+esc(r.sub)+'</div>':"")+'</div>'});
+ if(!righe.length)h+='<div class="riga">Nessun risultato.</div>';
+ h+='<div class="riga" id="tornaRic" style="color:#06c">← Nuova ricerca</div><div class="riga" id="chiudiRis" style="color:#06c">Chiudi</div>';
+ chiudiTutto();ris.dataset.f="";ris.innerHTML=h;ris.style.display="block";
+ ris.querySelectorAll("[data-i]").forEach(function(d){d.onclick=function(){righe[+d.dataset.i].vai()}});
+ document.getElementById("tornaRic").onclick=apriRicerca;
+ document.getElementById("chiudiRis").onclick=function(){ris.style.display="none"}}
+var CAT=SERVIZI.catasto,CTRS=SERVIZI.ctr;
+var INFRA=RT+"ows_infrastrutture_presidi/com.rt.wms.RTmap/ows?map=owsinfrastrutturepresidi",IDRO=RT+"wmsraster/com.rt.wms.RTmap/wms?map=wmsidrogr";
+var CAMPO_COM={k:"comune",l:"Comune",ph:"es. Castelfranco Piandisc"};
+var RIC={ /* stesse voci del "Trova" del Geoscopio */
+ comuni:{nome:"Comuni",srv:SERVIZI.amb,tipo:"ms:rt_ambamm.idcomuni.rt.poly.wfs_search",campi:[{k:"ncom",l:"Comune"}],et:function(m){return ff(m,"ncom")},sub:function(m){return "provincia "+ff(m,"nprov")}},
+ toponimi:{nome:"Toponimi",srv:SERVIZI.topon,tipo:"ms:rt_toponomastica.toponimi_ctr10k_ricomposti.poly.wfs_search",modi:[["regione","per toponimo su regione"],["comune","per toponimo su comune"]],campi:[{k:"COMUNE",l:"Comune",solo:"comune"},{k:"TOPONIMO",l:"Toponimo"}],et:function(m){return ff(m,"TOPONIMO")},sub:function(m){return ff(m,"COMUNE")+" – "+ff(m,"TIPO").toLowerCase()}},
+ strade:{nome:"Strade",srv:INFRA,tipo:"ms:rt_itnt.strade_ordinate.line.wfs_search",campi:[{k:"comune",l:"Comune"},{k:"via",l:"Via"}],et:function(m){return ff(m,"via")},sub:function(m){return ff(m,"comune")}},
+ fiumi:{nome:"Fiumi",srv:IDRO,tipo:"ms:rt_idrogr.fiumi_x_comune.line.wfs_search",campi:[{k:"comune",l:"Comune"},{k:"nome",l:"Fiume"}],et:function(m){return ff(m,"nome")},sub:function(m){return ff(m,"comune")}},
+ fogli:{nome:"Fogli catastali",srv:CAT,tipo:"ms:rt_cat.idcatbdfog.bbox.rt.wfs_search",campi:[{k:"comune",l:"Comune",obb:1},{k:"foglio",l:"Foglio",eq:"fg"}],cat:1,et:function(m){return ff(m,"comune").replace("&#39;","'")+" – foglio "+ff(m,"foglio")},sub:function(m){return ""}},
+ particelle:{nome:"Particelle catastali",srv:CAT,tipo:"ms:rt_cat.idcatbdpart.bbox.rt.wfs_search",campi:[{k:"comune",l:"Comune",obb:1},{k:"foglio",l:"Foglio",eq:"fg"},{k:"particella",l:"Particella",eq:"pa"}],cat:1,et:function(m){return ff(m,"comune").replace("&#39;","'")+" – foglio "+ff(m,"foglio")+" – particella "+ff(m,"particella")},sub:function(m){var z=ff(m,"zona_cens");return z&&z!="_"?"zona censuaria "+z:""}},
+ inq2k:{nome:"Inquadramento 2k",srv:CTRS,tipo:"ms:rt_ctr.inq.ctr.2k.wfs_search",campi:[{k:"foglio",l:"Foglio"}],et:function(m){return "CTR 1:2.000 – foglio "+ff(m,"foglio")},sub:function(){return ""}},
+ inq5k:{nome:"Inquadramento 5k",srv:CTRS,tipo:"ms:rt_ctr.inq.ctr.5k.wfs_search",campi:[{k:"elemento",l:"Elemento"}],et:function(m){return "CTR 1:5.000 – elemento "+ff(m,"elemento")},sub:function(){return ""}},
+ inq10k:{nome:"Inquadramento 10k",srv:CTRS,tipo:"ms:rt_ctr.inq.ctr.10k.wfs_search",campi:[{k:"sezione",l:"Sezione"}],et:function(m){return "CTR 1:10.000 – sezione "+ff(m,"sezione")},sub:function(){return ""}},
+ inq50k:{nome:"Inquadramento 50k",srv:CTRS,tipo:"ms:rt_ctr.inq.igm.f50k.wfs_search",campi:[{k:"fog50k",l:"Foglio IGM 50k"}],et:function(m){return "IGM 1:50.000 – foglio "+ff(m,"fog50k")},sub:function(){return ""}}};
+var RIC_ORD=["comuni","toponimi","strade","fiumi","fogli","particelle","inq2k","inq5k","inq10k","inq50k"];
+var SR=STATO.ric||{tipo:"particelle",modo:"regione",v:{}};
+function apriRicerca(){
+ chiudiTutto();ris.dataset.f="1";
+ var h='<b>Trova sulla mappa (Geoscopio)</b><div class="f"><select id="rT">';
+ RIC_ORD.forEach(function(k){h+='<option value="'+k+'"'+(k==SR.tipo?" selected":"")+'>'+RIC[k].nome+'</option>'});
+ h+='</select></div><div id="rCampi"></div><div class="f"><button id="rGo">Trova</button><button id="rPul">Pulisci</button><button id="rX">Chiudi</button></div><div class="pic">La ricerca cerca il testo anche dentro il nome (es. "Piantr" trova Piantravigne). Risultati: al massimo 1000 per ricerca.</div>';
+ ris.innerHTML=h;ris.style.display="block";
+ function campi(){var r=RIC[SR.tipo],c="";
+  if(r.modi){c+='<div class="f"><select id="rM">';r.modi.forEach(function(m){c+='<option value="'+m[0]+'"'+(m[0]==SR.modo?" selected":"")+'>'+m[1]+'</option>'});c+='</select></div>'}
+  r.campi.forEach(function(f,i){if(f.solo&&f.solo!=SR.modo)return;c+='<div class="f"><input data-c="'+i+'" placeholder="'+esc(f.l+(f.ph&&0?"":""))+'" value="'+esc((SR.v[SR.tipo+"."+f.k])||"")+'"></div>'});
+  document.getElementById("rCampi").innerHTML=c;
+  var m=document.getElementById("rM");if(m)m.onchange=function(){SR.modo=m.value;campi()}}
+ campi();
+ document.getElementById("rT").onchange=function(){SR.tipo=this.value;campi()};
+ document.getElementById("rX").onclick=function(){ris.style.display="none"};
+ document.getElementById("rPul").onclick=function(){var r=RIC[SR.tipo];r.campi.forEach(function(f){delete SR.v[SR.tipo+"."+f.k]});campi();if(evid){map.removeLayer(evid);evid=null}};
+ document.getElementById("rGo").onclick=function(){var r=RIC[SR.tipo];
+  r.campi.forEach(function(f,i){var e=document.querySelector('[data-c="'+i+'"]');if(e)SR.v[SR.tipo+"."+f.k]=e.value.trim()});
+  STATO.ric=SR;salva();eseguiRicerca()}}
+function eseguiRicerca(){
+ var r=RIC[SR.tipo],parti=[],vuoto=true;
+ r.campi.forEach(function(f){if(f.solo&&f.solo!=SR.modo)return;var v=(SR.v[SR.tipo+"."+f.k]||"").trim();
+  if(!v){if(f.obb||(f.solo&&SR.tipo=="toponimi")){parti.push(null)}return}
+  vuoto=false;
+  if(f.eq){var n=v.replace(/^0+(?=\d)/,"");parti.push(f.eq=="fg"?"<fes:Or>"+fEq(f.k,n)+fEq(f.k,("0000"+n).slice(-4))+"</fes:Or>":fEq(f.k,n))}
+  else parti.push(fLike(f.k,v))});
+ if(vuoto||parti.indexOf(null)>=0){msg(r.cat?"Indica almeno il comune":"Compila il campo da cercare");return}
+ var filtro=parti.length>1?"<fes:And>"+parti.join("")+"</fes:And>":parti[0];
+ msg("Cerco nel Geoscopio…");
+ rete("POST",r.srv,wfs(r.srv,r.tipo,filtro,1000)).then(function(t){var d=xml(t);eccezione(d);
+  var visti={};var righe=[];
+  membri(d).forEach(function(m){var b=r.cat?null:bboxDa(m);var testo=r.et(m),sub=r.sub(m);
+   var k=testo+"|"+sub+"|"+(b?b.getCenter().lat.toFixed(4)+","+b.getCenter().lng.toFixed(4):ff(m,"pkuid"));if(visti[k])return;visti[k]=1;
+   righe.push({testo:testo,sub:sub,vai:function(){if(r.cat)vaiPk(r.tipo,ff(m,"pkuid"),testo);else vaiA(b,testo)}})});
+  var n=righe.length;
+  if(n==1)righe[0].vai();else mostraRisultati(r.nome+": "+n+" risultati"+(n>=1000?" (mostrati i primi 1000: affina la ricerca)":""),righe)})
+ .catch(function(m){msg("Ricerca non riuscita: "+m)})}
+function vaiPk(tipo,pk,et){ // il riquadro del singolo elemento è affidabile solo interrogandolo di nuovo da solo
+ rete("POST",CAT,wfs(CAT,tipo,fEq("pkuid",pk),1)).then(function(t){var d=xml(t);eccezione(d);
+  var top=d.getElementsByTagName("wfs:boundedBy")[0];var b=top?bboxDa(top):null;
+  if(!DEF[1].on&&!DEF[2].on){DEF[1].on=true;DEF[1].layer.addTo(map);statoLiv("cat",DEF[1])}
+  vaiA(b,et)}).catch(function(m){msg("Posizione non trovata: "+m)})}
+document.getElementById("bCerca").onclick=function(){if(ris.dataset.f=="1"&&ris.style.display=="block"){ris.style.display="none"}else apriRicerca()};
+
+/* ---- strumenti di misura ---- */
+proj4.defs("EPSG:32632","+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs");
+proj4.defs("EPSG:3003","+proj=tmerc +lat_0=0 +lon_0=9 +k=0.9996 +x_0=1500000 +y_0=0 +ellps=intl +towgs84=-104.1,-49.1,-9.9,0.971,-2.917,0.714,-11.68 +units=m +no_defs");
+var misEl=document.getElementById("misura");
+var MIS={modo:null,pts:[],g:L.layerGroup().addTo(map),coord:null};
+function rad(x){return x*Math.PI/180}function gra(x){return x*180/Math.PI}
+function vinc(a,b){ // distanza e azimut sull'ellissoide WGS84 (Vincenty inverso)
+ var A=6378137,F=1/298.257223563,B=(1-F)*A;
+ var U1=Math.atan((1-F)*Math.tan(rad(a.lat))),U2=Math.atan((1-F)*Math.tan(rad(b.lat))),Lg=rad(b.lng-a.lng),lam=Lg,i=0,s1,c1,sg,cg,sig,sa,c2a,c2m;
+ var sU1=Math.sin(U1),cU1=Math.cos(U1),sU2=Math.sin(U2),cU2=Math.cos(U2);
+ if(a.lat==b.lat&&a.lng==b.lng)return{d:0,az:0};
+ do{var sl=Math.sin(lam),cl=Math.cos(lam);sg=Math.sqrt(Math.pow(cU2*sl,2)+Math.pow(cU1*sU2-sU1*cU2*cl,2));
+  if(sg==0)return{d:0,az:0};cg=sU1*sU2+cU1*cU2*cl;sig=Math.atan2(sg,cg);sa=cU1*cU2*sl/sg;c2a=1-sa*sa;
+  c2m=c2a?cg-2*sU1*sU2/c2a:0;var C=F/16*c2a*(4+F*(4-3*c2a));var lp=lam;
+  lam=Lg+(1-C)*F*sa*(sig+C*sg*(c2m+C*cg*(-1+2*c2m*c2m)));if(Math.abs(lam-lp)<1e-12)break}while(++i<100);
+ var u2=c2a*(A*A-B*B)/(B*B),Aa=1+u2/16384*(4096+u2*(-768+u2*(320-175*u2))),Bb=u2/1024*(256+u2*(-128+u2*(74-47*u2)));
+ var ds=Bb*sg*(c2m+Bb/4*(cg*(-1+2*c2m*c2m)-Bb/6*c2m*(-3+4*sg*sg)*(-3+4*c2m*c2m)));
+ var az=Math.atan2(cU2*Math.sin(lam),cU1*sU2-sU1*cU2*Math.cos(lam));
+ return{d:B*Aa*(sig-ds),az:(gra(az)+360)%360}}
+function areaEll(pts){ // area esatta: proiezione equivalente (Lambert azimutale) centrata sul poligono
+ var la=0,lo=0;pts.forEach(function(p){la+=p.lat;lo+=p.lng});la/=pts.length;lo/=pts.length;
+ var d="+proj=laea +lat_0="+la+" +lon_0="+lo+" +ellps=WGS84 +x_0=0 +y_0=0 +units=m +no_defs";
+ var q=pts.map(function(p){return proj4("EPSG:4326",d,[p.lng,p.lat])}),s=0;
+ for(var i=0;i<q.length;i++){var j=(i+1)%q.length;s+=q[i][0]*q[j][1]-q[j][0]*q[i][1]}return Math.abs(s)/2}
+function fL(m){return m<1000?m.toFixed(2)+" m":(m/1000).toFixed(3)+" km ("+m.toFixed(1)+" m)"}
+function fA(a){var s=a.toFixed(2)+" m²";if(a>=1e4)s+="\n   = "+(a/1e4).toFixed(4)+" ha";if(a>=1e6)s+=" = "+(a/1e6).toFixed(4)+" km²";return s}
+function dms(x,pos,neg){var s=x<0?neg:pos;x=Math.abs(x);var g=Math.floor(x),m=Math.floor((x-g)*60),sec=((x-g)*60-m)*60;return g+"° "+m+"' "+sec.toFixed(2)+'" '+s}
+function fAng(g){g=((g%360)+360)%360;return g.toFixed(4)+"° = "+dms(g,"","").trim()+" = "+(g*400/360).toFixed(4)+" gon"}
+function misDisegna(){MIS.g.clearLayers();var P=MIS.pts,st={color:"#e07000",weight:3,dashArray:"6 4"},out="",m=MIS.modo;
+ P.forEach(function(p,i){L.circleMarker(p,{radius:5,color:"#e07000",fillColor:"#fff",fillOpacity:1,weight:2}).addTo(MIS.g)});
+ if(m=="dist"){if(P.length>1)L.polyline(P,st).addTo(MIS.g);
+  if(P.length<2)out="Tocca la mappa per segnare i punti (min. 2).";else{var tot=0;for(var i=1;i<P.length;i++){var v=vinc(P[i-1],P[i]);tot+=v.d;out+="Tratto "+i+": "+fL(v.d)+"  (azimut "+v.az.toFixed(2)+"°)\n"}out+="TOTALE: "+fL(tot)}}
+ else if(m=="area"){if(P.length>2)L.polygon(P,st).addTo(MIS.g);else if(P.length==2)L.polyline(P,st).addTo(MIS.g);
+  if(P.length<3)out="Tocca la mappa per segnare i vertici (min. 3).";else{var per=0;for(var i=0;i<P.length;i++)per+=vinc(P[i],P[(i+1)%P.length]).d;out="Area: "+fA(areaEll(P))+"\nPerimetro: "+fL(per)+"\nVertici: "+P.length}}
+ else if(m=="ang"){if(P.length>1)L.polyline(P,st).addTo(MIS.g);
+  if(P.length<3)out="Tocca 3 punti: il secondo è il vertice dell'angolo ("+P.length+"/3).";else{var A=vinc(P[1],P[0]),C=vinc(P[1],P[2]);var d=Math.abs(A.az-C.az);if(d>180)d=360-d;
+   out="Angolo al vertice: "+fAng(d)+"\nLato 1: "+fL(A.d)+"  (azimut "+A.az.toFixed(2)+"°)\nLato 2: "+fL(C.d)+"  (azimut "+C.az.toFixed(2)+"°)"}}
+ else if(m=="cer"){if(P.length>1){var r=vinc(P[0],P[1]).d;L.circle(P[0],{radius:r,color:"#e07000",weight:3,dashArray:"6 4",fillOpacity:.08}).addTo(MIS.g);
+   out="Raggio: "+fL(r)+"\nCirconferenza: "+fL(2*Math.PI*r)+"\nArea: "+fA(Math.PI*r*r)+"\n(area calcolata sul piano tangente: per cerchi grandi è approssimata)"}else out="Tocca il centro, poi un punto del bordo."}
+ else if(m=="coo"){if(!P.length)out="Tocca un punto per leggere le coordinate.";else{var q=P[P.length-1];
+   var u=proj4("EPSG:4326","EPSG:32632",[q.lng,q.lat]),g=proj4("EPSG:4326","EPSG:3003",[q.lng,q.lat]);
+   out="WGS84 (gradi): "+q.lat.toFixed(7)+", "+q.lng.toFixed(7)+"\nWGS84 (gradi, primi, secondi):\n   "+dms(q.lat,"N","S")+"\n   "+dms(q.lng,"E","W")+"\nUTM fuso 32N (WGS84/ETRS89): E "+u[0].toFixed(2)+"  N "+u[1].toFixed(2)+"\nGauss-Boaga fuso Ovest (Roma 40, INDICATIVA, scarto possibile di alcuni metri): E "+g[0].toFixed(1)+"  N "+g[1].toFixed(1)}}
+ document.getElementById("misRis").textContent=out}
+var MODI=[["dist","📏 Distanza"],["area","⬠ Area"],["ang","∠ Angolo"],["cer","◯ Cerchio"],["coo","⌖ Coordinate"]];
+function misPannello(){
+ var h='<div class="tb">';MODI.forEach(function(m){h+='<button data-m="'+m[0]+'"'+(MIS.modo==m[0]?' class="on"':"")+'>'+m[1]+'</button>'});
+ h+='</div><div class="tb"><button id="misUndo">↶ Annulla punto</button><button id="misCanc">🗑 Cancella</button><button id="misChiudi">✕ Chiudi</button></div><div id="misRis"></div>';
+ misEl.innerHTML=h;
+ misEl.querySelectorAll("[data-m]").forEach(function(b){b.onclick=function(){MIS.modo=b.dataset.m;MIS.pts=[];misPannello();misDisegna()}});
+ document.getElementById("misUndo").onclick=function(){MIS.pts.pop();misDisegna()};
+ document.getElementById("misCanc").onclick=function(){MIS.pts=[];misDisegna()};
+ document.getElementById("misChiudi").onclick=misFine}
+function misFine(){MIS.modo=null;MIS.pts=[];MIS.g.clearLayers();misEl.style.display="none";document.getElementById("bMis").style.background="#fff"}
+document.getElementById("bMis").onclick=function(){
+ if(misEl.style.display=="block"){misFine();return}
+ chiudiTutto();MIS.modo="dist";MIS.pts=[];misEl.style.display="block";this.style.background="#ffd9a8";misPannello();misDisegna()};
+function misClick(ev){
+ var m=MIS.modo,P=MIS.pts;
+ if(m=="coo")MIS.pts=[ev.latlng];
+ else if(m=="ang"&&P.length>=3)MIS.pts=[ev.latlng];
+ else if(m=="cer"&&P.length>=2)MIS.pts=[ev.latlng];
+ else P.push(ev.latlng);
+ misDisegna()}
+
+/* ---- la mia posizione ---- */
+var gps=null;
+document.getElementById("bGps").onclick=function(){
+ if(!navigator.geolocation){msg("Posizione non disponibile");return}
+ msg("Cerco la posizione…");
+ navigator.geolocation.getCurrentPosition(function(p){var ll=[p.coords.latitude,p.coords.longitude];
+  if(gps)map.removeLayer(gps);gps=L.circle(ll,{radius:p.coords.accuracy,color:"#06c",weight:2,fillOpacity:.1}).addTo(map);
+  map.setView(ll,Math.max(map.getZoom(),18))},function(){msg("Posizione non ottenuta (permesso o GPS spento)")},{enableHighAccuracy:true,timeout:15000})};
+</script>
+<script src="geoscopio.js"></script></body></html>

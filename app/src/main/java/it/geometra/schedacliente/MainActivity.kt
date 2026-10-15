@@ -284,6 +284,12 @@ class MainActivity : AppCompatActivity() {
             ) {
                 startActivity(Intent(this, ConformitaActivity::class.java))
             },
+            VoceMenuPrincipale(
+                android.R.drawable.ic_menu_mapmode,
+                "Mappa e WMS Regione Toscana\ncatasto, CTR, ortofoto"
+            ) {
+                startActivity(Intent(this, MappaActivity::class.java))
+            },
             VoceMenuPrincipale(android.R.drawable.ic_menu_preferences, "Impostazioni") {
                 startActivity(Intent(this, SettingsActivity::class.java))
             }
