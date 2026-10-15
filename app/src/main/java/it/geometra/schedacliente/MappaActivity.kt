@@ -158,12 +158,16 @@ class MappaActivity : AppCompatActivity() {
         private const val PREF = "mappa"
         private const val CHIAVE = "chiave_google"
         private const val HOST = "www502.regione.toscana.it"
+        private const val HOST_AUTORITA = "geodataserver.appenninosettentrionale.it"
         private const val LIMITE = 6 * 1024 * 1024
 
         /** Solo https verso il Geoscopio della Regione Toscana. */
         fun urlAmmesso(url: String): Boolean {
             val u = try { java.net.URI(url) } catch (e: Exception) { return false }
-            return u.scheme == "https" && u.host == HOST && u.userInfo == null
+            if (u.scheme != "https" || u.userInfo != null) return false
+            if (u.host == HOST) return true
+            /* Autorità di bacino distrettuale dell'Appennino Settentrionale: solo il servizio ArcGIS pubblico (PAI/PGRA) */
+            return u.host == HOST_AUTORITA && (u.rawPath ?: "").startsWith("/arcgis/rest/services/")
         }
 
         /** Collegamenti che la pagina può far aprire al browser (download dei dati, schede). */

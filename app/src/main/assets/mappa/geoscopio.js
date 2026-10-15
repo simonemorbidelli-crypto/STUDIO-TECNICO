@@ -245,7 +245,7 @@ function pannelloIstr(){
  $("bVinc").onclick=function(){togliVinc(!VINC.on)}}
 window.pannelloIstr=function(){pannelloIstr();if(window.bottoniPannello)bottoniPannello()};
 function togliVinc(on){VINC.on=on;if(on){SEL.on=false;aggiornaSel();chiudiTutto();msg("Tocca un punto della mappa: ti mostro e accendo solo i vincoli presenti lì")}else{pulisciSel();msg("Ricerca dei vincoli nel punto disattivata")}pannelloIstr()}
-var VINC_GRUPPI={idro:1,pae:1,arc:1,cul:1,nat:1};
+var VINC_GRUPPI={idro:1,pai:1,pae:1,arc:1,cul:1,nat:1};
 var CAMPI_OMESSI=/^(pk_?uid|pkuid|objectid|gid|fid|id|idrt|shape|geom|geometry|area|perimetro|shape_leng|shape_area|nota_istru)$/i;
 function attributiDa(blocco){var righe=[],m,re=/^\s+([A-Za-z0-9_\.]+) = '(.*)'\s*$/gm;
  while((m=re.exec(blocco))&&righe.length<7){var k=m[1],v=m[2].trim();if(!v||CAMPI_OMESSI.test(k))continue;if(v.length>90)v=v.slice(0,87)+"…";righe.push(k.replace(/_/g," ")+": "+v)}
@@ -258,11 +258,11 @@ function vincoliPunto(ev){
  marker=L.circleMarker(ev.latlng,{radius:7,color:"#c00",weight:3,fillOpacity:.2}).addTo(map);
  var P=L.CRS.EPSG3857.project(ev.latlng),h=60,bb=[P.x-h,P.y-h,P.x+h,P.y+h].join(",");
  var interr=[];ISTR.forEach(function(g){if(VINC_GRUPPI[g.id])g.l.forEach(function(l){if(l.q)interr.push(l)})});
- var perSrv={};interr.forEach(function(l){(perSrv[l.u]=perSrv[l.u]||[]).push(l)});
+ var perSrv={},perAgx={};interr.forEach(function(l){var d=l.k=="agx"?perAgx:perSrv;(d[l.u]=d[l.u]||[]).push(l)});
  var box=$("sel");box.style.display="block";
  box.innerHTML='<div class="selh"><b>Vincoli nel punto</b><button id="selX" class="mini">✖ Esci</button></div><div id="selR">Controllo '+interr.length+' strati…</div>';
  $("selX").onclick=function(){togliVinc(false)};
- var trovati={},attese=Object.keys(perSrv).length,errori=0;
+ var trovati={},errori=0;
  function chiedi(u,nomi,info){
   var q=nomi.join(",");
   var url=u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS="+encodeURIComponent(q)+"&QUERY_LAYERS="+encodeURIComponent(q)+"&STYLES=&CRS=EPSG:3857&BBOX="+bb+"&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain&FEATURE_COUNT=3";
@@ -272,12 +272,26 @@ function vincoliPunto(ev){
    if(/ServiceException|ExceptionReport/.test(t)){errori++;return}
    var d=datiPunto(t);Object.keys(d).forEach(function(n){trovati[u+"|"+n]=d[n]})})
   .catch(function(){errori++})}
- var prom=Object.keys(perSrv).map(function(u){return chiedi(u,perSrv[u].map(function(l){return l.w}))});
+ var CAMPI_AGX={cod_classe:"classe",classe:"classe",geomorfo:"tipo",decreto_de:"decreto",name:"bacino",pericolo:"pericolosità"};
+ function righeAgx(a){var r=[];Object.keys(CAMPI_AGX).forEach(function(k){var v=a[k];if(v==null||String(v).trim()==""||v=="Null")return;
+   if(k=="pericolo")v="P"+v;r.push(CAMPI_AGX[k]+": "+v)});return r}
+ function chiediAgx(u,ls){
+  var ids=ls.map(function(l){return l.w}).join(",");
+  var url=u+"/identify?f=json&geometry="+P.x+","+P.y+"&geometryType=esriGeometryPoint&sr=3857&layers=all:"+ids+"&tolerance=1&mapExtent="+bb+"&imageDisplay=100,100,96&returnGeometry=false";
+  return rete("GET",url).then(function(t){var d=JSON.parse(t);if(d.error){errori++;return}
+   ls.forEach(function(l){trovati[l.u+"|"+l.w]={agx:true,righe:[]}});
+   (d.results||[]).forEach(function(x){var k=u+"|"+x.layerId;if(!trovati[k])return;
+    righeAgx(x.attributes||{}).forEach(function(r){if(trovati[k].righe.indexOf(r)<0&&trovati[k].righe.length<8)trovati[k].righe.push(r)});
+    if(!trovati[k].n)trovati[k].n=0;trovati[k].n++});
+   ls.forEach(function(l){var k=l.u+"|"+l.w;if(!trovati[k].n)delete trovati[k]})})
+  .catch(function(){errori++})}
+ var prom=Object.keys(perSrv).map(function(u){return chiedi(u,perSrv[u].map(function(l){return l.w}))})
+  .concat(Object.keys(perAgx).map(function(u){return chiediAgx(u,perAgx[u])}));
  Promise.all(prom).then(function(){
   var elenco=[];
   interr.forEach(function(l){var t=trovati[l.u+"|"+l.w];if(t===undefined)return;
-   var attr=attributiDa(t);
-   if(/usicivici/.test(l.w)){ /* il livello copre tutti i comuni: conta solo se il campo PRES_UC è compilato */
+   var attr=t.agx?t.righe:attributiDa(t);
+   if(!t.agx&&/usicivici/.test(l.w)){ /* il livello copre tutti i comuni: conta solo se il campo PRES_UC è compilato */
      var pu=(t.match(/PRES_UC = '([^']*)'/)||[])[1]||"";
      if(!pu.trim()){return}}
    elenco.push({l:l,attr:attr})});
@@ -291,7 +305,7 @@ function vincoliPunto(ev){
   else{h+='<div class="selb"><b>'+elenco.length+' vincoli in questo punto</b> (accesi sulla mappa)</div>';
    elenco.forEach(function(x){h+='<div class="selb"><b>'+esc(x.l.t)+'</b>';x.attr.forEach(function(r){h+='<div>'+esc(r)+'</div>'});h+='</div>'})}
   if(errori)h+='<div class="selb pic">Attenzione: '+errori+' interrogazioni non sono riuscite, l\'elenco può essere incompleto.</div>';
-  h+='<p class="pic">Verifica indicativa sui dati WMS della Regione Toscana: per l\'istruttoria fa fede il dato ufficiale degli enti competenti. Gli strati idraulici (PAI/PGRA) dell\'Autorità di bacino non sono nel Geoscopio e vanno controllati a parte.</p>';
+  h+='<p class="pic">Verifica indicativa sui dati WMS della Regione Toscana: per l\'istruttoria fa fede il dato ufficiale degli enti competenti. PAI dissesti e PGRA sono dell\'Autorità di bacino dell\'Appennino Settentrionale (bacino Arno; altri bacini non inclusi).</p>';
   el.innerHTML=h})}
 
 /* ---------- spegni tutto / espandi / comprimi ---------- */

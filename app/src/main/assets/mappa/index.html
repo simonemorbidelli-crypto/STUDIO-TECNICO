@@ -201,10 +201,15 @@ function capServizio(u){if(CAPS[u])return Promise.resolve(CAPS[u]);
  return rete("GET",u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities").then(function(t){return CAPS[u]=layerCap(xml(t))})}
 
 /* ---- livelli aggiunti dal sottomenu "Tutti i WMS" ---- */
+/* ArcGIS Server (Autorità di bacino): tile da /export, riproiettate in 3857 dal server */
+L.TileLayer.ArcgisExport=L.TileLayer.extend({getTileUrl:function(c){
+ var z=this._getZoomForUrl(),R=20037508.342789244,res=2*R/(256*Math.pow(2,z)),x0=-R+c.x*256*res,y1=R-c.y*256*res,bb=[x0,y1-256*res,x0+256*res,y1].join(",");
+ return this._url+"/export?bbox="+bb+"&bboxSR=3857&imageSR=3857&size=256,256&dpi=96&format=png32&transparent=true&layers=show:"+this.options.lay+"&f=image"+(REV?"&_r="+REV:"")}});
+function mkArcgis(u,lay,op,z){return new L.TileLayer.ArcgisExport(u,{lay:lay,opacity:op,attribution:"© Autorità di bacino distrettuale dell'Appennino Settentrionale",maxZoom:21,tileSize:256,zIndex:z})}
 var EXTRA=[];var EXTRA_SALVATI=STATO.extra||[];
 function salvaExtra(){STATO.extra=EXTRA.map(function(e){return{u:e.u,l:e.l,t:e.t,op:e.op}});salva()}
 function aggiungiExtra(u,l,t,op){
- var e={u:u,l:l,t:t,op:op==null?.85:op};e.layer=mkWms(u,l,"image/png",true,e.op,40+EXTRA.length);
+ var e={u:u,l:l,t:t,op:op==null?.85:op};e.layer=/\/MapServer$/.test(u)?mkArcgis(u,l,e.op,40+EXTRA.length):mkWms(u,l,"image/png",true,e.op,40+EXTRA.length);
  e.layer.on("tileerror",function(){msg("Il livello \""+t+"\" non risponde qui")});e.layer.addTo(map);EXTRA.push(e);salvaExtra();return e}
 function togliExtra(u,l){EXTRA=EXTRA.filter(function(e){if(e.u==u&&e.l==l){map.removeLayer(e.layer);return false}return true});salvaExtra()}
 function haExtra(u,l){return EXTRA.some(function(e){return e.u==u&&e.l==l})}
