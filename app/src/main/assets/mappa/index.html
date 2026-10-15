@@ -47,7 +47,7 @@ html,body{margin:0;height:100%;font-family:sans-serif}
 button.dl{margin:3px 0;padding:8px 10px;font-size:13px;text-align:left;border:1px solid #06c;color:#06c;background:#fff;border-radius:6px;max-width:100%}
 #tempo{position:absolute;z-index:1000;left:8px;right:8px;bottom:8px;background:#fffffff5;border:1px solid #999;border-radius:10px;padding:6px 10px;display:none;font-size:13px}
 #tempo .r{display:flex;align-items:center;gap:6px}#tempo .r button{padding:6px 10px;font-size:15px}
-#tempo input[type=range]{flex:1;min-width:0}#tmY{font-weight:bold;font-size:16px;min-width:72px;text-align:center}
+#tempo input[type=range]{flex:1;min-width:0}#tmY{flex:1;min-width:0;padding:6px;font-size:14px;font-weight:bold}
 #tmD{font-size:11px;color:#555;margin:2px 0}#tmJ{display:none;width:100%;margin-top:4px;padding:5px}
 #tmDiv{position:absolute;z-index:999;top:0;bottom:0;width:30px;margin-left:-15px;display:none;touch-action:none}
 #tmDiv:before{content:"";position:absolute;left:14px;width:3px;top:0;bottom:0;background:#fff;box-shadow:0 0 3px #000}
@@ -68,9 +68,9 @@ body.stampa #barra,body.stampa #menu,body.stampa #pannello,body.stampa #risultat
 <button class="bt" id="bGps" title="La mia posizione"><svg viewBox="0 0 24 24" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6" fill="#222"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5"/></svg></button>
 <button class="bt" id="bAltro" title="Altri strumenti: legenda, cartoteca, macchina del tempo, stampa">⋯</button>
 <button class="bt" id="bLiv" title="Livelli">☰</button></div>
-<div id="menu"><button data-a="tempo">🕰 Macchina del tempo (ortofoto per anno)</button><button data-a="leg">📚 Legenda e cartoteca (download)</button><button data-a="sel">🎯 Seleziona oggetto sulla mappa</button><button data-a="desel">✖ Deseleziona tutto</button><button data-a="stampa">🖨 Stampa / salva PDF</button></div>
+<div id="menu"><button data-a="tempo">🕰 Macchina del tempo (ortofoto per anno)</button><button data-a="leg">📚 Legenda e cartoteca (download)</button><button data-a="vinc">📍 Vincoli nel punto che tocco</button><button data-a="sel">🎯 Seleziona oggetto sulla mappa</button><button data-a="desel">✖ Deseleziona tutto</button><button data-a="stampa">🖨 Stampa / salva PDF</button></div>
 <div id="leg"></div><div id="sel"></div>
-<div id="tempo"><div class="r"><button id="tmP">◀</button><span id="tmY"></span><button id="tmN">▶</button><input type="range" id="tmS" min="0" max="11" step="1"><button id="tmX" title="Chiudi">✕</button></div><div id="tmD"></div><label><input type="checkbox" id="tmC"> Confronta due anni (trascina la barra sulla mappa)</label><select id="tmJ"></select></div>
+<div id="tempo"><div class="r"><button id="tmP">◀</button><select id="tmY"></select><button id="tmN">▶</button><button id="tmX" title="Chiudi">✕</button></div><div class="r"><input type="range" id="tmS" min="0" max="0" step="1"></div><div id="tmD"><span id="tmN2"></span></div><label><input type="checkbox" id="tmC"> Confronta due anni (trascina la barra sulla mappa)</label><select id="tmJ"></select></div>
 <div id="tmDiv"></div>
 <div id="stp"><b>Stampa / salva PDF</b><div class="f"><input id="stpT" placeholder="Titolo della mappa (facoltativo)"></div><label><input type="checkbox" id="stpL" checked> Includi la legenda dei livelli accesi</label><div class="f"><button id="stpGo">Stampa / salva PDF</button><button id="stpNo">Annulla</button></div><div class="pic">Si apre la stampa di Android: scegli «Salva come PDF» per ottenere il file.</div></div>
 <div id="stampaBox"></div>
@@ -79,6 +79,7 @@ body.stampa #barra,body.stampa #menu,body.stampa #pannello,body.stampa #risultat
 <script src="proj4.js"></script>
 <script src="catalogo.js"></script>
 <script src="legende.js"></script>
+<script src="istruttoria.js"></script>
 <script>
 var RT="https://www502.regione.toscana.it/";
 var SERVIZI={
@@ -222,8 +223,9 @@ function disegnaPannello(){
  l+='<p class="pic">Tocca la mappa con il catasto acceso per leggere foglio, particella, qualità e superficie. Dati di consultazione, senza valore certificativo.</p>';
  var o='<label><input type="checkbox" id="ofcOn"'+(OFC.on?" checked":"")+'> Mostra ortofoto</label><div class="f"><select id="ofcSel"><option>Carico l\'elenco…</option></select></div><input class="op" type="range" min="10" max="100" value="'+Math.round(OFC.op*100)+'" id="ofcOp"><p class="pic" id="ofcInfo">Un solo anno alla volta. Dove un volo non copre la zona la mappa resta vuota.</p>';
  var x='<div id="extraAttivi"></div><div class="f"><input id="fSrv" placeholder="Filtra servizi"></div><div id="listaSrv"></div>';
- pan.innerHTML='<div class="f"><button id="bAgg" style="flex:1;padding:9px;font-size:14px">🔄 Aggiorna mappa e strati (svuota cache)</button></div>'+det("sfondo","Sfondo",b)+det("liv","Livelli principali",l)+det("ofc","Ortofoto 1954 → oggi",o)+det("wms","Tutti i WMS della Regione ("+CATALOGO.length+")",x);
+ pan.innerHTML='<div class="f"><button id="bAgg" style="flex:1;padding:9px;font-size:14px">🔄 Aggiorna mappa e strati (svuota cache)</button></div>'+'<div class="f"><button id="bOff" style="flex:1;padding:9px;font-size:14px">⏹ Spegni tutto e comprimi</button></div><div class="f"><button id="bEsp" style="flex:1">▾ Espandi tutto</button><button id="bCom" style="flex:1">▸ Comprimi tutto</button></div>'+det("istr","🏛 Istruttoria urbanistico-edilizia",'<div id="istrBox"></div>')+det("sfondo","Sfondo",b)+det("liv","Livelli principali",l)+det("ofc","Ortofoto 1954 → oggi",o)+det("wms","Tutti i WMS della Regione ("+CATALOGO.length+")",x);
  document.getElementById("bAgg").onclick=aggiornaTutto;
+ if(window.pannelloIstr)pannelloIstr();
  pan.querySelectorAll("details").forEach(function(d){d.ontoggle=ricordaAperti});
  pan.querySelectorAll("input[name=b]").forEach(function(e){e.onchange=function(){impostaBase(e.value)}});
  pan.querySelectorAll("input[data-l]").forEach(function(e){e.onchange=function(){var d=DEF.filter(function(z){return z.id==e.dataset.l})[0];d.on=e.checked;if(e.checked)d.layer.addTo(map);else map.removeLayer(d.layer);statoLiv(d.id,d)}});

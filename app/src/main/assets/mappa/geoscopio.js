@@ -51,7 +51,7 @@ function disegnaLegenda(){
  leg.innerHTML=h;
  $("legV").onchange=function(){LEG.v=this.value;STATO.legV=LEG.v;salva();disegnaAlbero()};
  $("legF").oninput=function(){LEG.f=this.value.trim().toLowerCase();disegnaAlbero()};
- $("legX").onclick=function(){EXTRA.slice().forEach(function(e){togliExtra(e.u,e.l)});disegnaExtra();disegnaAlbero();msg("Livelli aggiunti spenti")};
+ $("legX").onclick=function(){spegniTutto();disegnaExtra();disegnaAlbero();msg("Tutti gli strati sono spenti")};
  disegnaAlbero()}
 function disegnaAlbero(){
  var v=GEOS.V.filter(function(x){return x.id==LEG.v})[0]||GEOS.V[0];
@@ -128,18 +128,29 @@ function mostraSel(tutti){
  el.innerHTML=h;
  el.querySelectorAll("button.dl").forEach(function(b){b.onclick=function(){apri(tutti[+b.dataset.i].r[+b.dataset.j].link[+b.dataset.k].u)}})}
 window.selezioneClick=function(ev){
+ if(VINC.on){chiudiTutto();vincoliPunto(ev);return true}
  if(!SEL.on)return false;
  var viv=EXTRA.some(function(e){return /^https:\/\/www502\.regione\.toscana\.it\//.test(e.u)});
  if(!viv)return false;
  chiudiTutto();interroga(ev);return true};
 
 /* ---------- macchina del tempo ---------- */
-var TM={on:false,i:GEOS.TM.length-1,j:0,cmp:false,f:.5,A:null,B:null};
-try{var st=STATO.tm;if(st){TM.i=Math.min(Math.max(+st.i||0,0),GEOS.TM.length-1);TM.j=Math.min(Math.max(+st.j||0,0),GEOS.TM.length-1);}}catch(e){}
+/* L'elenco è costruito da tutte le ortofoto del Geoscopio (1954 → oggi), esclusi i falsi colori. */
+var TM={on:false,i:0,j:0,cmp:false,f:.5,A:null,B:null,lista:[]};
 map.createPane("tmA").style.zIndex=250;map.createPane("tmB").style.zIndex=251;
-function annoTm(l){var m=l.d.match(/(\d{4}(?:\/\d{4})?)/);return m?m[1]:l.d}
-function mkTm(l,pane){var o={layers:l.w,format:"image/jpeg",transparent:false,version:"1.3.0",attribution:ATTR_RT,maxZoom:21,tileSize:256,pane:pane};
- if(REV)o._r=REV;var t=L.tileLayer.wms(S[l.s],o);
+function eTm(l){return {u:l.srv,l:l.name,t:titoloCorto(l),anno:l.anno}}
+function caricaListaTm(){
+ return caricaOfc().then(function(v){
+  var L=v.filter(function(l){return !/false color|\bnir\b|\dR \dG \dB/i.test(l.title+" "+l.name)}).map(eTm);
+  L.sort(function(a,b){return a.anno-b.anno||a.t.localeCompare(b.t)});
+  TM.lista=L;
+  var h="";L.forEach(function(x,k){h+='<option value="'+k+'">'+esc(x.t)+'</option>'});
+  $("tmY").innerHTML=h;$("tmJ").innerHTML=h.replace(/<option /g,'<option ');
+  $("tmS").max=Math.max(0,L.length-1);
+  return L})}
+function cercaTm(sel,def){if(!sel)return def;for(var k=0;k<TM.lista.length;k++)if(TM.lista[k].u==sel.u&&TM.lista[k].l==sel.l)return k;return def}
+function mkTm(x,pane){var o={layers:x.l,format:"image/jpeg",transparent:false,version:"1.3.0",attribution:ATTR_RT,maxZoom:21,tileSize:256,pane:pane};
+ if(REV)o._r=REV;var t=L.tileLayer.wms(x.u,o);
  t.on("tileerror",function(){msg("Questo volo non copre la zona visibile")});return t}
 function clipTm(){
  if(!TM.B)return;
@@ -150,24 +161,31 @@ function clipTm(){
 function disegnaTm(){
  if(TM.A){map.removeLayer(TM.A);TM.A=null}if(TM.B){map.removeLayer(TM.B);TM.B=null}
  var bar=$("tempo");
- if(!TM.on){bar.style.display="none";$("tmDiv").style.display="none";return}
+ if(!TM.on||!TM.lista.length){bar.style.display="none";$("tmDiv").style.display="none";if(!TM.on){STATO.tm={on:false};salva()}return}
  bar.style.display="block";
- var a=GEOS.TM[TM.i];TM.A=mkTm(a,"tmA").addTo(map);
- $("tmY").textContent=annoTm(a);$("tmD").textContent=a.d;$("tmS").value=TM.i;
- var cb=$("tmC");cb.checked=TM.cmp;
- $("tmJ").style.display=TM.cmp?"block":"none";
- if(TM.cmp){var b=GEOS.TM[TM.j];TM.B=mkTm(b,"tmB").addTo(map);$("tmJ").value=TM.j;$("tmDiv").style.display="block";posDiv();setTimeout(clipTm,50)}
+ var a=TM.lista[TM.i];TM.A=mkTm(a,"tmA").addTo(map);
+ $("tmY").value=TM.i;$("tmS").value=TM.i;$("tmN2").textContent=TM.lista.length+" voli disponibili dal "+TM.lista[0].anno+" al "+TM.lista[TM.lista.length-1].anno;
+ $("tmC").checked=TM.cmp;$("tmJ").style.display=TM.cmp?"block":"none";
+ if(TM.cmp){var b=TM.lista[TM.j];TM.B=mkTm(b,"tmB").addTo(map);$("tmJ").value=TM.j;$("tmDiv").style.display="block";posDiv();setTimeout(clipTm,50)}
  else $("tmDiv").style.display="none";
- STATO.tm={on:TM.on,i:TM.i,j:TM.j};salva()}
+ var ua=TM.lista[TM.i],ub=TM.lista[TM.j];
+ STATO.tm={on:TM.on,a:{u:ua.u,l:ua.l},b:{u:ub.u,l:ub.l}};salva()}
 function posDiv(){$("tmDiv").style.left=(TM.f*100)+"%"}
 map.on("move zoom viewreset resize",function(){if(TM.on&&TM.cmp)clipTm()});
 $("tmS").oninput=function(){TM.i=+this.value;disegnaTm()};
+$("tmY").onchange=function(){TM.i=+this.value;disegnaTm()};
 $("tmP").onclick=function(){TM.i=Math.max(0,TM.i-1);disegnaTm()};
-$("tmN").onclick=function(){TM.i=Math.min(GEOS.TM.length-1,TM.i+1);disegnaTm()};
+$("tmN").onclick=function(){TM.i=Math.min(TM.lista.length-1,TM.i+1);disegnaTm()};
 $("tmX").onclick=function(){TM.on=false;TM.cmp=false;disegnaTm()};
 $("tmC").onchange=function(){TM.cmp=this.checked;if(TM.cmp&&TM.j==TM.i)TM.j=Math.max(0,TM.i-1);disegnaTm()};
 $("tmJ").onchange=function(){TM.j=+this.value;disegnaTm()};
-(function(){var h="";GEOS.TM.forEach(function(l,k){h+='<option value="'+k+'">Confronta con '+esc(annoTm(l))+'</option>'});$("tmJ").innerHTML=h})();
+function apriTm(){
+ msg("Carico l'elenco delle ortofoto…");
+ caricaListaTm().then(function(L){
+  if(!L.length){msg("Elenco ortofoto non disponibile: controlla la connessione");return}
+  var st=STATO.tm||{};
+  TM.i=cercaTm(st.a,L.length-1);TM.j=cercaTm(st.b,Math.max(0,TM.i-1));
+  TM.on=true;disegnaTm()})}
 (function(){var d=$("tmDiv"),drag=false;
  function mv(e){if(!drag)return;var p=e.touches?e.touches[0]:e;var r=map.getContainer().getBoundingClientRect();TM.f=Math.min(.97,Math.max(.03,(p.clientX-r.left)/r.width));posDiv();clipTm();e.preventDefault()}
  d.addEventListener("touchstart",function(e){drag=true;map.dragging.disable();e.preventDefault()},{passive:false});
@@ -175,7 +193,7 @@ $("tmJ").onchange=function(){TM.j=+this.value;disegnaTm()};
  window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("mousemove",mv);
  function fine(){if(drag){drag=false;map.dragging.enable()}}
  window.addEventListener("touchend",fine);window.addEventListener("mouseup",fine)})();
-if(STATO.tm&&STATO.tm.on){TM.on=true;disegnaTm()}
+if(STATO.tm&&STATO.tm.on)setTimeout(apriTm,300);
 
 /* ---------- stampa / salva PDF ---------- */
 function scalaApprossimata(){var lat=map.getCenter().lat*Math.PI/180;
@@ -183,7 +201,7 @@ function scalaApprossimata(){var lat=map.getCenter().lat*Math.PI/180;
 function attivi(){var v=[];
  DEF.forEach(function(d){if(d.on)v.push({t:d.nome,u:SERVIZI[d.srv],l:d.lay.split(",")[0]})});
  if(OFC.on&&OFC.sel)v.push({t:"Ortofoto "+(OFC.sel.t||""),u:OFC.sel.u,l:OFC.sel.l});
- if(TM.on)v.push({t:"Ortofoto "+annoTm(GEOS.TM[TM.i]),u:S[GEOS.TM[TM.i].s],l:GEOS.TM[TM.i].w});
+ if(TM.on&&TM.lista[TM.i])v.push({t:"Ortofoto "+TM.lista[TM.i].t,u:TM.lista[TM.i].u,l:TM.lista[TM.i].l});
  EXTRA.forEach(function(e){v.push({t:e.t,u:e.u,l:e.l})});return v}
 function preparaStampa(titolo,conLegenda){
  var a=attivi();
@@ -205,10 +223,98 @@ function avviaStampa(){
 $("stpGo").onclick=avviaStampa;
 $("stpNo").onclick=function(){$("stp").style.display="none"};
 
+/* ---------- istruttoria urbanistico-edilizia: gruppi di vincoli ---------- */
+var VINC={on:false};
+function livG(g){return g.l}
+function statoGruppo(g){var n=0;g.l.forEach(function(l){if(haExtra(l.u,l.w))n++});return n==0?0:(n==g.l.length?2:1)}
+function accendiLiv(l){if(!haExtra(l.u,l.w))aggiungiExtra(l.u,l.w,l.t,.6)}
+function pannelloIstr(){
+ var el=$("istrBox");if(!el)return;
+ var h='<div class="pic">Accendi con un tocco tutti gli strati di un gruppo: sono solo dati attuali ed essenziali (niente dati storici). Dati di consultazione: per l\'istruttoria fa fede il dato ufficiale degli enti competenti.</div>';
+ ISTR.forEach(function(g){
+  h+='<div class="srv"><label><input type="checkbox" data-g="'+g.id+'"> <b>'+esc(g.n)+'</b> <span class="pic">('+g.l.length+' strati)</span></label> <a href="#" data-gd="'+g.id+'">dettaglio</a><div id="gd_'+g.id+'" style="display:none">';
+  g.l.forEach(function(l,k){h+='<div class="lay"><label><input type="checkbox" data-gl="'+g.id+':'+k+'"'+(haExtra(l.u,l.w)?" checked":"")+'> '+esc(l.t)+'</label></div>'});
+  h+='</div></div>'});
+ h+='<div class="f"><button id="bVinc" style="flex:1;padding:9px">'+(VINC.on?"✅ ":"📍 ")+'Vincoli nel punto che tocco</button></div><div class="pic">Tocca il pulsante, poi un punto della mappa: restano accesi solo i vincoli che interessano quel punto.</div>';
+ el.innerHTML=h;
+ ISTR.forEach(function(g){var c=el.querySelector('[data-g="'+g.id+'"]'),st=statoGruppo(g);c.checked=st==2;c.indeterminate=st==1;
+  c.onchange=function(){if(c.checked)g.l.forEach(accendiLiv);else g.l.forEach(function(l){togliExtra(l.u,l.w)});disegnaExtra();pannelloIstr()}});
+ el.querySelectorAll("[data-gd]").forEach(function(a){a.onclick=function(ev){ev.preventDefault();var d=$("gd_"+a.dataset.gd);d.style.display=d.style.display=="none"?"block":"none"}});
+ el.querySelectorAll("[data-gl]").forEach(function(c){c.onchange=function(){var p=c.dataset.gl.split(":"),g=ISTR.filter(function(x){return x.id==p[0]})[0],l=g.l[+p[1]];
+  if(c.checked)accendiLiv(l);else togliExtra(l.u,l.w);disegnaExtra();pannelloIstr();var d=$("gd_"+g.id);if(d)d.style.display="block"}});
+ $("bVinc").onclick=function(){togliVinc(!VINC.on)}}
+window.pannelloIstr=function(){pannelloIstr();if(window.bottoniPannello)bottoniPannello()};
+function togliVinc(on){VINC.on=on;if(on){SEL.on=false;aggiornaSel();chiudiTutto();msg("Tocca un punto della mappa: ti mostro e accendo solo i vincoli presenti lì")}else{pulisciSel();msg("Ricerca dei vincoli nel punto disattivata")}pannelloIstr()}
+var VINC_GRUPPI={idro:1,pae:1,arc:1,cul:1,nat:1};
+var CAMPI_OMESSI=/^(pk_?uid|pkuid|objectid|gid|fid|id|idrt|shape|geom|geometry|area|perimetro|shape_leng|shape_area|nota_istru)$/i;
+function attributiDa(blocco){var righe=[],m,re=/^\s+([A-Za-z0-9_\.]+) = '(.*)'\s*$/gm;
+ while((m=re.exec(blocco))&&righe.length<7){var k=m[1],v=m[2].trim();if(!v||CAMPI_OMESSI.test(k))continue;if(v.length>90)v=v.slice(0,87)+"…";righe.push(k.replace(/_/g," ")+": "+v)}
+ return righe}
+function datiPunto(blocchi){ /* "Layer 'x' ... Feature ..." -> {nome: testo} */
+ var out={},re=/Layer '([^']+)'([\s\S]*?)(?=\nLayer '|$)/g,m;
+ while((m=re.exec(blocchi)))out[m[1]]=(out[m[1]]||"")+m[2];return out}
+function vincoliPunto(ev){
+ pulisciSel();
+ marker=L.circleMarker(ev.latlng,{radius:7,color:"#c00",weight:3,fillOpacity:.2}).addTo(map);
+ var P=L.CRS.EPSG3857.project(ev.latlng),h=60,bb=[P.x-h,P.y-h,P.x+h,P.y+h].join(",");
+ var interr=[];ISTR.forEach(function(g){if(VINC_GRUPPI[g.id])g.l.forEach(function(l){if(l.q)interr.push(l)})});
+ var perSrv={};interr.forEach(function(l){(perSrv[l.u]=perSrv[l.u]||[]).push(l)});
+ var box=$("sel");box.style.display="block";
+ box.innerHTML='<div class="selh"><b>Vincoli nel punto</b><button id="selX" class="mini">✖ Esci</button></div><div id="selR">Controllo '+interr.length+' strati…</div>';
+ $("selX").onclick=function(){togliVinc(false)};
+ var trovati={},attese=Object.keys(perSrv).length,errori=0;
+ function chiedi(u,nomi,info){
+  var q=nomi.join(",");
+  var url=u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS="+encodeURIComponent(q)+"&QUERY_LAYERS="+encodeURIComponent(q)+"&STYLES=&CRS=EPSG:3857&BBOX="+bb+"&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain&FEATURE_COUNT=3";
+  return rete("GET",url).then(function(t){
+   if(/ServiceException|ExceptionReport/.test(t)&&nomi.length>1){ /* un livello non interrogabile rovina la richiesta: uno alla volta */
+     return Promise.all(nomi.map(function(n){return chiedi(u,[n],info)}))}
+   if(/ServiceException|ExceptionReport/.test(t)){errori++;return}
+   var d=datiPunto(t);Object.keys(d).forEach(function(n){trovati[u+"|"+n]=d[n]})})
+  .catch(function(){errori++})}
+ var prom=Object.keys(perSrv).map(function(u){return chiedi(u,perSrv[u].map(function(l){return l.w}))});
+ Promise.all(prom).then(function(){
+  var elenco=[];
+  interr.forEach(function(l){var t=trovati[l.u+"|"+l.w];if(t===undefined)return;
+   var attr=attributiDa(t);
+   if(/usicivici/.test(l.w)){ /* il livello copre tutti i comuni: conta solo se il campo PRES_UC è compilato */
+     var pu=(t.match(/PRES_UC = '([^']*)'/)||[])[1]||"";
+     if(!pu.trim()){return}}
+   elenco.push({l:l,attr:attr})});
+  /* accendi solo i vincoli presenti */
+  ISTR.forEach(function(g){g.l.forEach(function(l){togliExtra(l.u,l.w)})});
+  elenco.forEach(function(x){accendiLiv(x.l)});
+  disegnaExtra();pannelloIstr();
+  var el=$("selR");if(!el)return;
+  var h="";
+  if(!elenco.length)h+='<div class="selb">Nessuno dei '+interr.length+' strati di vincolo controllati interessa questo punto.</div>';
+  else{h+='<div class="selb"><b>'+elenco.length+' vincoli in questo punto</b> (accesi sulla mappa)</div>';
+   elenco.forEach(function(x){h+='<div class="selb"><b>'+esc(x.l.t)+'</b>';x.attr.forEach(function(r){h+='<div>'+esc(r)+'</div>'});h+='</div>'})}
+  if(errori)h+='<div class="selb pic">Attenzione: '+errori+' interrogazioni non sono riuscite, l\'elenco può essere incompleto.</div>';
+  h+='<p class="pic">Verifica indicativa sui dati WMS della Regione Toscana: per l\'istruttoria fa fede il dato ufficiale degli enti competenti. Gli strati idraulici (PAI/PGRA) dell\'Autorità di bacino non sono nel Geoscopio e vanno controllati a parte.</p>';
+  el.innerHTML=h})}
+
+/* ---------- spegni tutto / espandi / comprimi ---------- */
+function spegniTutto(){
+ DEF.forEach(function(d){if(d.on){d.on=false;map.removeLayer(d.layer);statoLiv(d.id,d)}});
+ EXTRA.slice().forEach(function(e){togliExtra(e.u,e.l)});
+ OFC.on=false;STATO.ofc={on:false,op:OFC.op};impostaOfc();
+ TM.on=false;TM.cmp=false;disegnaTm();
+ VINC.on=false;SEL.on=false;aggiornaSel();pulisciSel();
+ if(typeof evid!=="undefined"&&evid){map.removeLayer(evid);evid=null}
+ salva()}
+function tuttiDettagli(aperto){pan.querySelectorAll("details").forEach(function(d){d.open=aperto});ricordaAperti()}
+window.bottoniPannello=function(){
+ var o=$("bOff");if(!o)return;
+ o.onclick=function(){spegniTutto();aperti={};STATO.aperti=aperti;salva();disegnaPannello();pan.style.display="block";tuttiDettagli(false);msg("Tutti gli strati sono spenti e il menu è compresso")};
+ $("bEsp").onclick=function(){tuttiDettagli(true)};
+ $("bCom").onclick=function(){tuttiDettagli(false)}};
+
 /* ---------- voci del menu ---------- */
 var AZIONI={
- tempo:function(){TM.on=true;disegnaTm()},
+ tempo:function(){apriTm()},
  leg:function(){disegnaLegenda();leg.style.display="block"},
+ vinc:function(){togliVinc(!VINC.on)},
  sel:function(){SEL.on=!SEL.on;aggiornaSel();msg(SEL.on?"Selezione attiva: tocca un elemento dei livelli accesi (legenda)":"Selezione disattivata")},
  desel:function(){pulisciSel();msg("Selezione cancellata")},
  stampa:function(){$("stp").style.display="block"}};
