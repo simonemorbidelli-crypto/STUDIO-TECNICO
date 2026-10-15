@@ -153,7 +153,7 @@ function interroga(ev){
 function mostraSel(tutti,info){
  var el=$("selR");if(!el)return;info=info||{};
  var h="";
- if(!tutti.length)h+='<div class="selb">Nessun elemento selezionabile in questo punto. Avvicinati o tocca dentro un\'area di uno strato acceso.</div>';
+ if(!tutti.length)h+='<div class="selb">Nessun elemento in questo punto negli strati accesi. Avvicinati o tocca dentro l\'area di uno strato.</div>';
  tutti.forEach(function(x,i){h+='<div class="selb"><b>'+esc(x.t)+'</b>';
   x.r.forEach(function(bl,j){h+='<div class="selo">';
    bl.righe.forEach(function(r){h+='<div>'+esc(r)+'</div>'});
@@ -161,7 +161,6 @@ function mostraSel(tutti,info){
    h+='</div>'});
   h+='</div>'});
  if(info.interrogati){
-  h+='<p class="pic"><b>Strati accesi interrogati ('+info.interrogati.length+'):</b> '+esc(info.interrogati.join(" · "))+'</p>';
   if(info.nonInterr&&info.nonInterr.length)h+='<p class="pic">Accesi ma non interrogabili: '+esc(info.nonInterr.join(", "))+'.</p>';
   if(info.falliti&&info.falliti.length)h+='<p class="pic">Non hanno risposto o non sono interrogabili: '+esc(info.falliti.join(", "))+'.</p>';
   if(info.tagliati>0)h+='<p class="pic">Altri '+info.tagliati+' strati accesi non sono stati interrogati (massimo 20 per tocco): spegni quelli che non servono.</p>'}

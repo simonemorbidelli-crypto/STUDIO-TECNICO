@@ -51,6 +51,7 @@ object InformazioniTesti {
 <p><b>v3.95</b> – Storia dell'applicazione ricostruita dalla chat originale.</p>
 <p><b>v3.96</b> – Guide per utenti inesperti ed esperti riscritte per intero: scheda cliente, dettatura, Mega e NAS, planimetria, perizia, conformità, mappa (adattando il manuale del Geoscopio) e impostazioni.</p>
 <p><b>v3.97</b> – Menu ⋮ riordinato (sottomenu «Scheda Cliente» e «Parere / Relazione con l'AI»); mappa: CTR 1:10.000 pulito, macchina del tempo che parte dall'ortofoto 2024/2025 1:5.000 a colori, menu a tocco prolungato (nota, vai a posizione, indicatore xy, quota, cerchio), «Seleziona oggetto» che interroga tutti gli strati accesi e solo quelli</p>
+<p><b>v3.98</b> – «Seleziona oggetto»: la scheda mostra solo gli oggetti presenti nel punto toccato, senza l'elenco di tutti gli strati accesi</p>
 """
 
     val GUIDA_INESPERTI: String get() = InformazioniGuida.NOVIZI
