@@ -223,7 +223,9 @@ class MainActivity : AppCompatActivity() {
         val icona: Int,
         val titolo: String,
         val separatoreSotto: Boolean = false,
-        val azione: () -> Unit
+        /** Se non è vuoto la voce è un sottomenu: toccandola si aprono/chiudono le voci figlie. */
+        val figli: List<VoceMenuPrincipale> = emptyList(),
+        val azione: () -> Unit = {}
     )
 
     /**
@@ -236,15 +238,22 @@ class MainActivity : AppCompatActivity() {
      */
     private fun mostraMenuPrincipale(ancora: View) {
         val voci = listOf(
-            VoceMenuPrincipale(android.R.drawable.ic_menu_upload, "Salva backup su Drive o cloud") {
-                avviaSalvataggioCloud()
-            },
-            VoceMenuPrincipale(android.R.drawable.ic_menu_share, "Condividi backup (email, WhatsApp...)") {
-                esportaBackup()
-            },
-            VoceMenuPrincipale(android.R.drawable.ic_menu_add, "Importa backup (da file o da Drive/cloud)") {
-                importaLauncher.launch(arrayOf("*/*"))
-            },
+            // Funzioni legate alla pagina iniziale (le schede dei clienti).
+            VoceMenuPrincipale(
+                android.R.drawable.ic_menu_agenda,
+                "Scheda Cliente\nbackup, condivisione, importazione",
+                figli = listOf(
+                    VoceMenuPrincipale(android.R.drawable.ic_menu_upload, "Salva backup su Drive o cloud") {
+                        avviaSalvataggioCloud()
+                    },
+                    VoceMenuPrincipale(android.R.drawable.ic_menu_share, "Condividi backup (email, WhatsApp...)") {
+                        esportaBackup()
+                    },
+                    VoceMenuPrincipale(android.R.drawable.ic_menu_add, "Importa backup (da file o da Drive/cloud)") {
+                        importaLauncher.launch(arrayOf("*/*"))
+                    }
+                )
+            ),
             VoceMenuPrincipale(android.R.drawable.ic_menu_edit, "Calcoli utili") {
                 startActivity(Intent(this, CalcoliActivity::class.java))
             },
@@ -266,19 +275,19 @@ class MainActivity : AppCompatActivity() {
             },
             VoceMenuPrincipale(
                 android.R.drawable.ic_menu_agenda,
-                "Documenti Mega →\nparere / relazione con l'AI"
-            ) {
-                chiediLinkMega()
-            },
-            VoceMenuPrincipale(
-                android.R.drawable.ic_menu_upload,
-                "Documenti NAS dello studio →\nparere / relazione con l'AI"
-            ) {
-                startActivity(
-                    Intent(this, ParereMegaActivity::class.java)
-                        .putExtra(ParereMegaActivity.EXTRA_ORIGINE, ParereMegaActivity.ORIGINE_NAS)
+                "Parere / Relazione con l'AI\ndocumenti Mega o NAS dello studio",
+                figli = listOf(
+                    VoceMenuPrincipale(android.R.drawable.ic_menu_agenda, "Documenti Mega") {
+                        chiediLinkMega()
+                    },
+                    VoceMenuPrincipale(android.R.drawable.ic_menu_upload, "Documenti NAS dello studio") {
+                        startActivity(
+                            Intent(this, ParereMegaActivity::class.java)
+                                .putExtra(ParereMegaActivity.EXTRA_ORIGINE, ParereMegaActivity.ORIGINE_NAS)
+                        )
+                    }
                 )
-            },
+            ),
             VoceMenuPrincipale(
                 android.R.drawable.ic_menu_compass,
                 "Verifica di conformità →\ncatasto, titolo edilizio, stato di fatto"
@@ -310,17 +319,34 @@ class MainActivity : AppCompatActivity() {
         val sfondoRigaTv = TypedValue()
         theme.resolveAttribute(android.R.attr.selectableItemBackground, sfondoRigaTv, true)
 
-        for (voce in voci) {
+        // Disegna una riga dentro [dove]; per un sottomenu aggiunge anche il contenitore (chiuso) delle voci figlie.
+        fun aggiungiVoce(dove: LinearLayout, voce: VoceMenuPrincipale, rientro: Int) {
+            val sottomenu = voce.figli.isNotEmpty()
+            val contenitoreFigli = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = View.GONE
+            }
+            val freccia = TextView(this).apply {
+                text = "▸"
+                textSize = 16f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.primary))
+            }
             val riga = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(paddingOrizzontale, paddingVerticale, paddingOrizzontale, paddingVerticale)
+                setPadding(paddingOrizzontale + (rientro * 20 * densita).toInt(), paddingVerticale, paddingOrizzontale, paddingVerticale)
                 isClickable = true
                 isFocusable = true
                 setBackgroundResource(sfondoRigaTv.resourceId)
                 setOnClickListener {
-                    popup?.dismiss()
-                    voce.azione()
+                    if (sottomenu) {
+                        val apri = contenitoreFigli.visibility != View.VISIBLE
+                        contenitoreFigli.visibility = if (apri) View.VISIBLE else View.GONE
+                        freccia.text = if (apri) "▾" else "▸"
+                    } else {
+                        popup?.dismiss()
+                        voce.azione()
+                    }
                 }
             }
             val icona = ImageView(this).apply {
@@ -338,10 +364,15 @@ class MainActivity : AppCompatActivity() {
             }
             riga.addView(icona)
             riga.addView(testo)
-            contenitore.addView(riga)
+            if (sottomenu) riga.addView(freccia)
+            dove.addView(riga)
+            if (sottomenu) {
+                voce.figli.forEach { aggiungiVoce(contenitoreFigli, it, rientro + 1) }
+                dove.addView(contenitoreFigli)
+            }
 
             if (voce.separatoreSotto) {
-                contenitore.addView(View(this).apply {
+                dove.addView(View(this).apply {
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * densita).toInt()).apply {
                         topMargin = (6 * densita).toInt()
                         bottomMargin = (6 * densita).toInt()
@@ -350,6 +381,7 @@ class MainActivity : AppCompatActivity() {
                 })
             }
         }
+        for (voce in voci) aggiungiVoce(contenitore, voce, 0)
 
         val scorribile = ScrollView(this).apply { addView(contenitore) }
         val larghezzaPopup = (290 * densita).toInt()

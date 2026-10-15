@@ -138,11 +138,11 @@ impostaBase(baseId);
 
 /* ---- livelli principali ---- */
 var DEF=[
- {id:"ctr",nome:"Carta Tecnica Regionale (CTR)",srv:"ctr",lay:"rt_ctr",fmt:"image/png",tr:true,op:.8,on:false},
- {id:"cat",nome:"Catasto terreni e fabbricati (tutto)",srv:"catasto",lay:"rt_cat.idcatacque.rt,rt_cat.idcatstrade.rt,rt_cat.idcatfabbr.rt,rt_cat.idcatpart.rt,rt_cat.idetichettecatpart.rt,rt_cat.idcatbdfog.rt,rt_cat.idcattopon.rt",fmt:"image/png",tr:true,op:.9,on:true,info:true,ql:"rt_cat.idcatpart.rt"},
- {id:"part",nome:"Catasto – solo particelle e numeri",srv:"catasto",lay:"rt_cat.idcatpart.rt,rt_cat.idetichettecatpart.rt",fmt:"image/png",tr:true,op:.9,on:false,info:true,ql:"rt_cat.idcatpart.rt"},
- {id:"fab",nome:"Catasto – solo fabbricati",srv:"catasto",lay:"rt_cat.idcatfabbr.rt",fmt:"image/png",tr:true,op:.9,on:false},
- {id:"com",nome:"Confini comunali",srv:"amb",lay:"rt_ambamm.idcomuni.rt.poly",fmt:"image/png",tr:true,op:1,on:false}];
+ {id:"ctr",nome:"CTR 1:10.000 (Carta Tecnica Regionale)",srv:"ctr",lay:"rt_ctr.10k",fmt:"image/png",tr:true,op:.9,on:false,nonInterr:true},
+ {id:"cat",nome:"Catasto terreni e fabbricati (tutto)",srv:"catasto",lay:"rt_cat.idcatacque.rt,rt_cat.idcatstrade.rt,rt_cat.idcatfabbr.rt,rt_cat.idcatpart.rt,rt_cat.idetichettecatpart.rt,rt_cat.idcatbdfog.rt,rt_cat.idcattopon.rt",fmt:"image/png",tr:true,op:.9,on:true,info:true,ql:"rt_cat.idcatpart.rt",sel:[["rt_cat.idcatpart.rt","Catasto – particelle"],["rt_cat.idcatfabbr.rt","Catasto – fabbricati"]]},
+ {id:"part",nome:"Catasto – solo particelle e numeri",srv:"catasto",lay:"rt_cat.idcatpart.rt,rt_cat.idetichettecatpart.rt",fmt:"image/png",tr:true,op:.9,on:false,info:true,ql:"rt_cat.idcatpart.rt",sel:[["rt_cat.idcatpart.rt","Catasto – particelle"]]},
+ {id:"fab",nome:"Catasto – solo fabbricati",srv:"catasto",lay:"rt_cat.idcatfabbr.rt",fmt:"image/png",tr:true,op:.9,on:false,sel:[["rt_cat.idcatfabbr.rt","Catasto – fabbricati"]]},
+ {id:"com",nome:"Confini comunali",srv:"amb",lay:"rt_ambamm.idcomuni.rt.poly",fmt:"image/png",tr:true,op:1,on:false,sel:[["rt_ambamm.idcomuni.rt.poly","Confini comunali"]]}];
 var REV=STATO.rev||0;
 function mkWms(url,lay,fmt,tr,op,z){var o={layers:lay,format:fmt,transparent:tr,version:"1.3.0",opacity:op,attribution:ATTR_RT,maxZoom:21,tileSize:256,zIndex:z};if(REV)o._r=REV;return L.tileLayer.wms(url,o)}
 function statoLiv(id,d){STATO["l_"+id]={on:d.on,op:d.op};salva()}
@@ -290,6 +290,7 @@ document.getElementById("bLiv").onclick=function(){if(pan.style.display=="block"
 /* ---- interrogazione catasto al tocco ---- */
 var marker=null;
 map.on("click",function(ev){
+ if(window.__lp&&Date.now()-window.__lp<700)return;
  if(MIS.modo){misClick(ev);return}
  if(window.selezioneClick&&selezioneClick(ev))return;
  chiudiTutto();
@@ -464,4 +465,4 @@ document.getElementById("bGps").onclick=function(){
   if(gps)map.removeLayer(gps);gps=L.circle(ll,{radius:p.coords.accuracy,color:"#06c",weight:2,fillOpacity:.1}).addTo(map);
   map.setView(ll,Math.max(map.getZoom(),18))},function(){msg("Posizione non ottenuta (permesso o GPS spento)")},{enableHighAccuracy:true,timeout:15000})};
 </script>
-<script src="geoscopio.js"></script></body></html>
+<script src="geoscopio.js"></script><script src="strumenti.js"></script></body></html>

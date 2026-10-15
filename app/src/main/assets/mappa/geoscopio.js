@@ -98,40 +98,79 @@ function evidenzia(u,lay,bbox){
     if(/4326/.test(srs)||srs==="")return L.latLng(xy[1],xy[0]);return null}).filter(Boolean);
    if(pts.length>2){L.polygon(pts,{color:"#e07000",weight:3,fillColor:"#ffb347",fillOpacity:.18,interactive:false}).addTo(SEL.hl);n++}}
  }).catch(function(){})}
+var REG=/^https:\/\/www502\.regione\.toscana\.it\//;
+function stratiAccesi(){ /* tutti gli strati ACCESI e interrogabili: livelli principali + livelli aggiunti (mai quelli spenti) */
+ var v=[],visti={},nonInterr=[];
+ function aggiungi(o){var k=o.u+"|"+o.l;if(visti[k])return;visti[k]=1;v.push(o)}
+ DEF.forEach(function(d){if(!d.on)return;
+  if(d.sel)d.sel.forEach(function(x){aggiungi({u:SERVIZI[d.srv],l:x[0],t:x[1],tipo:"plain"})});
+  else nonInterr.push(d.nome)});
+ EXTRA.forEach(function(e){
+  if(/\/MapServer$/.test(e.u))aggiungi({u:e.u,l:e.l,t:e.t,tipo:"agx"});
+  else if(REG.test(e.u))aggiungi({u:e.u,l:e.l,t:e.t,tipo:"html"})});
+ return {v:v,nonInterr:nonInterr}}
+function righeDaPlain(testo,layer){ /* testo/plain di MapServer -> un blocco per elemento */
+ var out=[],parti=String(testo).split(/\n\s*Feature \d+:/).slice(1);
+ parti.forEach(function(p){
+  var v={},ordine=[],m,re=/^\s+([A-Za-z0-9_\.]+) = '(.*)'\s*$/gm;
+  while((m=re.exec(p))){if(!(m[1] in v)){v[m[1]]=m[2].trim();ordine.push(m[1])}}
+  var righe=[];
+  if(layer=="rt_cat.idcatpart.rt"){
+   CAMPI.forEach(function(c){var x=v[c[0]];if(x===undefined||x==="")return;
+    if(c[0]=="foglio"||c[0]=="particella")x=x.replace(/^0+(?=\d)/,"");
+    if(c[0].indexOf("reddito")==0){var n=parseFloat(x);x=isNaN(n)?x:n.toFixed(2)}
+    righe.push(c[1]+": "+x)})}
+  else ordine.forEach(function(k){var x=v[k];if(!x||CAMPI_OMESSI.test(k)||righe.length>=12)return;if(x.length>90)x=x.slice(0,87)+"…";righe.push(k.replace(/_/g," ")+": "+x)});
+  if(righe.length)out.push({righe:righe,link:[]})});
+ return out}
 function interroga(ev){
- var viv=EXTRA.filter(function(e){return /^https:\/\/www502\.regione\.toscana\.it\//.test(e.u)}).slice(0,6);
+ var A=stratiAccesi(),CAP=20,viv=A.v.slice(0,CAP);
  pulisciSel();
- if(!viv.length){msg("Accendi prima un livello dalla legenda (📚 Legenda e cartoteca)");return}
+ if(!viv.length){msg(A.nonInterr.length?"Gli strati accesi non sono interrogabili ("+A.nonInterr.join(", ")+"): accendine un altro":"Accendi prima un livello (catasto, legenda o WMS)");return}
  if(window.marker===undefined)window.marker=null;
  marker=L.circleMarker(ev.latlng,{radius:7,color:"#c00",weight:3,fillOpacity:.2}).addTo(map);
- var sz=map.getSize(),b=map.getBounds(),sw=L.CRS.EPSG3857.project(b.getSouthWest()),ne=L.CRS.EPSG3857.project(b.getNorthEast()),pt=map.latLngToContainerPoint(ev.latlng);
+ var sz=map.getSize(),b=map.getBounds(),sw=L.CRS.EPSG3857.project(b.getSouthWest()),ne=L.CRS.EPSG3857.project(b.getNorthEast()),pt=map.latLngToContainerPoint(ev.latlng),P=L.CRS.EPSG3857.project(ev.latlng);
  var bb={b:[sw.x,sw.y,ne.x,ne.y].join(","),w:sz.x,h:sz.y,i:Math.round(pt.x),j:Math.round(pt.y)};
- var box=$("sel");box.style.display="block";box.innerHTML='<div class="selh"><b>Selezione</b><button id="selX" class="mini">✖ Deseleziona</button></div><div id="selR">Interrogo i livelli attivi…</div>';
+ var box=$("sel");box.style.display="block";box.innerHTML='<div class="selh"><b>Selezione</b><button id="selX" class="mini">✖ Deseleziona</button></div><div id="selR">Interrogo '+viv.length+' strati accesi…</div>';
  $("selX").onclick=pulisciSel;
- var attese=viv.length,tutti=[],primo=false;
+ var attese=viv.length,tutti=[],primo=false,falliti=[];
+ function gfi(u,l,fmt,n){return u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS="+encodeURIComponent(l)+"&QUERY_LAYERS="+encodeURIComponent(l)+"&STYLES=&CRS=EPSG:3857&BBOX="+bb.b+"&WIDTH="+bb.w+"&HEIGHT="+bb.h+"&I="+bb.i+"&J="+bb.j+"&INFO_FORMAT="+fmt+"&FEATURE_COUNT="+n}
+ function trovato(e,r){if(r.length){tutti.push({t:e.t,r:r});if(!primo&&e.tipo!="agx"){primo=true;evidenzia(e.u,e.l,bb)}}}
+ function eccezione(t){return /ServiceException|ExceptionReport/.test(t)}
  viv.forEach(function(e){
-  var url=e.u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS="+encodeURIComponent(e.l)+"&QUERY_LAYERS="+encodeURIComponent(e.l)+"&STYLES=&CRS=EPSG:3857&BBOX="+bb.b+"&WIDTH="+bb.w+"&HEIGHT="+bb.h+"&I="+bb.i+"&J="+bb.j+"&INFO_FORMAT=text/html&FEATURE_COUNT=5";
-  rete("GET",url).then(function(t){var r=riceviInfo(t);
-    if(r.length){tutti.push({t:e.t,r:r});if(!primo){primo=true;evidenzia(e.u,e.l,bb)}}})
-  .catch(function(){}).then(function(){if(--attese==0)mostraSel(tutti)})})}
-function mostraSel(tutti){
- var el=$("selR");if(!el)return;
- if(!tutti.length){el.innerHTML='Nessun elemento selezionabile in questo punto. Avvicinati o tocca dentro un\'area del livello acceso.';return}
+  var p;
+  if(e.tipo=="plain")p=rete("GET",gfi(e.u,e.l,"text/plain",5)).then(function(t){if(eccezione(t)){falliti.push(e.t);return}trovato(e,righeDaPlain(t,e.l))});
+  else if(e.tipo=="agx")p=rete("GET",e.u+"/identify?f=json&geometry="+P.x+","+P.y+"&geometryType=esriGeometryPoint&sr=3857&layers=all:"+encodeURIComponent(e.l)+"&tolerance=1&mapExtent="+bb.b+"&imageDisplay="+bb.w+","+bb.h+",96&returnGeometry=false").then(function(t){
+    var d=JSON.parse(t);if(d.error){falliti.push(e.t);return}
+    var r=[];(d.results||[]).slice(0,5).forEach(function(x){var a=x.attributes||{},righe=[];Object.keys(a).forEach(function(k){var v=a[k];if(v==null||String(v).trim()===""||v==="Null"||CAMPI_OMESSI.test(k)||righe.length>=12)return;righe.push(k.replace(/_/g," ")+": "+v)});if(righe.length)r.push({righe:righe,link:[]})});
+    trovato(e,r)});
+  else p=rete("GET",gfi(e.u,e.l,"text/html",5)).then(function(t){
+    if(eccezione(t)){falliti.push(e.t);return}
+    var r=riceviInfo(t);
+    if(r.length){trovato(e,r);return}
+    return rete("GET",gfi(e.u,e.l,"text/plain",5)).then(function(t2){if(!eccezione(t2))trovato(e,righeDaPlain(t2,e.l))})});
+  p.catch(function(){falliti.push(e.t)}).then(function(){if(--attese==0)mostraSel(tutti,{interrogati:viv.map(function(x){return x.t}),falliti:falliti,nonInterr:A.nonInterr,tagliati:A.v.length-viv.length})})})}
+function mostraSel(tutti,info){
+ var el=$("selR");if(!el)return;info=info||{};
  var h="";
+ if(!tutti.length)h+='<div class="selb">Nessun elemento selezionabile in questo punto. Avvicinati o tocca dentro un\'area di uno strato acceso.</div>';
  tutti.forEach(function(x,i){h+='<div class="selb"><b>'+esc(x.t)+'</b>';
   x.r.forEach(function(bl,j){h+='<div class="selo">';
    bl.righe.forEach(function(r){h+='<div>'+esc(r)+'</div>'});
    var visti={};bl.link.forEach(function(l,k){if(visti[l.u])return;visti[l.u]=1;h+='<div><button class="dl" data-i="'+i+'" data-j="'+j+'" data-k="'+k+'">📥 '+esc(l.t)+'</button></div>'});
    h+='</div>'});
   h+='</div>'});
+ if(info.interrogati){
+  h+='<p class="pic"><b>Strati accesi interrogati ('+info.interrogati.length+'):</b> '+esc(info.interrogati.join(" · "))+'</p>';
+  if(info.nonInterr&&info.nonInterr.length)h+='<p class="pic">Accesi ma non interrogabili: '+esc(info.nonInterr.join(", "))+'.</p>';
+  if(info.falliti&&info.falliti.length)h+='<p class="pic">Non hanno risposto o non sono interrogabili: '+esc(info.falliti.join(", "))+'.</p>';
+  if(info.tagliati>0)h+='<p class="pic">Altri '+info.tagliati+' strati accesi non sono stati interrogati (massimo 20 per tocco): spegni quelli che non servono.</p>'}
  h+='<p class="pic">Dati della Regione Toscana – Geoscopio. Il file si scarica con il browser del telefono.</p>';
  el.innerHTML=h;
  el.querySelectorAll("button.dl").forEach(function(b){b.onclick=function(){apri(tutti[+b.dataset.i].r[+b.dataset.j].link[+b.dataset.k].u)}})}
 window.selezioneClick=function(ev){
  if(VINC.on){chiudiTutto();vincoliPunto(ev);return true}
  if(!SEL.on)return false;
- var viv=EXTRA.some(function(e){return /^https:\/\/www502\.regione\.toscana\.it\//.test(e.u)});
- if(!viv)return false;
  chiudiTutto();interroga(ev);return true};
 
 /* ---------- macchina del tempo ---------- */
@@ -169,7 +208,7 @@ function disegnaTm(){
  if(TM.cmp){var b=TM.lista[TM.j];TM.B=mkTm(b,"tmB").addTo(map);$("tmJ").value=TM.j;$("tmDiv").style.display="block";posDiv();setTimeout(clipTm,50)}
  else $("tmDiv").style.display="none";
  var ua=TM.lista[TM.i],ub=TM.lista[TM.j];
- STATO.tm={on:TM.on,a:{u:ua.u,l:ua.l},b:{u:ub.u,l:ub.l}};salva()}
+ STATO.tm={on:TM.on,v:2,a:{u:ua.u,l:ua.l},b:{u:ub.u,l:ub.l}};salva()}
 function posDiv(){$("tmDiv").style.left=(TM.f*100)+"%"}
 map.on("move zoom viewreset resize",function(){if(TM.on&&TM.cmp)clipTm()});
 $("tmS").oninput=function(){TM.i=+this.value;disegnaTm()};
@@ -183,8 +222,9 @@ function apriTm(){
  msg("Carico l'elenco delle ortofoto…");
  caricaListaTm().then(function(L){
   if(!L.length){msg("Elenco ortofoto non disponibile: controlla la connessione");return}
-  var st=STATO.tm||{};
-  TM.i=cercaTm(st.a,L.length-1);TM.j=cercaTm(st.b,Math.max(0,TM.i-1));
+  var st=STATO.tm||{};if(st.v!==2)st={}; /* dalla v3.97 si parte dal volo regionale 2024/2025, 1:5.000, colore, su tutta la Toscana */
+  var iniz=L.length-1;L.forEach(function(x,k){if(x.l=="rt_ofc.5k24.32bit")iniz=k});
+  TM.i=cercaTm(st.a,iniz);TM.j=cercaTm(st.b,Math.max(0,TM.i-1));
   TM.on=true;disegnaTm()})}
 (function(){var d=$("tmDiv"),drag=false;
  function mv(e){if(!drag)return;var p=e.touches?e.touches[0]:e;var r=map.getContainer().getBoundingClientRect();TM.f=Math.min(.97,Math.max(.03,(p.clientX-r.left)/r.width));posDiv();clipTm();e.preventDefault()}
@@ -329,7 +369,7 @@ var AZIONI={
  tempo:function(){apriTm()},
  leg:function(){disegnaLegenda();leg.style.display="block"},
  vinc:function(){togliVinc(!VINC.on)},
- sel:function(){SEL.on=!SEL.on;aggiornaSel();msg(SEL.on?"Selezione attiva: tocca un elemento dei livelli accesi (legenda)":"Selezione disattivata")},
- desel:function(){pulisciSel();msg("Selezione cancellata")},
+ sel:function(){SEL.on=!SEL.on;aggiornaSel();msg(SEL.on?"Selezione attiva: tocca la mappa, ti mostro i dati di tutti gli strati accesi":"Selezione disattivata")},
+ desel:function(){pulisciSel();if(window.pulisciTemp)pulisciTemp();msg("Selezione cancellata")},
  stampa:function(){$("stp").style.display="block"}};
 })();
