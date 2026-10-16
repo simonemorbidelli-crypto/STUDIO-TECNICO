@@ -197,6 +197,8 @@ class MappaActivity : AppCompatActivity() {
         fun urlApribile(url: String): Boolean {
             val u = try { java.net.URI(url) } catch (e: Exception) { return false }
             val host = (u.host ?: return false).lowercase()
+            /* l'archivio storico dei decreti (ex Autorità di bacino dell'Arno) risponde solo in http e con TLS obsoleto: si apre nel browser, solo questo sito */
+            if (host == "www.adbarno.it") return (u.scheme == "http" || u.scheme == "https") && u.userInfo == null
             return u.scheme == "https" && u.userInfo == null &&
                 (host == HOST || host == "regione.toscana.it" || host.endsWith(".regione.toscana.it") ||
                     host in COLLEGAMENTI_AMMESSI)
@@ -205,7 +207,7 @@ class MappaActivity : AppCompatActivity() {
         /** Altri siti a cui rimandano le schede del Geoscopio (leggi, normativa, licenze, ARPAT): solo https. */
         private val COLLEGAMENTI_AMMESSI = setOf(
             "www.rete.toscana.it", "sira.arpat.toscana.it", "it.wikipedia.org", "www.gazzettaufficiale.it",
-            "eur-lex.europa.eu", "creativecommons.org", "trasparenza.cultura.gov.it", "www.normattiva.it", "www.appenninosettentrionale.it"
+            "eur-lex.europa.eu", "creativecommons.org", "trasparenza.cultura.gov.it", "www.normattiva.it", "www.appenninosettentrionale.it", "geodataserver.appenninosettentrionale.it", "pdgadj.appenninosettentrionale.it"
         )
 
 

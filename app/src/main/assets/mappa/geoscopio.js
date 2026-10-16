@@ -170,6 +170,22 @@ function righeDaPlain(testo,layer){ /* testo/plain di MapServer -> un blocco per
   else ordine.forEach(function(k){var x=v[k];if(!x||CAMPI_OMESSI.test(k)||righe.length>=12)return;if(x.length>90)x=x.slice(0,87)+"…";righe.push(k.replace(/_/g," ")+": "+x)});
   if(righe.length)out.push({righe:righe,link:[]})});
  return out}
+/* ---------- collegamenti ufficiali dell'Autorità di bacino ---------- */
+function nz(u){try{return decodeURIComponent(String(u)).replace(/\/+$/,"")}catch(e){return String(u)}}
+function gruppoAdb(k){for(var i=0;i<ADB.length;i++)for(var j=0;j<ADB[i].s.length;j++)if(nz(ADB[i].s[j].u)==k)return ADB[i];return null}
+var ETI_ATTR={metadato:"Scheda metadato del dato",cruscotto:"Cruscotto del corpo idrico (PDG)",link:"Scheda / pagina ufficiale",doc_ref:"Documento di riferimento"};
+function linkDecreto(v){v=String(v||"").trim();if(ADB_DEC[v])return {t:ADB_DEC[v][0],u:ADB_DEC[v][1]};
+ var a=v.match(/^DSG_(\d{1,3})_(?:\d{2}\d{2}(\d{4})|(\d{4}))$/);
+ if(a){var n=("000"+a[1]).slice(-3),y=a[2]||a[3];return {t:"Decreto del Segretario generale n. "+(+a[1])+"/"+y+" (PDF)",u:"http://www.adbarno.it/rep/decreti/"+n+"_"+y+".pdf"}}
+ return null}
+function linkAdb(u,lid,attr){ /* collegamenti per un elemento: documenti dello strato, dati dell'elemento (metadato, scheda, decreto), documenti principali del piano */
+ var out=[],vis={};function p(t,x){if(!x||vis[x])return;vis[x]=1;out.push({t:t,u:x})}
+ attr=attr||{};
+ Object.keys(attr).forEach(function(k){var v=attr[k];if(typeof v==="string"&&/^https?:\/\//.test(v.trim()))p(ETI_ATTR[k.toLowerCase()]||k,v.trim())});
+ Object.keys(attr).forEach(function(k){if(/^decreto(_de|_v)?$/i.test(k)){var d=linkDecreto(attr[k]);if(d)p(d.t,d.u)}});
+ var key=nz(u),d=(ADB_DOC[key]||{})[String(lid)];if(d)d.forEach(function(x){p(x[0],x[1])});
+ var g=gruppoAdb(key);if(g)(ADB_TEMA[g.id]||[]).forEach(function(x){if(x[2])p(x[0],x[1])});
+ return out}
 function interroga(ev){
  var A=stratiAccesi(),CAP=60,viv=A.v.slice(0,CAP);
  pulisciSel();
@@ -189,7 +205,7 @@ function interroga(ev){
   if(e.tipo=="plain")p=rete("GET",gfi(e.u,e.l,"text/plain",5)).then(function(t){if(eccezione(t)){falliti.push(e.t);return}trovato(e,righeDaPlain(t,e.l))});
   else if(e.tipo=="agx")p=rete("GET",e.u+"/identify?f=json&geometry="+P.x+","+P.y+"&geometryType=esriGeometryPoint&sr=3857&layers=all:"+encodeURIComponent(e.l)+"&tolerance=1&mapExtent="+bb.b+"&imageDisplay="+bb.w+","+bb.h+",96&returnGeometry=false").then(function(t){
     var d=JSON.parse(t);if(d.error){falliti.push(e.t);return}
-    var r=[];(d.results||[]).slice(0,5).forEach(function(x){var a=x.attributes||{},righe=[];Object.keys(a).forEach(function(k){var v=a[k];if(v==null||String(v).trim()===""||v==="Null"||CAMPI_OMESSI.test(k)||righe.length>=12)return;righe.push(k.replace(/_/g," ")+": "+v)});if(righe.length)r.push({righe:righe,link:[]})});
+    var r=[];(d.results||[]).slice(0,5).forEach(function(x){var a=x.attributes||{},righe=[];Object.keys(a).forEach(function(k){var v=a[k];if(v==null||String(v).trim()===""||v==="Null"||CAMPI_OMESSI.test(k)||/^https?:\/\//.test(String(v).trim())||righe.length>=12)return;righe.push(k.replace(/_/g," ")+": "+v)});if(righe.length)r.push({righe:righe,link:linkAdb(e.u,e.l,a)})});
     trovato(e,r)});
   else p=rete("GET",gfi(e.u,e.l,"text/plain",5)).then(function(t2){
     /* presenza: conta solo il testo/plain (elementi realmente nel punto); l'HTML del Geoscopio mostra titolo e link anche a strato vuoto */
@@ -374,8 +390,9 @@ function vincoliPunto(ev){
   var ids=ls.map(function(l){return l.w}).join(",");
   var url=u+"/identify?f=json&geometry="+P.x+","+P.y+"&geometryType=esriGeometryPoint&sr=3857&layers=all:"+ids+"&tolerance=1&mapExtent="+bb+"&imageDisplay=100,100,96&returnGeometry=false";
   return rete("GET",url).then(function(t){var d=JSON.parse(t);if(d.error){errori++;return}
-   ls.forEach(function(l){trovati[l.u+"|"+l.w]={agx:true,righe:[]}});
+   ls.forEach(function(l){trovati[l.u+"|"+l.w]={agx:true,righe:[],link:[]}});
    (d.results||[]).forEach(function(x){var k=u+"|"+x.layerId;if(!trovati[k])return;
+    linkAdb(u,x.layerId,x.attributes||{}).forEach(function(z){if(!trovati[k].link.some(function(y){return y.u==z.u}))trovati[k].link.push(z)});
     righeAgx(x.attributes||{}).forEach(function(r){if(trovati[k].righe.indexOf(r)<0&&trovati[k].righe.length<8)trovati[k].righe.push(r)});
     if(!trovati[k].n)trovati[k].n=0;trovati[k].n++});
    ls.forEach(function(l){var k=l.u+"|"+l.w;if(!trovati[k].n)delete trovati[k]})})
@@ -389,7 +406,7 @@ function vincoliPunto(ev){
    if(!t.agx&&/usicivici/.test(l.w)){ /* il livello copre tutti i comuni: conta solo se il campo PRES_UC è compilato */
      var pu=(t.match(/PRES_UC = '([^']*)'/)||[])[1]||"";
      if(!pu.trim()){return}}
-   elenco.push({l:l,attr:attr})});
+   elenco.push({l:l,attr:attr,ln:t.agx?t.link:[]})});
   /* accendi solo i vincoli presenti */
   ISTR.forEach(function(g){g.l.forEach(function(l){togliExtra(l.u,l.w)})});
   elenco.forEach(function(x){accendiLiv(x.l)});
@@ -406,7 +423,7 @@ function vincoliPunto(ev){
   if(!elenco.length)h+='<div class="selb">Nessuno dei '+interr.length+' strati di vincolo controllati interessa questo punto.</div>';
   else{h+='<div class="selb"><b>'+elenco.length+' vincoli in questo punto</b> (accesi sulla mappa) <button id="vOff" class="mini">🧹 Spegni tutti i vincoli</button></div>';
    elenco.forEach(function(x){h+='<div class="selb"><b>'+esc(x.l.t)+'</b>';
-    var blocchi=x.sch||[{righe:x.attr,link:[]}];
+    var blocchi=x.sch||[{righe:x.attr,link:x.ln||[]}];
     blocchi.forEach(function(bl){h+='<div class="selo">';bl.righe.forEach(function(r){h+='<div>'+esc(r)+'</div>'});
      var visti={};bl.link.forEach(function(l){if(visti[l.u])return;visti[l.u]=1;tutti.push(l.u);h+='<div><button class="dl" data-u="'+(tutti.length-1)+'">📥 '+esc(l.t)+'</button></div>'});h+='</div>'});
     var lg=legendaLink(x.l);
@@ -415,7 +432,7 @@ function vincoliPunto(ev){
      if(lg.u&&tutti.indexOf(lg.u)<0){tutti.push(lg.u);h+='<div><button class="dl" data-u="'+(tutti.length-1)+'">📥 Scarica i dati</button></div>'}
      if(lg.i)h+='<div class="pic">'+esc(lg.i.length>400?lg.i.slice(0,397)+"…":lg.i)+'</div>';
      h+='</div>'}
-    if(x.l.k=="agx")h+='<div class="pic">Il servizio dell\'Autorità di bacino non fornisce collegamenti a schede o cartografia: sono indicati il decreto e la classe.</div>';
+    if(x.l.k=="agx")h+='<div class="pic">Dati dell\'Autorità di bacino: gli elementi non hanno una scheda propria; i collegamenti sono quelli ufficiali dello strato e del piano.</div>';
     h+='</div>'})}
   if(errori)h+='<div class="selb pic">Attenzione: '+errori+' interrogazioni non sono riuscite, l\'elenco può essere incompleto.</div>';
   h+='<p class="pic">Verifica indicativa sui dati WMS della Regione Toscana: per l\'istruttoria fa fede il dato ufficiale degli enti competenti. PAI dissesti e PGRA sono dell\'Autorità di bacino dell\'Appennino Settentrionale (bacino Arno; altri bacini non inclusi).</p>';
@@ -453,26 +470,33 @@ function sincAdb(){var b=$("adbBox");if(!b)return;
  b.querySelectorAll("input[data-ak]").forEach(function(c){var q=c.dataset.ak.split("|"),sv=ADB[+q[0]].s[+q[1]];c.checked=haExtra(sv.u,String(q[2]))});
  b.querySelectorAll("details.asv").forEach(function(d){var q=d.dataset.as.split("|"),sv=ADB[+q[0]].s[+q[1]],n=0;sv.l.forEach(function(l){if(haExtra(sv.u,String(l[0])))n++});
   var c=d.querySelector(".acn");if(c)c.textContent=n?" ✓"+n:""})}
+var ADB_LK=[];
+function btnDoc(t,u){ADB_LK.push(u);return '<div><button class="dl" data-du="'+(ADB_LK.length-1)+'">📎 '+esc(t)+'</button></div>'}
+function attivaDoc(el){el.querySelectorAll("button[data-du]").forEach(function(b){b.onclick=function(){apri(ADB_LK[+b.dataset.du])}})}
 function corpoServizio(d){ /* le caselle di un servizio si creano alla prima apertura */
  if(d.dataset.fatto)return;d.dataset.fatto="1";var q=d.dataset.as.split("|"),sv=ADB[+q[0]].s[+q[1]],h="";
  if(sv.d)h+='<div class="pic">'+esc(sv.d)+'</div>';
+ var dl=ADB_DOC[nz(sv.u)];
+ if(dl){var dh="";sv.l.forEach(function(l){(dl[String(l[0])]||[]).forEach(function(x){dh+=btnDoc(x[0]+" · "+l[1],x[1])})});
+  if(dh)h+='<details class="adoc"><summary class="pic">📎 Documenti e download ufficiali dello strato</summary>'+dh+'</details>'}
  sv.l.forEach(function(l){if(ADB_F&&!adbCerca(sv,l,ADB_F))return;h+='<div class="lay"><label><input type="checkbox" data-ak="'+q[0]+"|"+q[1]+"|"+l[0]+'"> '+esc(l[1])+'</label></div>'});
- d.insertAdjacentHTML("beforeend",h);
+ d.insertAdjacentHTML("beforeend",h);attivaDoc(d);
  d.querySelectorAll("input[data-ak]").forEach(function(c){c.onchange=function(){var z=c.dataset.ak.split("|"),sv=ADB[+z[0]].s[+z[1]],l=sv.l.filter(function(x){return String(x[0])==z[2]})[0];
   if(c.checked){if(!haExtra(sv.u,String(l[0])))aggiungiExtra(sv.u,String(l[0]),adbTitolo(sv,l),.7,"",1)}else togliExtra(sv.u,String(l[0]),"");
   disegnaExtra()}});
  sincAdb()}
 function pannelloAdb(){
- var b=$("adbBox");if(!b||typeof ADB==="undefined")return;
+ var b=$("adbBox");if(!b||typeof ADB==="undefined")return;ADB_LK.length=0;
  var h='<div class="pic">Strati del geodataserver dell\'Autorità di bacino distrettuale dell\'Appennino Settentrionale (<a href="#" id="adbSito">appenninosettentrionale.it</a>). Dati di consultazione: per l\'istruttoria fa fede il dato ufficiale. Con «Seleziona oggetto» leggi gli attributi di quelli accesi.</div><div class="f"><input id="adbF" placeholder="Cerca (es. Arno, P3, frane, nitrati)" value="'+esc(ADB_F)+'"></div>';
  var f=ADB_F,tot=0;
  ADB.forEach(function(g,gi){
   var sh="",n=0;
   g.s.forEach(function(sv,si){var ok=!f||sv.l.some(function(l){return adbCerca(sv,l,f)});if(!ok)return;n++;
    sh+='<details class="asv" data-as="'+gi+"|"+si+'"'+(f||ADB_AP[gi+"|"+si]?" open":"")+'><summary>'+esc(sv.n)+' <span class="pic">('+sv.l.length+')</span><span class="acn pic"></span></summary></details>'});
-  if(n){tot+=n;h+='<details class="agr" data-ag="'+gi+'"'+(f||ADB_AP["g"+gi]?" open":"")+'><summary><b>'+esc(g.n)+'</b> <span class="pic">('+n+' servizi)</span></summary>'+sh+'</details>'}});
+  if(n){tot+=n;var tema=(ADB_TEMA[g.id]||[]).map(function(x){return btnDoc(x[0],x[1])}).join("");
+  h+='<details class="agr" data-ag="'+gi+'"'+(f||ADB_AP["g"+gi]?" open":"")+'><summary><b>'+esc(g.n)+'</b> <span class="pic">('+n+' servizi)</span></summary>'+(tema?'<details class="adoc"><summary class="pic"><b>📎 Documenti ufficiali e mappe WebGIS</b></summary>'+tema+'</details>':"")+sh+'</details>'}});
  if(!tot)h+='<p class="pic">Nessuno strato corrisponde alla ricerca.</p>';
- b.innerHTML=h;
+ b.innerHTML=h;attivaDoc(b);
  $("adbSito").onclick=function(ev){ev.preventDefault();apri("https://www.appenninosettentrionale.it/")};
  $("adbF").oninput=function(){ADB_F=this.value.trim().toLowerCase();pannelloAdb();var el=$("adbF");el.focus();el.setSelectionRange(el.value.length,el.value.length)};
  b.querySelectorAll("details.agr").forEach(function(d){d.ontoggle=function(){ADB_AP["g"+d.dataset.ag]=d.open;if(d.open)d.querySelectorAll("details.asv[open]").forEach(corpoServizio)}});
