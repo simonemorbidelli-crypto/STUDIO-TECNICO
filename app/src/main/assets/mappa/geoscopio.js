@@ -394,14 +394,40 @@ function vincoliPunto(ev){
   ISTR.forEach(function(g){g.l.forEach(function(l){togliExtra(l.u,l.w)})});
   elenco.forEach(function(x){accendiLiv(x.l)});
   disegnaExtra();pannelloIstr();
+  /* per ogni vincolo trovato: scheda del Geoscopio (testi e collegamenti: scheda, cartografia, scheda analitico-descrittiva, disciplina, PDF) */
+  var gfiH=function(l){return l.u+"&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS="+encodeURIComponent(l.w)+"&QUERY_LAYERS="+encodeURIComponent(l.w)+"&STYLES=&CRS=EPSG:3857&BBOX="+bb+"&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/html&FEATURE_COUNT=5"};
+  var sch=elenco.map(function(x){
+   if(x.l.k=="agx"||!REG.test(x.l.u))return Promise.resolve();
+   return rete("GET",gfiH(x.l)).then(function(t){if(/ServiceException|ExceptionReport/.test(t))return;var r=riceviInfo(t);if(r.length)x.sch=r}).catch(function(){})});
+  var el0=$("selR");if(el0&&elenco.length)el0.innerHTML+='<div class="pic">Leggo le schede dei vincoli trovati…</div>';
+  Promise.all(sch).then(function(){
   var el=$("selR");if(!el)return;
-  var h="";
+  var h="",nl=0,tutti=[];
   if(!elenco.length)h+='<div class="selb">Nessuno dei '+interr.length+' strati di vincolo controllati interessa questo punto.</div>';
   else{h+='<div class="selb"><b>'+elenco.length+' vincoli in questo punto</b> (accesi sulla mappa) <button id="vOff" class="mini">🧹 Spegni tutti i vincoli</button></div>';
-   elenco.forEach(function(x){h+='<div class="selb"><b>'+esc(x.l.t)+'</b>';x.attr.forEach(function(r){h+='<div>'+esc(r)+'</div>'});h+='</div>'})}
+   elenco.forEach(function(x){h+='<div class="selb"><b>'+esc(x.l.t)+'</b>';
+    var blocchi=x.sch||[{righe:x.attr,link:[]}];
+    blocchi.forEach(function(bl){h+='<div class="selo">';bl.righe.forEach(function(r){h+='<div>'+esc(r)+'</div>'});
+     var visti={};bl.link.forEach(function(l){if(visti[l.u])return;visti[l.u]=1;tutti.push(l.u);h+='<div><button class="dl" data-u="'+(tutti.length-1)+'">📥 '+esc(l.t)+'</button></div>'});h+='</div>'});
+    var lg=legendaLink(x.l);
+    if(lg){h+='<div class="selo">';
+     if(lg.m&&tutti.indexOf(lg.m)<0){tutti.push(lg.m);h+='<div><button class="dl" data-u="'+(tutti.length-1)+'">ℹ️ Scheda del livello (metadati)</button></div>'}
+     if(lg.u&&tutti.indexOf(lg.u)<0){tutti.push(lg.u);h+='<div><button class="dl" data-u="'+(tutti.length-1)+'">📥 Scarica i dati</button></div>'}
+     if(lg.i)h+='<div class="pic">'+esc(lg.i.length>400?lg.i.slice(0,397)+"…":lg.i)+'</div>';
+     h+='</div>'}
+    if(x.l.k=="agx")h+='<div class="pic">Il servizio dell\'Autorità di bacino non fornisce collegamenti a schede o cartografia: sono indicati il decreto e la classe.</div>';
+    h+='</div>'})}
   if(errori)h+='<div class="selb pic">Attenzione: '+errori+' interrogazioni non sono riuscite, l\'elenco può essere incompleto.</div>';
   h+='<p class="pic">Verifica indicativa sui dati WMS della Regione Toscana: per l\'istruttoria fa fede il dato ufficiale degli enti competenti. PAI dissesti e PGRA sono dell\'Autorità di bacino dell\'Appennino Settentrionale (bacino Arno; altri bacini non inclusi).</p>';
-  el.innerHTML=h;var vo=$("vOff");if(vo)vo.onclick=spegniVincoli})}
+  el.innerHTML=h;var vo=$("vOff");if(vo)vo.onclick=spegniVincoli;
+  el.querySelectorAll("button.dl[data-u]").forEach(function(b){b.onclick=function(){apri(tutti[+b.dataset.u])}})})})}
+var LEGIDX=null;
+function normU(u){return String(u||"").replace(/&map_resolution=\d+/,"").replace(/[?&]+$/,"")}
+function legendaLink(l){ /* collegamenti che la legenda del Geoscopio associa allo strato: scheda (metadati), download, descrizione */
+ if(!LEGIDX){LEGIDX={};GEOS.V.forEach(function(v){(function w(t){t.forEach(function(n){(n.l||[]).forEach(function(x){
+   if(!x.w||x.s==null||!(x.m||x.u||x.i))return;var k=normU(S[x.s])+"|"+x.w;var o=LEGIDX[k]||(LEGIDX[k]={});
+   if(x.m&&!o.m)o.m=x.m;if(x.u&&!o.u)o.u=x.u;if(x.i&&!o.i)o.i=x.i});w(n.c||[])})})(v.t)})}
+ return LEGIDX[normU(l.u)+"|"+l.w]||null}
 
 /* ---------- spegni tutto / espandi / comprimi ---------- */
 function spegniTutto(){
@@ -418,6 +444,52 @@ window.bottoniPannello=function(){
  o.onclick=function(){spegniTutto();aperti={};STATO.aperti=aperti;salva();disegnaPannello();pan.style.display="block";tuttiDettagli(false);msg("Tutti gli strati sono spenti e il menu è compresso")};
  $("bEsp").onclick=function(){tuttiDettagli(true)};
  $("bCom").onclick=function(){tuttiDettagli(false)}};
+
+/* ---------- scorciatoia a schermo: spegni tutto e comprimi ---------- */
+window.pulisciTutto=function(){
+ spegniTutto();aperti={};STATO.aperti=aperti;salva();disegnaPannello();pan.style.display="none";tuttiDettagli(false);chiudiTutto();
+ disegnaExtra();if(window.pannelloIstr)pannelloIstr();msg("Mappa ripulita: tutti i livelli sono spenti e i menu compressi")};
+(function(){var c=L.control({position:"topright"});
+ c.onAdd=function(){var d=L.DomUtil.create("div","leaflet-bar"),a=L.DomUtil.create("a","bPul",d);a.href="#";a.id="bPul";a.innerHTML="🧹";a.title="Spegni tutti i livelli e comprimi i menu";a.setAttribute("role","button");
+  L.DomEvent.disableClickPropagation(d);L.DomEvent.on(a,"click",function(ev){L.DomEvent.preventDefault(ev);window.pulisciTutto()});return d};
+ c.addTo(map)})();
+
+/* ---------- preferiti: gruppi di livelli (sfondo, ortofoto e macchina del tempo non cambiano) ---------- */
+var PREF=[];
+function leggiPref(){try{PREF=JSON.parse(localStorage.getItem("mappa_pref")||"[]");if(!Array.isArray(PREF))PREF=[]}catch(e){PREF=[]}}
+function scriviPref(){try{localStorage.setItem("mappa_pref",JSON.stringify(PREF))}catch(e){msg("Impossibile salvare i preferiti")}}
+function istantanea(){ /* solo i livelli accesi ora: livelli principali + livelli aggiunti */
+ return {d:DEF.filter(function(d){return d.on}).map(function(d){return {id:d.id,op:d.op}}),
+  e:EXTRA.map(function(e){return {u:e.u,l:e.l,t:e.t,op:e.op,st:e.st||"",q:e.q}})}}
+function nLiv(p){return (p.d||[]).length+(p.e||[]).length}
+function applicaPref(p){
+ DEF.forEach(function(d){var s=(p.d||[]).filter(function(x){return x.id==d.id})[0];
+  if(s){d.op=s.op!=null?s.op:d.op;if(d.layer.setOpacity)d.layer.setOpacity(d.op);if(!d.on){d.on=true;d.layer.addTo(map)}statoLiv(d.id,d)}
+  else if(d.on){d.on=false;map.removeLayer(d.layer);statoLiv(d.id,d)}});
+ EXTRA.slice().forEach(function(e){togliExtra(e.u,e.l)});
+ (p.e||[]).forEach(function(e){aggiungiExtra(e.u,e.l,e.t,e.op,e.st,e.q)});
+ disegnaExtra();disegnaPannello();if(window.pannelloIstr)pannelloIstr();
+ msg("Preferito «"+p.n+"»: "+nLiv(p)+" livelli accesi (sfondo invariato)")}
+var prefSub=$("prefSub"),prefConf=-1;
+function disegnaPref(){
+ leggiPref();
+ var h='<div class="pic">Un preferito ricorda solo i livelli accesi adesso. Lo sfondo, le ortofoto e la macchina del tempo non cambiano. Toccandolo si spengono i livelli attuali e si accendono i suoi.</div>';
+ PREF.forEach(function(p,i){h+='<div class="pr"><button class="pn" data-pa="'+i+'">⭐ '+esc(p.n)+' <span class="pic">('+nLiv(p)+')</span></button><button class="pi" data-pu="'+i+'" title="Sostituisci con i livelli accesi adesso">↻</button><button class="pi" data-pd="'+i+'" title="Elimina">'+(prefConf==i?"Elimina?":"🗑")+'</button></div>'});
+ if(!PREF.length)h+='<div class="pic">Nessun preferito salvato.</div>';
+ h+='<input id="prefN" placeholder="Nome del nuovo preferito (es. vincoli)" maxlength="40"><button class="pi" id="prefS" style="width:100%;font-weight:bold">＋ Salva i livelli accesi come preferito</button>';
+ prefSub.innerHTML=h;
+ prefSub.querySelectorAll("[data-pa]").forEach(function(b){b.onclick=function(){var p=PREF[+b.dataset.pa];chiudiMenu();applicaPref(p)}});
+ prefSub.querySelectorAll("[data-pu]").forEach(function(b){b.onclick=function(){var i=+b.dataset.pu,s=istantanea();if(!nLiv(s)){msg("Nessun livello acceso: niente da salvare");return}PREF[i].d=s.d;PREF[i].e=s.e;scriviPref();prefConf=-1;disegnaPref();msg("Preferito «"+PREF[i].n+"» aggiornato: "+nLiv(s)+" livelli")}});
+ prefSub.querySelectorAll("[data-pd]").forEach(function(b){b.onclick=function(){var i=+b.dataset.pd;if(prefConf!=i){prefConf=i;disegnaPref();return}var n=PREF[i].n;PREF.splice(i,1);scriviPref();prefConf=-1;disegnaPref();msg("Preferito «"+n+"» eliminato")}});
+ $("prefS").onclick=function(){
+  var n=$("prefN").value.trim(),s=istantanea();
+  if(!n){msg("Scrivi il nome del preferito");$("prefN").focus();return}
+  if(!nLiv(s)){msg("Nessun livello acceso: accendi prima i livelli da salvare");return}
+  var k=-1;PREF.forEach(function(p,i){if(p.n.toLowerCase()==n.toLowerCase())k=i});
+  if(k>=0){PREF[k].d=s.d;PREF[k].e=s.e}else PREF.push({n:n,d:s.d,e:s.e});
+  scriviPref();prefConf=-1;disegnaPref();msg("Preferito «"+n+"» salvato: "+nLiv(s)+" livelli ("+(k>=0?"sostituito":"nuovo")+")")}}
+(function(){var b=menu.querySelector('[data-a=pref]');if(!b)return;
+ b.onclick=function(ev){ev.stopPropagation();var ap=prefSub.style.display=="block";if(ap){prefSub.style.display="none";b.textContent="⭐ Preferiti (gruppi di livelli) ▸"}else{prefConf=-1;disegnaPref();prefSub.style.display="block";b.textContent="⭐ Preferiti (gruppi di livelli) ▾"}}})();
 
 /* ---------- voci del menu ---------- */
 var AZIONI={
