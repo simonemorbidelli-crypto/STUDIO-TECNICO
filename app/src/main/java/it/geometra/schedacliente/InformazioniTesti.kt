@@ -56,6 +56,7 @@ object InformazioniTesti {
 <p><b>v4.00</b> – «Seleziona oggetto»: tornano i collegamenti alla scheda del vincolo, alla cartografia e alla disciplina (prima si vedeva solo il link generico alla home della Regione); nuovo pulsante «🧹 Spegni tutti i vincoli accesi» per togliere in un colpo i vincoli accesi con «Vincoli nel punto che tocco»</p>
 <p><b>v4.01</b> – Confronto con il Geoscopio: strati a scelta esclusiva e caselle di categoria come nel Geoscopio, stili degli strati (catasto tematico), catasto dell'Agenzia delle Entrate funzionante (CRS EPSG:4258), schede dei risultati complete (tutti i campi e i collegamenti), collegamenti a leggi e normativa (Gazzetta Ufficiale, EUR-Lex, ARPAT, Wikipedia…) apribili, descrizioni delle categorie, strati non interrogabili segnalati</p>
 <p><b>v4.02</b> – «Vincoli nel punto che tocco» mostra le schede complete con i collegamenti del Geoscopio (scheda analitico-descrittiva, cartografia, disciplina, PDF) e la scheda dei metadati del livello; nuovo pulsante a schermo 🧹 «spegni tutto e comprimi»; nuovo sottomenu ⋯ → ⭐ Preferiti per salvare e richiamare gruppi di livelli (sfondo invariato)</p>
+<p><b>v4.03</b> – Nuova sezione «🌊 Autorità di bacino: PAI, alluvioni, acque» nel pannello livelli (circa 290 strati dei servizi dell'Autorità di bacino dell'Appennino Settentrionale, con ricerca); nei preferiti il tasto «ⓘ» mostra i nomi dei livelli salvati; tolti dai livelli principali «catasto solo particelle e numeri» e «catasto solo fabbricati»</p>
 """
 
     val GUIDA_INESPERTI: String get() = InformazioniGuida.NOVIZI

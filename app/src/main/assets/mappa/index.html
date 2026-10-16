@@ -85,6 +85,7 @@ body.stampa #barra,body.stampa #menu,body.stampa #pannello,body.stampa #risultat
 <script src="catalogo.js"></script>
 <script src="legende.js"></script>
 <script src="istruttoria.js"></script>
+<script src="adb.js"></script>
 <script>
 var RT="https://www502.regione.toscana.it/";
 var SERVIZI={
@@ -145,8 +146,6 @@ impostaBase(baseId);
 var DEF=[
  {id:"ctr",nome:"CTR 1:10.000 (Carta Tecnica Regionale)",srv:"ctr",lay:"rt_ctr.10k",fmt:"image/png",tr:true,op:.9,on:false,nonInterr:true},
  {id:"cat",nome:"Catasto terreni e fabbricati (tutto)",srv:"catasto",lay:"rt_cat.idcatacque.rt,rt_cat.idcatstrade.rt,rt_cat.idcatfabbr.rt,rt_cat.idcatpart.rt,rt_cat.idetichettecatpart.rt,rt_cat.idcatbdfog.rt,rt_cat.idcattopon.rt",fmt:"image/png",tr:true,op:.9,on:true,info:true,ql:"rt_cat.idcatpart.rt",sel:[["rt_cat.idcatpart.rt","Catasto – particelle"],["rt_cat.idcatfabbr.rt","Catasto – fabbricati"]]},
- {id:"part",nome:"Catasto – solo particelle e numeri",srv:"catasto",lay:"rt_cat.idcatpart.rt,rt_cat.idetichettecatpart.rt",fmt:"image/png",tr:true,op:.9,on:false,info:true,ql:"rt_cat.idcatpart.rt",sel:[["rt_cat.idcatpart.rt","Catasto – particelle"]]},
- {id:"fab",nome:"Catasto – solo fabbricati",srv:"catasto",lay:"rt_cat.idcatfabbr.rt",fmt:"image/png",tr:true,op:.9,on:false,sel:[["rt_cat.idcatfabbr.rt","Catasto – fabbricati"]]},
  {id:"com",nome:"Confini comunali",srv:"amb",lay:"rt_ambamm.idcomuni.rt.poly",fmt:"image/png",tr:true,op:1,on:false,sel:[["rt_ambamm.idcomuni.rt.poly","Confini comunali"]]}];
 var REV=STATO.rev||0;
 /* WMS che non accettano EPSG:3857 (Agenzia delle Entrate): si chiede in EPSG:4258 (ETRS89 geografico, asse lat,lon) */
@@ -238,10 +237,10 @@ function disegnaPannello(){
  l+='<p class="pic">Tocca la mappa con il catasto acceso per leggere foglio, particella, qualità e superficie. Dati di consultazione, senza valore certificativo.</p>';
  var o='<label><input type="checkbox" id="ofcOn"'+(OFC.on?" checked":"")+'> Mostra ortofoto</label><div class="f"><select id="ofcSel"><option>Carico l\'elenco…</option></select></div><input class="op" type="range" min="10" max="100" value="'+Math.round(OFC.op*100)+'" id="ofcOp"><p class="pic" id="ofcInfo">Un solo anno alla volta. Dove un volo non copre la zona la mappa resta vuota.</p>';
  var x='<div id="extraAttivi"></div><div class="f"><input id="fSrv" placeholder="Filtra servizi"></div><div id="listaSrv"></div>';
- pan.innerHTML='<div class="f"><button id="bAgg" style="flex:1;padding:9px;font-size:14px">🔄 Aggiorna mappa e strati (svuota cache)</button></div>'+'<div class="f"><button id="bOff" style="flex:1;padding:9px;font-size:14px">⏹ Spegni tutto e comprimi</button></div><div class="f"><button id="bEsp" style="flex:1">▾ Espandi tutto</button><button id="bCom" style="flex:1">▸ Comprimi tutto</button></div>'+det("istr","🏛 Istruttoria urbanistico-edilizia",'<div id="istrBox"></div>')+det("sfondo","Sfondo",b)+det("liv","Livelli principali",l)+det("ofc","Ortofoto 1954 → oggi",o)+det("wms","Tutti i WMS della Regione ("+CATALOGO.length+")",x);
+ pan.innerHTML='<div class="f"><button id="bAgg" style="flex:1;padding:9px;font-size:14px">🔄 Aggiorna mappa e strati (svuota cache)</button></div>'+'<div class="f"><button id="bOff" style="flex:1;padding:9px;font-size:14px">⏹ Spegni tutto e comprimi</button></div><div class="f"><button id="bEsp" style="flex:1">▾ Espandi tutto</button><button id="bCom" style="flex:1">▸ Comprimi tutto</button></div>'+det("istr","🏛 Istruttoria urbanistico-edilizia",'<div id="istrBox"></div>')+det("sfondo","Sfondo",b)+det("liv","Livelli principali",l)+det("ofc","Ortofoto 1954 → oggi",o)+det("wms","Tutti i WMS della Regione ("+CATALOGO.length+")",x)+det("adb","🌊 Autorità di bacino: PAI, alluvioni, acque",'<div id="adbBox"></div>');
  document.getElementById("bAgg").onclick=aggiornaTutto;
  if(window.pannelloIstr)pannelloIstr();
- pan.querySelectorAll("details").forEach(function(d){d.ontoggle=ricordaAperti});
+ pan.querySelectorAll("details[data-k]").forEach(function(d){d.ontoggle=ricordaAperti});
  pan.querySelectorAll("input[name=b]").forEach(function(e){e.onchange=function(){impostaBase(e.value)}});
  pan.querySelectorAll("input[data-l]").forEach(function(e){e.onchange=function(){var d=DEF.filter(function(z){return z.id==e.dataset.l})[0];d.on=e.checked;if(e.checked)d.layer.addTo(map);else map.removeLayer(d.layer);statoLiv(d.id,d)}});
  pan.querySelectorAll("input[data-o]").forEach(function(e){e.oninput=function(){var d=DEF.filter(function(z){return z.id==e.dataset.o})[0];d.op=e.value/100;d.layer.setOpacity(d.op);statoLiv(d.id,d)}});
@@ -397,7 +396,7 @@ function eseguiRicerca(){
 function vaiPk(tipo,pk,et){ // il riquadro del singolo elemento è affidabile solo interrogandolo di nuovo da solo
  rete("POST",CAT,wfs(CAT,tipo,fEq("pkuid",pk),1)).then(function(t){var d=xml(t);eccezione(d);
   var top=d.getElementsByTagName("wfs:boundedBy")[0];var b=top?bboxDa(top):null;
-  if(!DEF[1].on&&!DEF[2].on){DEF[1].on=true;DEF[1].layer.addTo(map);statoLiv("cat",DEF[1])}
+  if(!DEF[1].on){DEF[1].on=true;DEF[1].layer.addTo(map);statoLiv("cat",DEF[1])}
   vaiA(b,et)}).catch(function(m){msg("Posizione non trovata: "+m)})}
 document.getElementById("bCerca").onclick=function(){if(ris.dataset.f=="1"&&ris.style.display=="block"){ris.style.display="none"}else apriRicerca()};
 

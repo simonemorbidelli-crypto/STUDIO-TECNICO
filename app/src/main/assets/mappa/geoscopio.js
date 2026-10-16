@@ -445,6 +445,42 @@ window.bottoniPannello=function(){
  $("bEsp").onclick=function(){tuttiDettagli(true)};
  $("bCom").onclick=function(){tuttiDettagli(false)}};
 
+/* ---------- sezione «Autorità di bacino»: PAI, piano alluvioni, gestione acque ---------- */
+var ADB_AP={},ADB_F="";
+function adbTitolo(sv,l){return "AdB · "+sv.n+" · "+l[1]}
+function adbCerca(sv,l,f){return (sv.n+" "+l[1]+" "+(sv.d||"")).toLowerCase().indexOf(f)>=0}
+function sincAdb(){var b=$("adbBox");if(!b)return;
+ b.querySelectorAll("input[data-ak]").forEach(function(c){var q=c.dataset.ak.split("|"),sv=ADB[+q[0]].s[+q[1]];c.checked=haExtra(sv.u,String(q[2]))});
+ b.querySelectorAll("details.asv").forEach(function(d){var q=d.dataset.as.split("|"),sv=ADB[+q[0]].s[+q[1]],n=0;sv.l.forEach(function(l){if(haExtra(sv.u,String(l[0])))n++});
+  var c=d.querySelector(".acn");if(c)c.textContent=n?" ✓"+n:""})}
+function corpoServizio(d){ /* le caselle di un servizio si creano alla prima apertura */
+ if(d.dataset.fatto)return;d.dataset.fatto="1";var q=d.dataset.as.split("|"),sv=ADB[+q[0]].s[+q[1]],h="";
+ if(sv.d)h+='<div class="pic">'+esc(sv.d)+'</div>';
+ sv.l.forEach(function(l){if(ADB_F&&!adbCerca(sv,l,ADB_F))return;h+='<div class="lay"><label><input type="checkbox" data-ak="'+q[0]+"|"+q[1]+"|"+l[0]+'"> '+esc(l[1])+'</label></div>'});
+ d.insertAdjacentHTML("beforeend",h);
+ d.querySelectorAll("input[data-ak]").forEach(function(c){c.onchange=function(){var z=c.dataset.ak.split("|"),sv=ADB[+z[0]].s[+z[1]],l=sv.l.filter(function(x){return String(x[0])==z[2]})[0];
+  if(c.checked){if(!haExtra(sv.u,String(l[0])))aggiungiExtra(sv.u,String(l[0]),adbTitolo(sv,l),.7,"",1)}else togliExtra(sv.u,String(l[0]),"");
+  disegnaExtra()}});
+ sincAdb()}
+function pannelloAdb(){
+ var b=$("adbBox");if(!b||typeof ADB==="undefined")return;
+ var h='<div class="pic">Strati del geodataserver dell\'Autorità di bacino distrettuale dell\'Appennino Settentrionale (<a href="#" id="adbSito">appenninosettentrionale.it</a>). Dati di consultazione: per l\'istruttoria fa fede il dato ufficiale. Con «Seleziona oggetto» leggi gli attributi di quelli accesi.</div><div class="f"><input id="adbF" placeholder="Cerca (es. Arno, P3, frane, nitrati)" value="'+esc(ADB_F)+'"></div>';
+ var f=ADB_F,tot=0;
+ ADB.forEach(function(g,gi){
+  var sh="",n=0;
+  g.s.forEach(function(sv,si){var ok=!f||sv.l.some(function(l){return adbCerca(sv,l,f)});if(!ok)return;n++;
+   sh+='<details class="asv" data-as="'+gi+"|"+si+'"'+(f||ADB_AP[gi+"|"+si]?" open":"")+'><summary>'+esc(sv.n)+' <span class="pic">('+sv.l.length+')</span><span class="acn pic"></span></summary></details>'});
+  if(n){tot+=n;h+='<details class="agr" data-ag="'+gi+'"'+(f||ADB_AP["g"+gi]?" open":"")+'><summary><b>'+esc(g.n)+'</b> <span class="pic">('+n+' servizi)</span></summary>'+sh+'</details>'}});
+ if(!tot)h+='<p class="pic">Nessuno strato corrisponde alla ricerca.</p>';
+ b.innerHTML=h;
+ $("adbSito").onclick=function(ev){ev.preventDefault();apri("https://www.appenninosettentrionale.it/")};
+ $("adbF").oninput=function(){ADB_F=this.value.trim().toLowerCase();pannelloAdb();var el=$("adbF");el.focus();el.setSelectionRange(el.value.length,el.value.length)};
+ b.querySelectorAll("details.agr").forEach(function(d){d.ontoggle=function(){ADB_AP["g"+d.dataset.ag]=d.open;if(d.open)d.querySelectorAll("details.asv[open]").forEach(corpoServizio)}});
+ b.querySelectorAll("details.asv").forEach(function(d){d.ontoggle=function(){ADB_AP[d.dataset.as]=d.open;if(d.open)corpoServizio(d)};if(d.open)corpoServizio(d)});
+ sincAdb()}
+(function(){var _pi=window.pannelloIstr;window.pannelloIstr=function(){_pi();pannelloAdb()};
+ var _de=disegnaExtra;disegnaExtra=function(){_de();sincAdb()}})();
+
 /* ---------- scorciatoia a schermo: spegni tutto e comprimi ---------- */
 window.pulisciTutto=function(){
  spegniTutto();aperti={};STATO.aperti=aperti;salva();disegnaPannello();pan.style.display="none";tuttiDettagli(false);chiudiTutto();
@@ -462,6 +498,7 @@ function istantanea(){ /* solo i livelli accesi ora: livelli principali + livell
  return {d:DEF.filter(function(d){return d.on}).map(function(d){return {id:d.id,op:d.op}}),
   e:EXTRA.map(function(e){return {u:e.u,l:e.l,t:e.t,op:e.op,st:e.st||"",q:e.q}})}}
 function nLiv(p){return (p.d||[]).length+(p.e||[]).length}
+function nomiPref(p){var r=[];(p.d||[]).forEach(function(x){var d=DEF.filter(function(z){return z.id==x.id})[0];if(d)r.push(d.nome)});(p.e||[]).forEach(function(e){r.push(e.t)});return r}
 function applicaPref(p){
  DEF.forEach(function(d){var s=(p.d||[]).filter(function(x){return x.id==d.id})[0];
   if(s){d.op=s.op!=null?s.op:d.op;if(d.layer.setOpacity)d.layer.setOpacity(d.op);if(!d.on){d.on=true;d.layer.addTo(map)}statoLiv(d.id,d)}
@@ -470,15 +507,16 @@ function applicaPref(p){
  (p.e||[]).forEach(function(e){aggiungiExtra(e.u,e.l,e.t,e.op,e.st,e.q)});
  disegnaExtra();disegnaPannello();if(window.pannelloIstr)pannelloIstr();
  msg("Preferito «"+p.n+"»: "+nLiv(p)+" livelli accesi (sfondo invariato)")}
-var prefSub=$("prefSub"),prefConf=-1;
+var prefSub=$("prefSub"),prefConf=-1,prefNomi={};
 function disegnaPref(){
  leggiPref();
  var h='<div class="pic">Un preferito ricorda solo i livelli accesi adesso. Lo sfondo, le ortofoto e la macchina del tempo non cambiano. Toccandolo si spengono i livelli attuali e si accendono i suoi.</div>';
- PREF.forEach(function(p,i){h+='<div class="pr"><button class="pn" data-pa="'+i+'">⭐ '+esc(p.n)+' <span class="pic">('+nLiv(p)+')</span></button><button class="pi" data-pu="'+i+'" title="Sostituisci con i livelli accesi adesso">↻</button><button class="pi" data-pd="'+i+'" title="Elimina">'+(prefConf==i?"Elimina?":"🗑")+'</button></div>'});
+ PREF.forEach(function(p,i){var nm=nomiPref(p);h+='<div class="pr"><button class="pn" data-pa="'+i+'">⭐ '+esc(p.n)+' <span class="pic">('+nLiv(p)+')</span></button><button class="pi" data-pn="'+i+'" title="Mostra i nomi dei livelli salvati">ⓘ</button><button class="pi" data-pu="'+i+'" title="Sostituisci con i livelli accesi adesso">↻</button><button class="pi" data-pd="'+i+'" title="Elimina">'+(prefConf==i?"Elimina?":"🗑")+'</button></div>'+(prefNomi[i]?'<div class="pic pnl">'+(nm.length?nm.map(function(x){return "• "+esc(x)}).join("<br>"):"Nessun livello")+'</div>':"")});
  if(!PREF.length)h+='<div class="pic">Nessun preferito salvato.</div>';
  h+='<input id="prefN" placeholder="Nome del nuovo preferito (es. vincoli)" maxlength="40"><button class="pi" id="prefS" style="width:100%;font-weight:bold">＋ Salva i livelli accesi come preferito</button>';
  prefSub.innerHTML=h;
  prefSub.querySelectorAll("[data-pa]").forEach(function(b){b.onclick=function(){var p=PREF[+b.dataset.pa];chiudiMenu();applicaPref(p)}});
+ prefSub.querySelectorAll("[data-pn]").forEach(function(b){b.onclick=function(){var i=+b.dataset.pn;prefNomi[i]=!prefNomi[i];disegnaPref()}});
  prefSub.querySelectorAll("[data-pu]").forEach(function(b){b.onclick=function(){var i=+b.dataset.pu,s=istantanea();if(!nLiv(s)){msg("Nessun livello acceso: niente da salvare");return}PREF[i].d=s.d;PREF[i].e=s.e;scriviPref();prefConf=-1;disegnaPref();msg("Preferito «"+PREF[i].n+"» aggiornato: "+nLiv(s)+" livelli")}});
  prefSub.querySelectorAll("[data-pd]").forEach(function(b){b.onclick=function(){var i=+b.dataset.pd;if(prefConf!=i){prefConf=i;disegnaPref();return}var n=PREF[i].n;PREF.splice(i,1);scriviPref();prefConf=-1;disegnaPref();msg("Preferito «"+n+"» eliminato")}});
  $("prefS").onclick=function(){

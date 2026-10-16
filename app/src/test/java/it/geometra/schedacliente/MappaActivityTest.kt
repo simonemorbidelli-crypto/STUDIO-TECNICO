@@ -22,6 +22,7 @@ class MappaActivityTest {
         assertFalse(MappaActivity.urlApribile("http://www502.regione.toscana.it/x.zip"))
         assertFalse(MappaActivity.urlApribile("https://evil.example.com/x.zip"))
         assertTrue(MappaActivity.urlApribile("https://www.gazzettaufficiale.it/atto/serie_generale/caricaDettaglioAtto/originario?atto.codiceRedazionale=20A01864"))
+        assertTrue(MappaActivity.urlApribile("https://www.appenninosettentrionale.it/"))
         assertTrue(MappaActivity.urlApribile("https://it.wikipedia.org/wiki/Codice_catastale"))
         assertTrue(MappaActivity.urlApribile("https://www301.regione.toscana.it/bancadati/uffici/Strutture.xml"))
         assertFalse(MappaActivity.urlApribile("https://regione.toscana.it.evil.example.com/x"))

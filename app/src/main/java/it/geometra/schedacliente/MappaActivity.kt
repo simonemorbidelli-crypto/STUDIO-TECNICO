@@ -205,7 +205,7 @@ class MappaActivity : AppCompatActivity() {
         /** Altri siti a cui rimandano le schede del Geoscopio (leggi, normativa, licenze, ARPAT): solo https. */
         private val COLLEGAMENTI_AMMESSI = setOf(
             "www.rete.toscana.it", "sira.arpat.toscana.it", "it.wikipedia.org", "www.gazzettaufficiale.it",
-            "eur-lex.europa.eu", "creativecommons.org", "trasparenza.cultura.gov.it", "www.normattiva.it"
+            "eur-lex.europa.eu", "creativecommons.org", "trasparenza.cultura.gov.it", "www.normattiva.it", "www.appenninosettentrionale.it"
         )
 
 
