@@ -128,13 +128,6 @@
                         style="@style/PulsanteCalcola"
                         android:text="RILEVA LOCALI AUTOMATICAMENTE (SCALA + VERTICI)" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnRifaiPoligoni"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="🗑 CANCELLA TUTTI I VANI E RIFAI I POLIGONI…" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -481,6 +474,14 @@
                         android:textColor="@color/text_primary"
                         android:textStyle="bold"
                         android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRifaiPoligoni"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="🗑 CANCELLA TUTTI I VANI E RIFAI I POLIGONI…" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnEsportaPdf"

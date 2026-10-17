@@ -3153,16 +3153,6 @@ class PlanimetriaActivity : AppCompatActivity() {
             riga.addView(btnElimina)
             binding.containerLocaliTracciati.addView(riga)
         }
-
-        if (!inModifica && !rilevamentoAutomaticoInCorso) {
-            val btnTutti = com.google.android.material.button.MaterialButton(
-                this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle
-            ).apply {
-                text = "🗑 Cancella tutti i vani e rifai…"
-                setOnClickListener { chiediCancellaTuttiERifai() }
-            }
-            binding.containerLocaliTracciati.addView(btnTutti)
-        }
     }
 
     /** Metodo di rilevamento: 0 = da spigolo a spigolo, 1 = raffinato, 2 = lato per lato. */
