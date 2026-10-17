@@ -1757,7 +1757,15 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun avviaCodaLocaliRilevati(proposteIn: MutableList<PropostaLocaleAi>) {
         if (isFinishing || isDestroyed || !rilevamentoAutomaticoInCorso) return
         // Modalità "essenziale": solo gli spigoli principali, senza nicchie e piccoli particolari.
-        val proposte = if (!InterpretePlanimetria.soloSpigoli) proposteIn else {
+        val proposte = if (InterpretePlanimetria.chiudiRientranze) {
+            val bmp = binding.superficieView.bitmap
+            val lato = if (bmp != null) maxOf(bmp.width, bmp.height).toDouble() else 2000.0
+            val m = scalaX
+            // Rientranze fino a 0,6 m² di area e 0,7 m di profondità (scala nota); altrimenti in proporzione al lato maggiore.
+            val areaMax = if (m != null && m > 0.0) 0.6 / (m * m) else (lato * 0.03) * (lato * 0.03)
+            val profMax = if (m != null && m > 0.0) 0.7 / m else lato * 0.03
+            proposteIn.map { it.copy(verticiPx = GeometriaUtils.chiudiRientranze(it.verticiPx, areaMax, profMax)) }.toMutableList()
+        } else if (!InterpretePlanimetria.soloSpigoli) proposteIn else {
             val bmp = binding.superficieView.bitmap
             val lato = if (bmp != null) maxOf(bmp.width, bmp.height).toDouble() else 2000.0
             val m = scalaX
@@ -3159,6 +3167,7 @@ class PlanimetriaActivity : AppCompatActivity() {
     private fun impostaMetodoRilevamento(metodo: Int) {
         InterpretePlanimetria.soloSpigoli = metodo == 0
         InterpretePlanimetria.latoPerLato = metodo == 2
+        InterpretePlanimetria.chiudiRientranze = metodo == 3
     }
 
     /** Cancella tutti i vani rilevati (la planimetria resta caricata) e chiede con quale metodo rifarli. Raggiungibile sempre dalla pagina generale. */
@@ -3169,6 +3178,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             "Da spigolo a spigolo (ignora i particolari)",
             "Raffinato (tiene conto di ogni particolare)",
             "Lato per lato (l'AI percorre ogni parete per intero, poi ricava gli spigoli)",
+            "Raffinato + chiude le piccole rientranze (pilastri, spalle, cellette, nicchie restano dentro il vano)",
             "Solo cancella, non rifare"
         )
         val titolo = if (locali.isEmpty()) "Rifare i poligoni: quale metodo?" else "Cancellare tutti i ${locali.size} vani e rifarli: quale metodo?"
@@ -3176,7 +3186,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             .setTitle(titolo)
             .setItems(voci) { _, quale ->
                 cancellaTuttiILocali()
-                if (quale == 3) { avviso("Vani cancellati"); return@setItems }
+                if (quale == 4) { avviso("Vani cancellati"); return@setItems }
                 impostaMetodoRilevamento(quale)
                 avviaRilevamentoAutomaticoCompleto()
             }

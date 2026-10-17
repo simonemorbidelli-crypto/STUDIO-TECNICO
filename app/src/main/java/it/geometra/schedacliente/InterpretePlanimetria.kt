@@ -37,6 +37,10 @@ object InterpretePlanimetria {
     @Volatile
     var latoPerLato: Boolean = false
 
+    /** true = dopo il rilevamento si chiudono le piccole rientranze (pilastri, spalle, cellette di finestra, nicchie) lasciate fuori dal vano. */
+    @Volatile
+    var chiudiRientranze: Boolean = false
+
     private fun notaDettaglio(): String = if (latoPerLato) notaLatoPerLato() else if (!soloSpigoli) "" else """
 
             MODALITÀ ESSENZIALE (scelta dall'utente), prevale sulle regole sulle forme irregolari:

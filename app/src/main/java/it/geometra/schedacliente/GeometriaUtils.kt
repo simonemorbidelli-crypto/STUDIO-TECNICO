@@ -54,6 +54,75 @@ object GeometriaUtils {
         return v
     }
 
+    /**
+     * Chiude le piccole rientranze del contorno (pilastri, spalle di muro, cellette di finestra,
+     * nicchie) che il tracciato aggira lasciandole fuori dal vano. Per ogni tratto di 1-6 vertici
+     * consecutivi prova a sostituirlo con il segmento che unisce i due vertici ai suoi estremi;
+     * accetta solo se l'area AUMENTA (si riempie una rientranza, non si taglia uno spigolo vero),
+     * l'aumento è al massimo [areaMax], nessun vertice tolto dista più di [profMax] dal segmento e
+     * il nuovo contorno non si incrocia. Ripete finché trova rientranze da chiudere; non scende
+     * sotto i 4 vertici. Gli spigoli veri del vano restano dove sono.
+     */
+    fun chiudiRientranze(vertici: List<PointF>, areaMax: Double, profMax: Double): List<PointF> {
+        var p = vertici.toMutableList()
+        if (p.size < 5) return p
+        var cambiato = true
+        while (cambiato && p.size > 4) {
+            cambiato = false
+            val n = p.size
+            val area0 = areaPoligono(p)
+            var migliore: List<PointF>? = null
+            var deltaMigliore = Double.MAX_VALUE
+            for (a in 0 until n) {
+                for (m in 1..minOf(6, n - 4)) {
+                    val b = (a + m + 1) % n
+                    val pa = p[a]; val pb = p[b]
+                    val tolti = (1..m).map { p[(a + it) % n] }
+                    val nuovo = mutableListOf<PointF>()
+                    var k = b
+                    while (true) { nuovo.add(p[k]); if (k == a) break; k = (k + 1) % n }
+                    val delta = areaPoligono(nuovo) - area0
+                    if (delta <= 1e-9 || delta > areaMax) continue
+                    val lung = distanza(pa, pb)
+                    if (lung < 1e-9) continue
+                    val maxDist = tolti.maxOf { t ->
+                        abs((pb.x - pa.x).toDouble() * (pa.y - t.y) - (pa.x - t.x).toDouble() * (pb.y - pa.y)) / lung
+                    }
+                    if (maxDist > profMax) continue
+                    if (!contornoSemplice(nuovo)) continue
+                    if (delta < deltaMigliore) { deltaMigliore = delta; migliore = nuovo }
+                }
+            }
+            if (migliore != null) { p = migliore.toMutableList(); cambiato = true }
+        }
+        // Vertici rimasti allineati sui due vicini (la rientranza chiusa li ha messi sulla stessa retta).
+        var i = 0
+        while (p.size > 4 && i < p.size) {
+            val a = p[(i - 1 + p.size) % p.size]; val b = p[i]; val c = p[(i + 1) % p.size]
+            val croce = abs((b.x - a.x).toDouble() * (c.y - a.y) - (c.x - a.x).toDouble() * (b.y - a.y))
+            val lungAC = distanza(a, c)
+            if (lungAC > 1e-9 && croce / lungAC < 0.5) { p.removeAt(i); i = 0 } else i++
+        }
+        return p
+    }
+
+    /** Vero se nessun lato del poligono ne incrocia un altro non adiacente. */
+    fun contornoSemplice(v: List<PointF>): Boolean {
+        val n = v.size
+        if (n < 4) return true
+        fun incrocia(a: PointF, b: PointF, c: PointF, d: PointF): Boolean {
+            fun o(p: PointF, q: PointF, r: PointF) =
+                (q.x - p.x).toDouble() * (r.y - p.y) - (q.y - p.y).toDouble() * (r.x - p.x)
+            val o1 = o(a, b, c); val o2 = o(a, b, d); val o3 = o(c, d, a); val o4 = o(c, d, b)
+            return o1 * o2 < 0 && o3 * o4 < 0
+        }
+        for (i in 0 until n) for (j in i + 1 until n) {
+            if (j == i + 1 || (i == 0 && j == n - 1)) continue
+            if (incrocia(v[i], v[(i + 1) % n], v[j], v[(j + 1) % n])) return false
+        }
+        return true
+    }
+
     /** Lunghezza di ciascun lato del poligono, nello stesso ordine dei vertici. */
     fun latiPoligono(vertici: List<PointF>): List<Double> {
         if (vertici.size < 2) return emptyList()
