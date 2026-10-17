@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona "reticolo" (griglia 3x3), per l'opzione "Parametri del reticolo catastale" nella
+     scelta del riferimento per la scala (vedi PlanimetriaActivity.avviaCalibrazione). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/primary"
+        android:pathData="M3,3v18h18V3H3zM9,19H5v-4h4V19zM9,13H5V9h4V13zM9,7H5V3h4V7zM15,19h-4v-4h4V19zM15,13h-4V9h4V13zM15,7h-4V3h4V7zM19,19h-4v-4h4V19zM19,13h-4V9h4V13zM19,7h-4V3h4V7z" />
+</vector>

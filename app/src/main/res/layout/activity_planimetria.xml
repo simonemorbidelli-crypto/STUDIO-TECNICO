@@ -34,9 +34,12 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- Richiesto dall'utente: "Apri file" e "Scatta foto" in cima alla pagina, prima di
+                 tutto il resto (prima erano in cima alla prima card, più in basso). -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="2dp"
                 app:cardBackgroundColor="@color/card_background">
@@ -46,14 +49,6 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
-
-                    <TextView
-                        style="@style/TestoTitoloCalcolo"
-                        android:text="Calcolo aree dei locali dalle quote" />
-
-                    <TextView
-                        style="@style/TestoNotaCalcolo"
-                        android:text="L'AI legge le quote (misure in metri) già scritte sulla planimetria vicino a ogni locale e calcola l'area dei locali rettangolari. Non misura i pixel dell'immagine: dove le quote non sono leggibili, o il locale non è rettangolare, lo segnala invece di indovinare. Verifica sempre il risultato prima di usarlo in un atto." />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -86,6 +81,30 @@
                         style="@style/TestoNotaCalcolo"
                         android:layout_marginTop="4dp"
                         android:text="Immagine o PDF catastale dalla galleria/file, oppure foto scattata al momento." />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TestoTitoloCalcolo"
+                        android:text="Calcolo aree dei locali dalle quote" />
+
+                    <TextView
+                        style="@style/TestoNotaCalcolo"
+                        android:text="L'AI legge le quote (misure in metri) già scritte sulla planimetria vicino a ogni locale e calcola l'area dei locali rettangolari. Non misura i pixel dell'immagine: dove le quote non sono leggibili, o il locale non è rettangolare, lo segnala invece di indovinare. Verifica sempre il risultato prima di usarlo in un atto." />
 
                     <ImageView
                         android:id="@+id/imgPlanimetria"

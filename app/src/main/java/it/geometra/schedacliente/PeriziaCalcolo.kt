@@ -37,7 +37,13 @@ object PeriziaCalcolo {
         ESCLUSA("Esclusa (h < 1,50 m o da valutare a parte)")
     }
 
-    data class Voce(val nome: String, val mq: Double, val categoria: Categoria)
+    /**
+     * @param ragguaglioPersonalizzato se impostato (0-100), sovrascrive il coefficiente standard
+     *   della categoria per questa sola voce: l'utente ha scelto una percentuale a piacimento
+     *   invece di quella prevista dal manuale OMI per la categoria. Si azzera scegliendo di nuovo
+     *   una tipologia dal menu (vedi PeriziaUnitaActivity.scegliCategoria).
+     */
+    data class Voce(val nome: String, val mq: Double, val categoria: Categoria, val ragguaglioPersonalizzato: Double? = null)
 
     class RigaRisultato(val voce: Voce, val mqLordi: Double, val mqRagguagliati: Double, val regola: String)
 
@@ -184,6 +190,19 @@ object PeriziaCalcolo {
                 }
                 righe.clear(); righe.addAll(nuove)
                 note += "Accessori indiretti e pertinenze superano il 50% della superficie dei vani principali e accessori diretti: ridotti a ${fmt(limite)} mq come prevede il manuale OMI."
+            }
+        }
+
+        // Ragguaglio personalizzato: sovrascrive, per le sole voci su cui l'utente lo ha impostato
+        // esplicitamente, qualunque coefficiente/regola calcolata sopra (anche l'eventuale
+        // riduzione per il limite del 50%, perché qui la percentuale è stata scelta a piacimento
+        // dall'utente e non deve essere corretta automaticamente).
+        voci.filter { it.ragguaglioPersonalizzato != null }.forEach { v ->
+            val i = righe.indexOfFirst { it.voce === v }
+            if (i >= 0) {
+                val l = lordi(v)
+                val perc = v.ragguaglioPersonalizzato!!
+                righe[i] = RigaRisultato(v, l, l * perc / 100.0, "ragguaglio personalizzato: ${fmt(perc)}%")
             }
         }
 

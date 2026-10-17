@@ -177,16 +177,82 @@ class PeriziaUnitaActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Percentuale di ragguaglio standard (manuale OMI) di una categoria per la destinazione
+     * scelta, solo a scopo informativo accanto alla tipologia nel selettore (vedi [scegliCategoria]):
+     * per le voci a scaglioni (balconi, aree scoperte) la percentuale varia con la superficie, quindi
+     * si mostrano le due aliquote (fino alla soglia / oltre) con un asterisco.
+     */
+    private fun percentualeStandardCategoria(cat: PeriziaCalcolo.Categoria, dest: PeriziaCalcolo.Destinazione): String {
+        val coeffDiretti = when (dest) {
+            PeriziaCalcolo.Destinazione.ABITAZIONE, PeriziaCalcolo.Destinazione.UFFICIO -> "100%"
+            PeriziaCalcolo.Destinazione.NEGOZIO, PeriziaCalcolo.Destinazione.BOX -> "50%"
+        }
+        return when (cat) {
+            PeriziaCalcolo.Categoria.PRINCIPALE -> "100%"
+            PeriziaCalcolo.Categoria.ACCESSORIO_DIRETTO -> coeffDiretti
+            PeriziaCalcolo.Categoria.INDIRETTO_COMUNICANTE -> "50%"
+            PeriziaCalcolo.Categoria.INDIRETTO_NON_COMUNICANTE -> "25%"
+            PeriziaCalcolo.Categoria.BALCONE_COMUNICANTE -> "30%/10%*"
+            PeriziaCalcolo.Categoria.BALCONE_NON_COMUNICANTE -> "15%/5%*"
+            PeriziaCalcolo.Categoria.AREA_SCOPERTA -> "10%/2%*"
+            PeriziaCalcolo.Categoria.ESCLUSA -> "0%"
+        }
+    }
+
     private fun scegliCategoria(v: PeriziaCalcolo.Voce) {
         val categorie = PeriziaCalcolo.Categoria.values()
+        val dest = destinazione()
+        val etichette = categorie.map { "${it.etichetta}  ·  ${percentualeStandardCategoria(it, dest)}" }.toTypedArray()
         val dialog = android.app.AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
             .setTitle(v.nome)
-            .setSingleChoiceItems(categorie.map { it.etichetta }.toTypedArray(), categorie.indexOf(v.categoria)) { d, scelta ->
-                val nuova = v.copy(categoria = categorie[scelta])
+            .setSingleChoiceItems(etichette, categorie.indexOf(v.categoria)) { d, scelta ->
+                // Scegliere una tipologia dall'elenco torna alla sua percentuale standard: un
+                // eventuale ragguaglio personalizzato impostato prima viene azzerato.
+                val nuova = v.copy(categoria = categorie[scelta], ragguaglioPersonalizzato = null)
                 val i = voci.indexOf(v)
                 if (i >= 0) voci[i] = nuova
                 if (vociManuali.remove(v)) vociManuali.add(nuova)
                 d.dismiss()
+                ricalcola()
+            }
+            .setNeutralButton("Ragguaglio personalizzato…") { _, _ -> chiediRagguaglioPersonalizzato(v) }
+            .setNegativeButton("Annulla", null)
+            .show()
+        dialog.rendiPulsantiLeggibili(this)
+    }
+
+    /** Permette di sostituire la percentuale di ragguaglio standard della tipologia con una a piacimento, per questa sola voce. */
+    private fun chiediRagguaglioPersonalizzato(v: PeriziaCalcolo.Voce) {
+        val campo = EditText(this).apply {
+            hint = "Percentuale (es. 25)"
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(PeriziaCalcolo.fmt(v.ragguaglioPersonalizzato ?: 100.0))
+            setSelection(text.length)
+        }
+        val densita = resources.displayMetrics.density
+        val contenitore = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = (20 * densita).toInt()
+            setPadding(p, (8 * densita).toInt(), p, 0)
+            addView(TextView(this@PeriziaUnitaActivity).apply {
+                text = "Percentuale di ragguaglio da applicare a \"${v.nome}\" (0-100), al posto di quella standard della tipologia."
+            })
+            addView(campo)
+        }
+        val dialog = android.app.AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
+            .setTitle("Ragguaglio personalizzato")
+            .setView(contenitore)
+            .setPositiveButton("Applica") { _, _ ->
+                val perc = numero(campo.text?.toString())
+                if (perc == null || perc < 0 || perc > 100) {
+                    Toast.makeText(this, "Percentuale non valida (0-100)", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val nuova = v.copy(ragguaglioPersonalizzato = perc)
+                val i = voci.indexOf(v)
+                if (i >= 0) voci[i] = nuova
+                if (vociManuali.remove(v)) vociManuali.add(nuova)
                 ricalcola()
             }
             .setNegativeButton("Annulla", null)

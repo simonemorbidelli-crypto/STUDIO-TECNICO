@@ -23,10 +23,13 @@ import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -125,6 +128,17 @@ class PlanimetriaActivity : AppCompatActivity() {
     private var sessioneRilevamento = 0
     /** true solo quando si stanno esaminando i locali uno alla volta (dopo la fase iniziale): serve a "Salta locale". */
     private var faseLocaliInCorso = false
+    /**
+     * true mentre è a schermo il dialogo "Interrompere il rilevamento?" (vedi
+     * [confermaAnnullaRilevamentoAutomatico]): finché l'utente non preme "Interrompi" o
+     * "Continua" il rilevamento resta in pausa, cioè il conto alla rovescia di "Conferma così"
+     * (vedi [chiediCorrezioneManuale]) e la rivelazione animata dei vertici (vedi
+     * [avviaAnimazioneVertici]) si fermano, invece di proseguire in sottofondo mentre l'utente
+     * sta ancora decidendo. Prima di questa correzione il conto alla rovescia ignorava il
+     * dialogo sovrapposto e poteva confermare un locale (o rivelarne i vertici) senza che
+     * l'utente se ne accorgesse, proprio mentre stava valutando se interrompere tutto.
+     */
+    private var rilevamentoInPausaPerConferma = false
 
     private fun sessioneAttiva(sessione: Int): Boolean =
         !isFinishing && !isDestroyed && rilevamentoAutomaticoInCorso && sessione == sessioneRilevamento
@@ -1317,6 +1331,11 @@ class PlanimetriaActivity : AppCompatActivity() {
      *  cadano esattamente sui segni giusti), 3. la linea gialla intera inquadrata, con scritta la
      *  misura in metri che le viene assegnata. Poi riporta la vista intera ed esegue [poi].
      * Se nel frattempo il rilevamento viene interrotto, si ferma (vedi sessioneRilevamento).
+     *
+     * Le tre transizioni sono animate (zoom/spostamento GRADUALE, vedi
+     * [SuperficieView.zoomAnimatoVerso]) invece di saltare di colpo da un punto all'altro: su
+     * richiesta esplicita dell'utente, che con il salto istantaneo precedente non riusciva a
+     * capire dove si trovasse il secondo segno di riferimento rispetto al primo.
      */
     private fun mostraTrattoScala(p1: PointF, p2: PointF, metri: Double, origine: String, sessione: Int, poi: () -> Unit) {
         val vista = binding.superficieView
@@ -1329,26 +1348,40 @@ class PlanimetriaActivity : AppCompatActivity() {
             binding.tvIstruzioneTocco.text = testo
             aggiornaBarraSchermoIntero()
         }
+        fun interrotto() {
+            vista.puntiScalaEvidenziati.clear()
+            vista.etichettaScala = null
+            vista.invalidate()
+        }
         fun dopo(ms: Long, azione: () -> Unit) = handlerPrincipale.postDelayed({
-            if (sessioneAttiva(sessione)) azione()
-            else { vista.puntiScalaEvidenziati.clear(); vista.etichettaScala = null; vista.invalidate() }
+            if (sessioneAttiva(sessione)) azione() else interrotto()
         }, ms)
 
         val zoomPunto = 6f
-        vista.zoomCentratoSu(p1, zoomPunto)
-        fase("Scala ($origine): primo punto di riferimento (1 di 2)...")
-        dopo(1500) {
-            vista.zoomCentratoSu(p2, zoomPunto)
-            fase("Scala ($origine): secondo punto di riferimento (2 di 2)...")
-            dopo(1500) {
-                vista.etichettaScala = misura
-                vista.zoomCentratoSu(PointF((p1.x + p2.x) / 2f, (p1.y + p2.y) / 2f), zoomPerInquadrare(p1, p2))
-                fase("Scala ($origine): il tratto giallo misura $misura.")
-                dopo(2500) {
-                    vista.puntiScalaEvidenziati.clear()
-                    vista.etichettaScala = null
-                    vista.azzeraZoom()
-                    poi()
+        val durataAnimazione = 900L
+        fase("Scala ($origine): avvicinamento al primo punto di riferimento (1 di 2)...")
+        vista.zoomAnimatoVerso(p1, zoomPunto, durataAnimazione) {
+            if (!sessioneAttiva(sessione)) return@zoomAnimatoVerso interrotto()
+            fase("Scala ($origine): primo punto di riferimento (1 di 2)")
+            dopo(900) {
+                fase("Scala ($origine): spostamento verso il secondo punto di riferimento (2 di 2)...")
+                vista.zoomAnimatoVerso(p2, zoomPunto, durataAnimazione) {
+                    if (!sessioneAttiva(sessione)) return@zoomAnimatoVerso interrotto()
+                    fase("Scala ($origine): secondo punto di riferimento (2 di 2)")
+                    dopo(900) {
+                        vista.etichettaScala = misura
+                        val centro = PointF((p1.x + p2.x) / 2f, (p1.y + p2.y) / 2f)
+                        fase("Scala ($origine): il tratto giallo misura $misura.")
+                        vista.zoomAnimatoVerso(centro, zoomPerInquadrare(p1, p2), durataAnimazione) {
+                            if (!sessioneAttiva(sessione)) return@zoomAnimatoVerso interrotto()
+                            dopo(2000) {
+                                vista.puntiScalaEvidenziati.clear()
+                                vista.etichettaScala = null
+                                vista.azzeraZoom()
+                                poi()
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1825,6 +1858,9 @@ class PlanimetriaActivity : AppCompatActivity() {
      */
     private fun confermaAnnullaRilevamentoAutomatico() {
         if (!rilevamentoAutomaticoInCorso) return
+        // Metti in pausa il rilevamento finché questo dialogo non viene chiuso (con "Interrompi",
+        // con "Continua" o anche con un tocco fuori/il tasto indietro): vedi rilevamentoInPausaPerConferma.
+        rilevamentoInPausaPerConferma = true
         val dialog = AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
             .setTitle("Interrompere il rilevamento?")
             .setMessage(
@@ -1833,6 +1869,7 @@ class PlanimetriaActivity : AppCompatActivity() {
             )
             .setPositiveButton("Interrompi") { _, _ -> annullaRilevamentoAutomatico() }
             .setNegativeButton("Continua", null)
+            .setOnDismissListener { rilevamentoInPausaPerConferma = false }
             .show()
         dialog.rendiPulsantiLeggibili(this)
     }
@@ -2084,10 +2121,17 @@ class PlanimetriaActivity : AppCompatActivity() {
     }
 
     private val PAUSA_VERTICE_MS = 140L
-    private val DURATA_CONFERMA_AUTOMATICA_MS = 1500L
+    // Richiesto dall'utente: 3 secondi (prima 1,5) prima che "Conferma così" confermi da solo.
+    private val DURATA_CONFERMA_AUTOMATICA_MS = 3000L
 
     private fun avviaAnimazioneVertici(proposta: PropostaLocaleAi, generazione: Int) {
         if (isFinishing || isDestroyed || generazione != generazioneElaborazioneLocale) return
+        // In pausa: il dialogo "Interrompere il rilevamento?" è aperto, quindi non si zooma né si
+        // rivela il locale finché l'utente non lo chiude (vedi rilevamentoInPausaPerConferma).
+        if (rilevamentoInPausaPerConferma) {
+            handlerPrincipale.postDelayed({ avviaAnimazioneVertici(proposta, generazione) }, 150L)
+            return
+        }
         binding.tvIstruzioneTocco.text = "Rilevamento vertici: \"${proposta.nome}\"..."
         aggiornaBarraSchermoIntero()
         // v3.82: UN solo zoom per locale, che inquadra tutto il vano (prima uno zoom su ogni vertice).
@@ -2132,9 +2176,11 @@ class PlanimetriaActivity : AppCompatActivity() {
     }
 
     /**
-     * Chiede se correggere il locale appena rilevato. Se entro 1,5 secondi (v3.82, prima 3) non si preme nulla, il
+     * Chiede se correggere il locale appena rilevato. Se entro 3 secondi non si preme nulla, il
      * locale si considera confermato così com'è e si passa al successivo (conto alla rovescia
-     * visibile sul pulsante "Conferma così"). Qualunque pulsante premuto ferma il conto.
+     * visibile sul pulsante "Conferma così"). Qualunque pulsante premuto ferma il conto. Il conto
+     * si ferma anche (senza consumare tempo) mentre è aperto il dialogo "Interrompere il
+     * rilevamento?" (vedi [rilevamentoInPausaPerConferma]).
      */
     private fun chiediCorrezioneManuale(proposta: PropostaLocaleAi, generazione: Int) {
         if (generazione != generazioneElaborazioneLocale) return
@@ -2160,6 +2206,9 @@ class PlanimetriaActivity : AppCompatActivity() {
             if (scelto || !dialog.isShowing || isFinishing || isDestroyed) return@Runnable
             if (generazione != generazioneElaborazioneLocale) { scelto = true; dialog.dismiss(); return@Runnable }
             val ora = android.os.SystemClock.uptimeMillis()
+            // In pausa (dialogo "Interrompere il rilevamento?" aperto sopra questo): il conto non
+            // avanza, ma resta "vivo" così riparte da solo non appena l'utente chiude quel dialogo.
+            if (rilevamentoInPausaPerConferma) { ultimoTic = ora; handlerPrincipale.postDelayed(tic, 100L); return@Runnable }
             if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) trascorsoMs += ora - ultimoTic
             ultimoTic = ora
             val restanti = durataMs - trascorsoMs
@@ -2289,13 +2338,15 @@ class PlanimetriaActivity : AppCompatActivity() {
             return
         }
 
-        val opzioniTipo = arrayOf(
-            "Misura nota in metri (es. una parete)",
-            "Parametri del reticolo catastale (ogni parametro = 10 m)"
+        // Icona reticolo/pareti accanto alle due opzioni (richiesta dall'utente), vedi
+        // mostraListaConIcone().
+        val opzioniTipo = listOf(
+            "Misura nota in metri (es. una parete)" to R.drawable.ic_pareti,
+            "Parametri del reticolo catastale (ogni parametro = 10 m)" to R.drawable.ic_reticolo
         )
         val dialogTipo = AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
             .setTitle("Riferimento per la scala")
-            .setItems(opzioniTipo) { _, indiceTipo ->
+            .setAdapter(AdapterListaConIcone(this, opzioniTipo)) { _, indiceTipo ->
                 calibrazioneConParametri = indiceTipo == 1
                 mostraSceltaDirezioneCalibrazione()
             }
@@ -2305,25 +2356,49 @@ class PlanimetriaActivity : AppCompatActivity() {
     }
 
     private fun mostraSceltaDirezioneCalibrazione() {
-        val opzioni = arrayOf(
-            "Orizzontale",
-            "Verticale",
-            "Obliqua (qualsiasi direzione)",
-            "Entrambe (orizzontale e verticale, per planimetrie non uniformi)"
-        )
+        // Con il reticolo catastale la direzione è sempre quella dei parametri (orizzontale e/o
+        // verticale): i segni del reticolo non sono mai obliqui, quindi quell'opzione ha senso
+        // solo misurando a mano una parete o un altro riferimento che può comparire inclinato
+        // nella foto/scansione. Richiesto dall'utente: togliere "Obliqua" dal reticolo.
+        val opzioni = if (calibrazioneConParametri) {
+            arrayOf(
+                "Orizzontale",
+                "Verticale",
+                "Entrambe (orizzontale e verticale, per planimetrie non uniformi)"
+            )
+        } else {
+            arrayOf(
+                "Orizzontale",
+                "Verticale",
+                "Obliqua (qualsiasi direzione)",
+                "Entrambe (orizzontale e verticale, per planimetrie non uniformi)"
+            )
+        }
         val dialog = AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
             .setTitle("Direzione della misura di riferimento")
             .setItems(opzioni) { _, indice ->
-                when (indice) {
-                    0 -> iniziaStepCalibrazione(DirezioneScala.ORIZZONTALE, ultimoStep = true)
-                    1 -> iniziaStepCalibrazione(DirezioneScala.VERTICALE, ultimoStep = true)
-                    2 -> iniziaStepCalibrazione(DirezioneScala.OBLIQUA, ultimoStep = true)
-                    3 -> {
-                        calibrazioneEntrambeInCorso = true
-                        scalaXTemporanea = null
-                        val unitaMisura = if (calibrazioneConParametri) "parametri" else "una misura nota"
-                        avviso("Prima misura: tocca due punti su una linea orizzontale e indica $unitaMisura.", lungo = true)
-                        iniziaStepCalibrazione(DirezioneScala.ORIZZONTALE, ultimoStep = false)
+                if (calibrazioneConParametri) {
+                    when (indice) {
+                        0 -> iniziaStepCalibrazione(DirezioneScala.ORIZZONTALE, ultimoStep = true)
+                        1 -> iniziaStepCalibrazione(DirezioneScala.VERTICALE, ultimoStep = true)
+                        2 -> {
+                            calibrazioneEntrambeInCorso = true
+                            scalaXTemporanea = null
+                            avviso("Prima misura: tocca due punti su una linea orizzontale e indica parametri.", lungo = true)
+                            iniziaStepCalibrazione(DirezioneScala.ORIZZONTALE, ultimoStep = false)
+                        }
+                    }
+                } else {
+                    when (indice) {
+                        0 -> iniziaStepCalibrazione(DirezioneScala.ORIZZONTALE, ultimoStep = true)
+                        1 -> iniziaStepCalibrazione(DirezioneScala.VERTICALE, ultimoStep = true)
+                        2 -> iniziaStepCalibrazione(DirezioneScala.OBLIQUA, ultimoStep = true)
+                        3 -> {
+                            calibrazioneEntrambeInCorso = true
+                            scalaXTemporanea = null
+                            avviso("Prima misura: tocca due punti su una linea orizzontale e indica una misura nota.", lungo = true)
+                            iniziaStepCalibrazione(DirezioneScala.ORIZZONTALE, ultimoStep = false)
+                        }
                     }
                 }
             }
@@ -3517,5 +3592,25 @@ class PlanimetriaActivity : AppCompatActivity() {
         } catch (e: Exception) {
             null
         }
+    }
+}
+
+/**
+ * Adapter per liste di AlertDialog con un'icona accanto a ogni voce (richiesto dall'utente per
+ * la scelta del riferimento della scala: icona reticolo / icona pareti, vedi
+ * [PlanimetriaActivity.avviaCalibrazione]). Ogni voce è una coppia (testo, risorsa drawable).
+ */
+private class AdapterListaConIcone(
+    context: android.content.Context,
+    private val voci: List<Pair<String, Int>>
+) : ArrayAdapter<Pair<String, Int>>(context, R.layout.item_dialogo_icona_testo, voci) {
+
+    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+        val vista = convertView ?: LayoutInflater.from(context)
+            .inflate(R.layout.item_dialogo_icona_testo, parent, false)
+        val (testo, risorsaIcona) = voci[position]
+        vista.findViewById<TextView>(R.id.tvTestoRiga).text = testo
+        vista.findViewById<ImageView>(R.id.imgIconaRiga).setImageResource(risorsaIcona)
+        return vista
     }
 }

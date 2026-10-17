@@ -389,6 +389,12 @@ class SuperficieView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    override fun onDetachedFromWindow() {
+        animatoreZoom?.cancel()
+        animatoreZoom = null
+        super.onDetachedFromWindow()
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         // Se l'utente ha ingrandito, si mantengono zoom e punto inquadrato anche quando la vista
@@ -452,15 +458,18 @@ class SuperficieView @JvmOverloads constructor(
         matriceVista.set(matriceImmagine)
         matriceVista.invert(matriceVistaInversa)
         fattoreZoomCorrente = 1f
+        centroZoomAttuale = null
     }
 
     fun aggiornaTutto() {
+        animatoreZoom?.cancel()
         aggiornaMatrice()
         invalidate()
     }
 
     /** Riporta lo zoom/scorrimento dell'utente alla vista adattata iniziale, senza toccare i punti già tracciati. */
     fun azzeraZoom() {
+        animatoreZoom?.cancel()
         aggiornaMatrice()
         invalidate()
     }
@@ -471,7 +480,7 @@ class SuperficieView @JvmOverloads constructor(
      * d'occhio se il punto coincide con lo spigolo reale sul disegno, senza doverlo cercare a
      * occhio su una vista non ingrandita. Riparte sempre dalla vista adattata iniziale, quindi
      * lo zoom risultante è sempre lo stesso indipendentemente da eventuali pizzichi precedenti
-     * dell'utente.
+     * dell'utente. Istantaneo: per una transizione visibile e graduale vedi [zoomAnimatoVerso].
      */
     fun zoomCentratoSu(puntoImmagine: PointF, fattoreZoom: Float = 4f) {
         if (width == 0 || height == 0) return
@@ -484,7 +493,56 @@ class SuperficieView @JvmOverloads constructor(
         matriceVista.postTranslate(width / 2f - puntoDopoScala[0], height / 2f - puntoDopoScala[1])
         matriceVista.invert(matriceVistaInversa)
         fattoreZoomCorrente = fattoreZoom.coerceIn(1f, ZOOM_MASSIMO)
+        centroZoomAttuale = PointF(puntoImmagine.x, puntoImmagine.y)
         invalidate()
+    }
+
+    /** Punto dell'immagine su cui è centrato lo zoom attuale (vedi [zoomCentratoSu]/[zoomAnimatoVerso]); null = vista adattata iniziale, cioè centrata sull'immagine intera. */
+    private var centroZoomAttuale: PointF? = null
+    private var animatoreZoom: android.animation.ValueAnimator? = null
+
+    /**
+     * Come [zoomCentratoSu], ma anima la transizione dalla vista attuale (centro e zoom attuali)
+     * verso il punto e lo zoom indicati, invece di saltarci sopra di colpo: richiesto
+     * dall'utente perché un salto istantaneo da un segno del reticolo all'altro, senza una
+     * transizione visibile, non fa capire dove si trova il secondo segno rispetto al primo.
+     * Richiama [alTermine] (se presente) alla fine dell'animazione; se un'altra chiamata a
+     * [zoomAnimatoVerso]/[zoomCentratoSu]/[azzeraZoom]/[aggiornaTutto] interrompe l'animazione in
+     * corso, [alTermine] di quella precedente NON viene richiamato.
+     */
+    fun zoomAnimatoVerso(puntoImmagine: PointF, fattoreZoom: Float, durataMs: Long = 800L, alTermine: (() -> Unit)? = null) {
+        val bmp = bitmap
+        if (width == 0 || height == 0 || bmp == null) {
+            alTermine?.invoke()
+            return
+        }
+        animatoreZoom?.cancel()
+        val centroPartenza = centroZoomAttuale ?: PointF(bmp.width / 2f, bmp.height / 2f)
+        val zoomPartenza = fattoreZoomCorrente
+        val xPartenza = centroPartenza.x; val yPartenza = centroPartenza.y
+        val xArrivo = puntoImmagine.x; val yArrivo = puntoImmagine.y
+        val animatore = android.animation.ValueAnimator.ofFloat(0f, 1f)
+        animatore.duration = durataMs
+        animatore.interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+        animatore.addUpdateListener { anim ->
+            val t = anim.animatedValue as Float
+            zoomCentratoSu(
+                PointF(xPartenza + (xArrivo - xPartenza) * t, yPartenza + (yArrivo - yPartenza) * t),
+                zoomPartenza + (fattoreZoom - zoomPartenza) * t
+            )
+        }
+        animatore.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                if (animatoreZoom === animatore) animatoreZoom = null
+                alTermine?.invoke()
+            }
+            override fun onAnimationCancel(animation: android.animation.Animator) {
+                // Niente: o la vista è stata chiusa, o una nuova animazione/zoom la sta già
+                // sostituendo (il suo stesso alTermine penserà al passo successivo).
+            }
+        })
+        animatoreZoom = animatore
+        animatore.start()
     }
 
     override fun onDraw(canvas: Canvas) {

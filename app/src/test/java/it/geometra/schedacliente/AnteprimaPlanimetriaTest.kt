@@ -192,16 +192,18 @@ class AnteprimaPlanimetriaTest {
         fun zoom() = SuperficieView::class.java.getDeclaredField("fattoreZoomCorrente").apply { isAccessible = true }.getFloat(sv)
         fun foto(nome: String) = salva(Bitmap.createBitmap(sv.width, sv.height, Bitmap.Config.ARGB_8888).also { sv.draw(Canvas(it)) }, nome)
 
-        // 1) zoom sul primo punto
+        // 1) zoom GRADUALE (animato) verso il primo punto: appena finita l'animazione (900 ms) il
+        // centro è su p1 (prima v3.77: salto istantaneo, controllato subito dopo la chiamata).
+        looper.idleFor(Duration.ofMillis(950))
         assertEquals(p1.x, centro().x, 2f); assertEquals(p1.y, centro().y, 2f)
         assertNull(sv.etichettaScala)
         foto("v377_scala_1_primo_punto")
-        // 2) zoom sul secondo punto
-        looper.idleFor(Duration.ofMillis(1500))
+        // 2) pausa di visualizzazione (900 ms) + spostamento graduale verso il secondo punto (900 ms)
+        looper.idleFor(Duration.ofMillis(1850))
         assertEquals(p2.x, centro().x, 2f); assertEquals(p2.y, centro().y, 2f)
         foto("v377_scala_2_secondo_punto")
-        // 3) linea intera con la misura
-        looper.idleFor(Duration.ofMillis(1500))
+        // 3) pausa (900 ms) + zoom graduale (900 ms) sulla linea intera, con la misura
+        looper.idleFor(Duration.ofMillis(1850))
         assertEquals("10 m", sv.etichettaScala)
         assertEquals((p1.x + p2.x) / 2f, centro().x, 2f)
         val schermo = floatArrayOf(p1.x, p1.y, p2.x, p2.y)
@@ -209,8 +211,8 @@ class AnteprimaPlanimetriaTest {
         assertTrue("la linea intera deve stare tutta nella vista", schermo.indices.step(2).all { schermo[it] in 0f..sv.width.toFloat() } && zoom() >= 1f)
         foto("v377_scala_3_linea_intera")
         assertTrue(!proseguito)
-        // 4) fine: torna la vista intera e il rilevamento prosegue
-        looper.idleFor(Duration.ofMillis(2600))
+        // 4) fine: pausa finale (2000 ms), torna la vista intera e il rilevamento prosegue
+        looper.idleFor(Duration.ofMillis(2100))
         assertTrue(proseguito)
         assertNull(sv.etichettaScala)
         assertTrue(sv.puntiScalaEvidenziati.isEmpty())

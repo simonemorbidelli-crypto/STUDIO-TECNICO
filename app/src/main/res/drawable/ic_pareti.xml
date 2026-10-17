@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona "pareti" (angolo di due muri, a squadra), per l'opzione "Misura nota in metri" nella
+     scelta del riferimento per la scala (vedi PlanimetriaActivity.avviaCalibrazione). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/primary"
+        android:pathData="M3,3h3v15h15v3H3V3zM9,9h12v3H12v9H9V9z" />
+</vector>
