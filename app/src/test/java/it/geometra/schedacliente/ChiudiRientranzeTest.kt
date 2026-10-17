@@ -47,4 +47,16 @@ class ChiudiRientranzeTest {
             assertEquals("lato diagonale", true, a.x == b.x || a.y == b.y)
         }
     }
+
+    @Test
+    fun gradinoDangoloVieneChiusoADangoloRetto() {
+        val v = listOf(p(390f, 975f), p(800f, 975f), p(800f, 1448f), p(190f, 1448f), p(190f, 1040f), p(390f, 1040f))
+        val r = GeometriaUtils.chiudiRientranze(v, areaMax = 20000.0, profMax = 150.0)
+        assertEquals(4, r.size)
+        assertEquals(610.0 * 473.0, GeometriaUtils.areaPoligono(r), 1.0)
+        for (i in r.indices) {
+            val a = r[i]; val b = r[(i + 1) % r.size]
+            assertEquals(true, a.x == b.x || a.y == b.y)
+        }
+    }
 }

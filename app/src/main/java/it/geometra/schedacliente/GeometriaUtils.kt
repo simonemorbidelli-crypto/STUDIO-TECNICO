@@ -108,6 +108,37 @@ object GeometriaUtils {
                     if (delta < deltaMigliore) { deltaMigliore = delta; migliore = nuovo }
                 }
             }
+            // Seconda famiglia: gradino d'angolo. Si tolgono 1-4 vertici consecutivi (da i a j) e si mette
+            // al loro posto l'incontro delle due pareti che li precedono e li seguono, quindi un angolo
+            // vero (di solito retto) invece di una diagonale. Serve per blocchi e cellette ai piedi di un
+            // angolo del vano, dove la parete continuerebbe dritta se il particolare non ci fosse.
+            for (i in 0 until n) {
+                for (m in 1..minOf(4, n - 3)) {
+                    val j = (i + m - 1) % n
+                    val prec = p[(i - 1 + n) % n]; val pi = p[i]
+                    val pj = p[j]; val succ = p[(j + 1) % n]
+                    val d1x = (pi.x - prec.x).toDouble(); val d1y = (pi.y - prec.y).toDouble()
+                    val d2x = (succ.x - pj.x).toDouble(); val d2y = (succ.y - pj.y).toDouble()
+                    val l1 = kotlin.math.hypot(d1x, d1y); val l2 = kotlin.math.hypot(d2x, d2y)
+                    if (l1 < 1e-9 || l2 < 1e-9) continue
+                    if (abs(d1x * d2x + d1y * d2y) / (l1 * l2) > 0.5) continue
+                    val den = d1x * d2y - d1y * d2x
+                    val t = ((pj.x - prec.x) * d2y - (pj.y - prec.y) * d2x) / den
+                    val u = ((pj.x - prec.x) * d1y - (pj.y - prec.y) * d1x) / den
+                    if (t <= 1.0 || u >= 0.0) continue
+                    val xv = PointF((prec.x + t * d1x).toFloat(), (prec.y + t * d1y).toFloat())
+                    val nuovo = mutableListOf<PointF>()
+                    var k = (j + 1) % n
+                    while (k != i) { nuovo.add(p[k]); k = (k + 1) % n }
+                    nuovo.add(xv)
+                    val delta = areaPoligono(nuovo) - area0
+                    if (delta <= 1e-9 || delta > areaMax || delta > 0.08 * area0) continue
+                    val rimossi = (0 until m).map { p[(i + it) % n] }
+                    if (rimossi.maxOf { distanza(it, xv) } > profMax * 1.5) continue
+                    if (!contornoSemplice(nuovo)) continue
+                    if (delta < deltaMigliore) { deltaMigliore = delta; migliore = nuovo }
+                }
+            }
             if (migliore != null) { p = migliore.toMutableList(); cambiato = true }
         }
         // Vertici rimasti allineati sui due vicini (la rientranza chiusa li ha messi sulla stessa retta).
