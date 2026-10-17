@@ -2010,7 +2010,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         return Rect(left.toInt(), top.toInt(), left.toInt() + larghezza, top.toInt() + altezza)
     }
 
-    private val PAUSA_VERTICE_MS = 70L
+    private val PAUSA_VERTICE_MS = 140L
     private val DURATA_CONFERMA_AUTOMATICA_MS = 1500L
 
     private fun avviaAnimazioneVertici(proposta: PropostaLocaleAi, generazione: Int) {
