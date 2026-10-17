@@ -669,7 +669,13 @@ object InterpretePlanimetria {
 
         val corpo = JSONObject().apply {
             put("model", MODELLO)
-            put("max_tokens", 4096)
+            // v4.14: alzato da 4096 a 12000, come già fatto per eseguiChiamataVertici() (rilevamento
+            // automatico) per lo stesso identico motivo: la risposta elenca, PER OGNI locale, nome,
+            // destinazione, quote, area, nota ED ELENCO VERTICI, quindi con planimetrie che hanno
+            // parecchi locali il JSON superava 4096 token, veniva troncato a metà e risultava
+            // illeggibile ("La risposta dell'AI è stata troncata..."), anche quando l'AI aveva in
+            // realtà individuato correttamente tutti i locali.
+            put("max_tokens", 12000)
             put("system", promptSistema)
             put("messages", org.json.JSONArray().put(
                 JSONObject().apply {
