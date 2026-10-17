@@ -109,23 +109,7 @@ object InterpretaScalaCatastale {
             ))
         }
 
-        val url = URL(ENDPOINT)
-        val connessione = url.openConnection() as HttpURLConnection
-        connessione.requestMethod = "POST"
-        connessione.setRequestProperty("content-type", "application/json")
-        connessione.setRequestProperty("x-api-key", chiaveApi)
-        connessione.setRequestProperty("anthropic-version", "2023-06-01")
-        connessione.doOutput = true
-        connessione.connectTimeout = 20000
-        connessione.readTimeout = 60000
-
-        OutputStreamWriter(connessione.outputStream, Charsets.UTF_8).use { scrittore ->
-            scrittore.write(corpo.toString())
-        }
-
-        val codice = connessione.responseCode
-        val stream = if (codice in 200..299) connessione.inputStream else connessione.errorStream
-        val testoRisposta = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val (codice, testoRisposta) = AiDeterministica.invia(ENDPOINT, chiaveApi, corpo)
 
         if (codice !in 200..299) {
             val messaggioErrore = try {
