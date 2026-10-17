@@ -193,7 +193,8 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.btnScattaFoto.setOnClickListener { richiediPermessoEScattaFoto() }
 
         binding.btnAnalizza.setOnClickListener { avviaAnalisi() }
-        binding.btnRilevamentoAutomatico.setOnClickListener { InterpretePlanimetria.soloSpigoli = false; avviaRilevamentoAutomatico() }
+        binding.btnRifaiPoligoni.setOnClickListener { chiediCancellaTuttiERifai() }
+        binding.btnRilevamentoAutomatico.setOnClickListener { impostaMetodoRilevamento(1); avviaRilevamentoAutomatico() }
 
         binding.superficieView.onNuovoPunto = { gestisciNuovoPunto() }
         binding.superficieView.onPuntoSpostato = { gestisciPuntoSpostato() }
@@ -883,6 +884,52 @@ class PlanimetriaActivity : AppCompatActivity() {
      * sinistra del ritaglio in pixel dell'immagine completa, e [larghezzaRegione]/
      * [altezzaRegione] le dimensioni del ritaglio stesso (non dell'immagine intera).
      */
+    /**
+     * Spigoli come intersezione di pareti consecutive. Ogni lato è un segmento (due punti sulla stessa
+     * parete); si prolunga a retta. Lo spigolo tra il lato k-1 e il lato k deve cadere vicino alla stima
+     * dei vertici dell'AI (entro il 6% del lato maggiore dell'immagine), altrimenti si tiene la stima.
+     * Restituisce null se i lati non sono utilizzabili.
+     */
+    private fun verticiDaLati(
+        lati: org.json.JSONArray, ox: Float, oy: Float, larg: Float, alt: Float, stima: List<PointF>
+    ): List<PointF>? {
+        data class Retta(val a: PointF, val b: PointF)
+        val rette = mutableListOf<Retta>()
+        for (k in 0 until lati.length()) {
+            val o = lati.optJSONObject(k) ?: return null
+            val da = o.optJSONObject("da") ?: return null
+            val a = o.optJSONObject("a") ?: return null
+            val x1 = da.optDouble("x", Double.NaN); val y1 = da.optDouble("y", Double.NaN)
+            val x2 = a.optDouble("x", Double.NaN); val y2 = a.optDouble("y", Double.NaN)
+            if (x1.isNaN() || y1.isNaN() || x2.isNaN() || y2.isNaN()) return null
+            rette += Retta(
+                PointF(ox + x1.toFloat() * larg, oy + y1.toFloat() * alt),
+                PointF(ox + x2.toFloat() * larg, oy + y2.toFloat() * alt)
+            )
+        }
+        val n = rette.size
+        val tolleranza = 0.06 * maxOf(larg, alt)
+        val esito = mutableListOf<PointF>()
+        for (k in 0 until n) {
+            val r1 = rette[(k - 1 + n) % n]
+            val r2 = rette[k]
+            val d1x = (r1.b.x - r1.a.x).toDouble(); val d1y = (r1.b.y - r1.a.y).toDouble()
+            val d2x = (r2.b.x - r2.a.x).toDouble(); val d2y = (r2.b.y - r2.a.y).toDouble()
+            val den = d1x * d2y - d1y * d2x
+            // Punto di riferimento: vertice stimato più vicino all'estremo di r1 e inizio di r2.
+            val rifX = (r1.b.x + r2.a.x) / 2f; val rifY = (r1.b.y + r2.a.y) / 2f
+            val ref = PointF(rifX, rifY)
+            val vicino = stima.minByOrNull { GeometriaUtils.distanza(it, ref) } ?: ref
+            if (kotlin.math.abs(den) < 1e-6 * (kotlin.math.hypot(d1x, d1y) * kotlin.math.hypot(d2x, d2y) + 1e-9)) {
+                esito += vicino; continue
+            }
+            val t = ((r2.a.x - r1.a.x) * d2y - (r2.a.y - r1.a.y) * d2x) / den
+            val p = PointF((r1.a.x + t * d1x).toFloat(), (r1.a.y + t * d1y).toFloat())
+            esito += if (GeometriaUtils.distanza(p, vicino) <= tolleranza) p else vicino
+        }
+        return if (esito.size >= 3) esito else null
+    }
+
     private fun estraiVerticiDaRisultato(
         localiAi: org.json.JSONArray?,
         origineX: Float = 0f,
@@ -916,6 +963,15 @@ class PlanimetriaActivity : AppCompatActivity() {
                 }
                 if (vertici.size < 3 && puntoInterno == null) continue
                 if (vertici.size < 3) vertici.clear()
+                // Modalità "lato per lato": gli spigoli sono le intersezioni delle rette delle pareti
+                // percorse per intero dall'AI (se coerenti con la stima dei vertici).
+                if (InterpretePlanimetria.latoPerLato && vertici.size >= 3) {
+                    val lati = locale.optJSONArray("lati")
+                    if (lati != null && lati.length() >= 3) {
+                        val calcolati = verticiDaLati(lati, origineX, origineY, larghezza, altezza, vertici)
+                        if (calcolati != null) { vertici.clear(); vertici.addAll(calcolati) }
+                    }
+                }
                 val nome = locale.optString("nome").trim().ifBlank { "Locale ${i + 1}" }
                 val destinazione = locale.optString("destinazione").trim()
                 // CORREZIONE (ottobre 2026): "destinazione" veniva accodata al nome ogni volta
@@ -1860,7 +1916,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         val chiaveApi = ChiaveApiStore.leggiChiave(this)
 
         // Contorno già misurato sui muri del disegno: niente affinamento AI (sarebbe meno preciso).
-        if (proposta.precisa || bitmap == null || chiaveApi.isBlank()) {
+        if (proposta.precisa || bitmap == null || chiaveApi.isBlank() || InterpretePlanimetria.latoPerLato) {
             avviaAnimazioneVertici(proposta, generazione)
             return
         }
@@ -3109,23 +3165,30 @@ class PlanimetriaActivity : AppCompatActivity() {
         }
     }
 
-    /** Cancella tutti i vani rilevati (la planimetria resta caricata) e chiede se rifarli, da spigolo a spigolo o in modo raffinato. */
+    /** Metodo di rilevamento: 0 = da spigolo a spigolo, 1 = raffinato, 2 = lato per lato. */
+    private fun impostaMetodoRilevamento(metodo: Int) {
+        InterpretePlanimetria.soloSpigoli = metodo == 0
+        InterpretePlanimetria.latoPerLato = metodo == 2
+    }
+
+    /** Cancella tutti i vani rilevati (la planimetria resta caricata) e chiede con quale metodo rifarli. Raggiungibile sempre dalla pagina generale. */
     private fun chiediCancellaTuttiERifai() {
-        if (locali.isEmpty() || modalita != Modalita.NESSUNA) return
+        if (binding.superficieView.bitmap == null) { avviso("Carica prima una planimetria"); return }
+        if (modalita != Modalita.NESSUNA) { avviso("Finisci prima l'operazione in corso"); return }
         val voci = arrayOf(
-            "Rifai da spigolo a spigolo (ignora i particolari)",
-            "Rifai in modo raffinato (tiene conto di ogni particolare)",
+            "Da spigolo a spigolo (ignora i particolari)",
+            "Raffinato (tiene conto di ogni particolare)",
+            "Lato per lato (l'AI percorre ogni parete per intero, poi ricava gli spigoli)",
             "Solo cancella, non rifare"
         )
+        val titolo = if (locali.isEmpty()) "Rifare i poligoni: quale metodo?" else "Cancellare tutti i ${locali.size} vani e rifarli: quale metodo?"
         val dialog = AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
-            .setTitle("Cancellare tutti i ${locali.size} vani?")
+            .setTitle(titolo)
             .setItems(voci) { _, quale ->
                 cancellaTuttiILocali()
-                when (quale) {
-                    0 -> { InterpretePlanimetria.soloSpigoli = true; avviaRilevamentoAutomaticoCompleto() }
-                    1 -> { InterpretePlanimetria.soloSpigoli = false; avviaRilevamentoAutomaticoCompleto() }
-                    else -> avviso("Vani cancellati")
-                }
+                if (quale == 3) { avviso("Vani cancellati"); return@setItems }
+                impostaMetodoRilevamento(quale)
+                avviaRilevamentoAutomaticoCompleto()
             }
             .setNegativeButton("Annulla", null)
             .show()

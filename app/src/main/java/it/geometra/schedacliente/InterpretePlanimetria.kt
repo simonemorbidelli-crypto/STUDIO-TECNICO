@@ -33,7 +33,11 @@ object InterpretePlanimetria {
     @Volatile
     var soloSpigoli: Boolean = false
 
-    private fun notaDettaglio(): String = if (!soloSpigoli) "" else """
+    /** true = modalità "lato per lato": l'AI percorre ogni parete per intero e il telefono ricava gli spigoli dall'intersezione delle pareti. */
+    @Volatile
+    var latoPerLato: Boolean = false
+
+    private fun notaDettaglio(): String = if (latoPerLato) notaLatoPerLato() else if (!soloSpigoli) "" else """
 
             MODALITÀ ESSENZIALE (scelta dall'utente), prevale sulle regole sulle forme irregolari:
             traccia solo gli SPIGOLI PRINCIPALI di ogni locale, cioè il suo ingombro generale.
@@ -41,6 +45,22 @@ object InterpretePlanimetria {
             spessori di porte e finestre, canne, armadi a muro, piccoli smussi. Un locale
             sostanzialmente rettangolare ha 4 vertici anche se ha piccoli particolari; usa più
             vertici solo per veri cambi di forma (L, U, T) di dimensioni rilevanti.
+    """.trimIndent()
+
+    private fun notaLatoPerLato(): String = """
+
+            MODALITÀ "LATO PER LATO" (scelta dall'utente), prevale sulle regole precedenti sul
+            modo di indicare i vertici: per ogni locale NON stimare gli angoli a colpo d'occhio.
+            Percorri con lo sguardo ogni parete del locale DALL'INIZIO ALLA FINE, per tutta la
+            sua lunghezza, e solo dopo averla percorsa per intero stabilisci la retta che la
+            descrive (faccia interna del muro, dal lato del vano). Lo spigolo reale è il punto in
+            cui si incontrano le rette di due pareti consecutive, non il punto in cui "sembra"
+            esserci l'angolo. Trascura le interruzioni dovute a porte e finestre: la parete
+            continua. Per ogni locale aggiungi quindi il campo "lati": elenco ordinato lungo il
+            perimetro (stesso ordine e stesso verso dei vertici) di segmenti
+            {"da":{"x":..,"y":..},"a":{"x":..,"y":..}}, dove "da" e "a" sono i due punti più
+            lontani che hai verificato sulla stessa parete (stesse frazioni dei vertici). Un lato
+            per ogni parete; i "vertici" restano comunque da indicare, come stima.
     """.trimIndent()
 
     private const val ENDPOINT = "https://api.anthropic.com/v1/messages"
