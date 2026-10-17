@@ -36,4 +36,15 @@ class ChiudiRientranzeTest {
         val r = GeometriaUtils.chiudiRientranze(v, areaMax = 5000.0, profMax = 100.0)
         assertEquals(6, r.size)
     }
+
+    @Test
+    fun gradinoOAngoloTagliatoNonDiventaDiagonale() {
+        // Rettangolo con un gradino nell'angolo in basso a destra: nessuna diagonale deve nascere.
+        val v = listOf(p(0f, 0f), p(400f, 0f), p(400f, 250f), p(350f, 250f), p(350f, 300f), p(0f, 300f))
+        val r = GeometriaUtils.chiudiRientranze(v, areaMax = 10000.0, profMax = 200.0)
+        for (i in r.indices) {
+            val a = r[i]; val b = r[(i + 1) % r.size]
+            assertEquals("lato diagonale", true, a.x == b.x || a.y == b.y)
+        }
+    }
 }

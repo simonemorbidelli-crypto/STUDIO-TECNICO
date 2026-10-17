@@ -89,6 +89,21 @@ object GeometriaUtils {
                         abs((pb.x - pa.x).toDouble() * (pa.y - t.y) - (pa.x - t.x).toDouble() * (pb.y - pa.y)) / lung
                     }
                     if (maxDist > profMax) continue
+                    // Mai scorciatoie in diagonale: il segmento che chiude la rientranza deve proseguire una
+                    // parete già esistente, cioè essere parallelo (entro ~10°) al lato che entra in [a] o a
+                    // quello che esce da [b]. Un semplice gradino o un angolo tagliato resta com'è.
+                    val prima = p[(a - 1 + n) % n]
+                    val dopo = p[(b + 1) % n]
+                    fun parallelo(x1: PointF, y1: PointF): Boolean {
+                        val lx = (x1.x - y1.x).toDouble(); val ly = (x1.y - y1.y).toDouble()
+                        val l = kotlin.math.hypot(lx, ly)
+                        if (l < 1e-9) return false
+                        val cx = (pb.x - pa.x).toDouble(); val cy = (pb.y - pa.y).toDouble()
+                        return abs(lx * cx + ly * cy) / (l * lung) >= 0.985
+                    }
+                    if (!parallelo(prima, pa) && !parallelo(pb, dopo)) continue
+                    // Rientranza piccola anche rispetto al vano (al massimo l'8% dell'area).
+                    if (delta > 0.08 * area0) continue
                     if (!contornoSemplice(nuovo)) continue
                     if (delta < deltaMigliore) { deltaMigliore = delta; migliore = nuovo }
                 }
