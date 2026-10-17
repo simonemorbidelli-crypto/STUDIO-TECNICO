@@ -29,6 +29,20 @@ data class RettangoloPianta(val nome: String, val x0: Float, val y0: Float, val 
  */
 object InterpretePlanimetria {
 
+    /** true = modalità "essenziale" (da spigolo a spigolo, ignorando i particolari); false = raffinata. */
+    @Volatile
+    var soloSpigoli: Boolean = false
+
+    private fun notaDettaglio(): String = if (!soloSpigoli) "" else """
+
+            MODALITÀ ESSENZIALE (scelta dall'utente), prevale sulle regole sulle forme irregolari:
+            traccia solo gli SPIGOLI PRINCIPALI di ogni locale, cioè il suo ingombro generale.
+            IGNORA i particolari: nicchie, piccole rientranze e sporgenze, pilastri, spalle e
+            spessori di porte e finestre, canne, armadi a muro, piccoli smussi. Un locale
+            sostanzialmente rettangolare ha 4 vertici anche se ha piccoli particolari; usa più
+            vertici solo per veri cambi di forma (L, U, T) di dimensioni rilevanti.
+    """.trimIndent()
+
     private const val ENDPOINT = "https://api.anthropic.com/v1/messages"
     private const val MODELLO = "claude-haiku-5-5"
     /**
@@ -403,7 +417,7 @@ object InterpretePlanimetria {
             {
               "vertici": [{"x": 0.12, "y": 0.34}, {"x": 0.30, "y": 0.34}, {"x": 0.30, "y": 0.42}, {"x": 0.22, "y": 0.42}, {"x": 0.22, "y": 0.50}, {"x": 0.12, "y": 0.50}]
             }
-        """.trimIndent()
+        """.trimIndent() + notaDettaglio()
 
         val contenutoUtente = org.json.JSONArray()
         contenutoUtente.put(
@@ -501,7 +515,7 @@ object InterpretePlanimetria {
                 }
               ]
             }
-        """.trimIndent()
+        """.trimIndent() + notaDettaglio()
 
         val contenutoUtente = org.json.JSONArray()
         contenutoUtente.put(

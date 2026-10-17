@@ -28,6 +28,32 @@ object GeometriaUtils {
         return abs(somma) / 2.0
     }
 
+    /**
+     * Modalità "essenziale": toglie i particolari del contorno (nicchie, piccole rientranze,
+     * sporgenze, spessori di porte) lasciando solo gli spigoli principali. Elimina uno alla volta
+     * il vertice che toglie meno area (triangolo formato col vertice precedente e successivo)
+     * finché quell'area resta sotto [areaMinima] (stessa unità del poligono, al quadrato).
+     * Non scende mai sotto 4 vertici se il poligono ne aveva almeno 4 (3 se ne aveva 3).
+     */
+    fun semplificaSpigoli(vertici: List<PointF>, areaMinima: Double): List<PointF> {
+        if (vertici.size <= 4) return vertici
+        val v = vertici.toMutableList()
+        while (v.size > 4) {
+            var migliore = -1
+            var minArea = Double.MAX_VALUE
+            for (i in v.indices) {
+                val a = v[(i - 1 + v.size) % v.size]
+                val b = v[i]
+                val c = v[(i + 1) % v.size]
+                val t = abs((b.x - a.x).toDouble() * (c.y - a.y) - (c.x - a.x).toDouble() * (b.y - a.y)) / 2.0
+                if (t < minArea) { minArea = t; migliore = i }
+            }
+            if (migliore < 0 || minArea >= areaMinima) break
+            v.removeAt(migliore)
+        }
+        return v
+    }
+
     /** Lunghezza di ciascun lato del poligono, nello stesso ordine dei vertici. */
     fun latiPoligono(vertici: List<PointF>): List<Double> {
         if (vertici.size < 2) return emptyList()

@@ -193,7 +193,7 @@ class PlanimetriaActivity : AppCompatActivity() {
         binding.btnScattaFoto.setOnClickListener { richiediPermessoEScattaFoto() }
 
         binding.btnAnalizza.setOnClickListener { avviaAnalisi() }
-        binding.btnRilevamentoAutomatico.setOnClickListener { avviaRilevamentoAutomatico() }
+        binding.btnRilevamentoAutomatico.setOnClickListener { InterpretePlanimetria.soloSpigoli = false; avviaRilevamentoAutomatico() }
 
         binding.superficieView.onNuovoPunto = { gestisciNuovoPunto() }
         binding.superficieView.onPuntoSpostato = { gestisciPuntoSpostato() }
@@ -1698,8 +1698,17 @@ class PlanimetriaActivity : AppCompatActivity() {
         return Rect(left.toInt(), top.toInt(), left.toInt() + larghezza, top.toInt() + altezza)
     }
 
-    private fun avviaCodaLocaliRilevati(proposte: MutableList<PropostaLocaleAi>) {
+    private fun avviaCodaLocaliRilevati(proposteIn: MutableList<PropostaLocaleAi>) {
         if (isFinishing || isDestroyed || !rilevamentoAutomaticoInCorso) return
+        // Modalità "essenziale": solo gli spigoli principali, senza nicchie e piccoli particolari.
+        val proposte = if (!InterpretePlanimetria.soloSpigoli) proposteIn else {
+            val bmp = binding.superficieView.bitmap
+            val lato = if (bmp != null) maxOf(bmp.width, bmp.height).toDouble() else 2000.0
+            val m = scalaX
+            // Soglia: triangolo di 0,25 m² se la scala è nota, altrimenti 0,0002 del lato maggiore al quadrato.
+            val soglia = if (m != null && m > 0.0) 0.25 / (m * m) else (lato * 0.014) * (lato * 0.014)
+            proposteIn.map { it.copy(verticiPx = GeometriaUtils.semplificaSpigoli(it.verticiPx, soglia)) }.toMutableList()
+        }
         faseLocaliInCorso = true
         codaRilevamentoAi = proposte
         if (codaRilevamentoAi.isEmpty()) {
@@ -3088,6 +3097,50 @@ class PlanimetriaActivity : AppCompatActivity() {
             riga.addView(btnElimina)
             binding.containerLocaliTracciati.addView(riga)
         }
+
+        if (!inModifica && !rilevamentoAutomaticoInCorso) {
+            val btnTutti = com.google.android.material.button.MaterialButton(
+                this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
+                text = "🗑 Cancella tutti i vani e rifai…"
+                setOnClickListener { chiediCancellaTuttiERifai() }
+            }
+            binding.containerLocaliTracciati.addView(btnTutti)
+        }
+    }
+
+    /** Cancella tutti i vani rilevati (la planimetria resta caricata) e chiede se rifarli, da spigolo a spigolo o in modo raffinato. */
+    private fun chiediCancellaTuttiERifai() {
+        if (locali.isEmpty() || modalita != Modalita.NESSUNA) return
+        val voci = arrayOf(
+            "Rifai da spigolo a spigolo (ignora i particolari)",
+            "Rifai in modo raffinato (tiene conto di ogni particolare)",
+            "Solo cancella, non rifare"
+        )
+        val dialog = AlertDialog.Builder(this, R.style.Theme_SchedaCliente_Dialog)
+            .setTitle("Cancellare tutti i ${locali.size} vani?")
+            .setItems(voci) { _, quale ->
+                cancellaTuttiILocali()
+                when (quale) {
+                    0 -> { InterpretePlanimetria.soloSpigoli = true; avviaRilevamentoAutomaticoCompleto() }
+                    1 -> { InterpretePlanimetria.soloSpigoli = false; avviaRilevamentoAutomaticoCompleto() }
+                    else -> avviso("Vani cancellati")
+                }
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+        dialog.rendiPulsantiLeggibili(this)
+    }
+
+    private fun cancellaTuttiILocali() {
+        locali.clear()
+        binding.superficieView.locali.clear()
+        codaRilevamentoSospesa = null
+        binding.superficieView.puntiLocaleCorrente.clear()
+        binding.superficieView.disegnaCorrenteChiuso = false
+        binding.superficieView.invalidate()
+        disegnaElencoLocali()
+        aggiornaTotale()
     }
 
     private fun aggiornaTotale() {
