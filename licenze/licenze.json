@@ -1,6 +1,14 @@
 {
+  "_app": "SchedaCliente (it.geometra.schedacliente)",
+  "_codice": "repository studio-tecnico-codice, rami prova e main",
+  "_versioni": "tutti_revocati funziona dalla v4.54; tutti_sbloccati e sbloccati anche nelle versioni precedenti",
+  "_nota": "I campi che iniziano con _ sono solo appunti: l'app li ignora. Questo file e' letto solo da SchedaCliente.",
   "giorni_prova": 15,
-  "sbloccati": ["96F4-2F66","424B-FCA3","8683-C189"],
+  "sbloccati": [
+    "96F4-2F66",
+    "424B-FCA3",
+    "8683-C189"
+  ],
   "nuovi_ammessi": true,
   "revocati": [],
   "tutti_sbloccati": true,

@@ -1,6 +1,13 @@
 {
+  "_app": "Studio Tecnico (it.geometra.studiotecnico)",
+  "_codice": "repository studio-tecnico-codice, ramo studiotecnico",
+  "_versioni": "valido per Studio Tecnico dalla v1.00; testato con la v1.10 (commit 0fe65d8)",
+  "_nota": "I campi che iniziano con _ sono solo appunti: l'app li ignora. Questo file e' letto solo da Studio Tecnico.",
   "giorni_prova": 15,
-  "sbloccati": ["563D-EFA6","6FAF-F2B3"],
+  "sbloccati": [
+    "563D-EFA6",
+    "6FAF-F2B3"
+  ],
   "nuovi_ammessi": true,
   "revocati": [],
   "tutti_sbloccati": true,
