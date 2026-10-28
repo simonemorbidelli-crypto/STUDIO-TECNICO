@@ -8,6 +8,6 @@
     "563D-EFA6"
   ],
   "nuovi_ammessi": true,
-  "revocati": [],
+  "revocati": true,
   "tutti_sbloccati": true
 }
