@@ -9,5 +9,5 @@
   ],
   "nuovi_ammessi": true,
   "revocati": true,
-  "tutti_sbloccati": true
+  "tutti_sbloccati": false
 }
