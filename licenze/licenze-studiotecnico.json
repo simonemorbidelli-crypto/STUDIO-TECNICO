@@ -3,7 +3,7 @@
   "_codice": "repository studio-tecnico-codice, ramo studiotecnico",
   "_versioni": "valido per Studio Tecnico dalla v1.00; url_richiesta usato dalla v1.18 (modulo Richiedi l'accesso)",
   "_nota": "I campi che iniziano con _ sono solo appunti: l'app li ignora. Questo file e' letto solo da Studio Tecnico.",
-  "url_richiesta": "https://script.google.com/macros/s/AKfycbwX0WCfI70J7ilXiy4Pf_Lr0Difx7vzf6-AyySA_txypArDF-IJ0qHi1jFsqldrbAmg/exec",
+  "url_richiesta": "https://script.google.com/macros/s/AKfycbzD30yQH04gp1Av90mFsHwT_h3lvGJCIBQ7fMhKFqc2EfZfQ_fCLdT9sSLY8rA11tvf/exec",
   "giorni_prova": 15,
   "sbloccati": [
     "563D-EFA6",
