@@ -10,6 +10,6 @@
   ],
   "nuovi_ammessi": true,
   "revocati": [],
-  "tutti_sbloccati": true,
+  "tutti_sbloccati": false,
   "tutti_revocati": true
 }
