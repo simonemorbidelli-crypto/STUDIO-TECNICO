@@ -4,7 +4,7 @@
   "_versioni": "valido per Studio Tecnico dalla v1.00; url_richiesta usato dalla v1.18 (modulo Richiedi l'accesso)",
   "_nota": "I campi che iniziano con _ sono solo appunti: l'app li ignora. Questo file e' letto solo da Studio Tecnico.",
   "url_richiesta": "https://script.google.com/macros/s/AKfycbzD30yQH04gp1Av90mFsHwT_h3lvGJCIBQ7fMhKFqc2EfZfQ_fCLdT9sSLY8rA11tvf/exec",
-  "licenze": "A79B-AEE0 di simone morbidelli - 6F48-3326 di eleonora poggiali" 
+  "_licenze": "A79B-AEE0 di simone morbidelli - 6F48-3326 di eleonora poggiali",
   "giorni_prova": 15,
   "sbloccati": [
    ],
