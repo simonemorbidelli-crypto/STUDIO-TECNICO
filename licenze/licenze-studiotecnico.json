@@ -7,9 +7,10 @@
   "_licenze": "A79B-AEE0 di simone morbidelli - 6F48-3326 di eleonora poggiali",
   "giorni_prova": 15,
   "scadenze": {
-   "46C6-A53B": "2026-11-30"
+   "46C6-A53B": "2026-11-30",
+    "A2E6-F094": "2026-11-30"
   },
-  "_scadenze": "46C6-A53B di fabio rossini: prova prolungata fino al 30/11/2026 (richiesta del 13/11/2026)",
+  "_scadenze": "46C6-A53B di fabio rossini: prova prolungata fino al 30/11/2026 (richiesta del 13/11/2026); A2E6-F094: prova prolungata fino al 30/11/2026 (richiesta del 13/11/2026)",
   "sbloccati": [
    ],
   "nuovi_ammessi": true,
