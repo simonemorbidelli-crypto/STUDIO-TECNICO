@@ -8,7 +8,6 @@
   "giorni_prova": 15,
   "scadenze": {
     "A79B-AEE0": "2026-11-30",
-    "A17F-4C21": "2026-11-30",
     "B96B-204D": "2026-11-30",
     "563D-EFA6": "2026-11-30",
     "6F48-3326": "2026-11-30",
@@ -26,9 +25,11 @@
   },
   "_scadenze": "Prova prolungata fino al 30/11/2026 per tutti i 16 telefoni registrati al 14/11/2026 (richiesta del 14/11/2026)",
   "sbloccati": [
-   ],
+    "A17F-4C21"
+  ],
   "nuovi_ammessi": true,
   "revocati": [],
   "tutti_sbloccati": false,
-  "tutti_revocati": false
+  "tutti_revocati": false,
+  "_sbloccati": "A17F-4C21 sbloccato per sempre dal 17/11/2026"
 }
