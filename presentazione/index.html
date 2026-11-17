@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Studio Tecnico: l'app Android per geometri con vincoli sulle mappe della Toscana, poligonali, parcelle, detrazioni e IVA.">
+<meta property="og:title" content="Studio Tecnico – app Android per geometri">
+<meta property="og:description" content="Vincoli in Toscana, ortofoto dal 1954, poligonali, parcelle, detrazioni e IVA in un'unica app.">
+<meta property="og:image" content="https://simonemorbidelli-crypto.github.io/STUDIO-TECNICO/presentazione/media/home.jpg">
+<title>Studio Tecnico – app per geometri</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: colonna centrale; in alto titolo + telefono, poi tre video delle mappe affiancati, poi griglia di schermate con didascalia, chiusura con contatti. Colori e forme dell'app. */
+:root{
+  --bg:#F5F3EE; --surface:#FFFFFF; --ink:#24302A; --muted:#5E6A63; --line:#DCD8CD;
+  --green:#2E5339; --green-soft:#E3EBE4; --orange:#C1440E; --on-accent:#FFFFFF; --frame:#1E2A23;
+  --display:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --body:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#151A17; --surface:#1E2521; --ink:#E7ECE8; --muted:#A3AEA7; --line:#33403A;
+  --green:#8CC79C; --green-soft:#24342A; --orange:#E57A45; --on-accent:#151A17; --frame:#0B0F0D; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151A17; --surface:#1E2521; --ink:#E7ECE8; --muted:#A3AEA7; --line:#33403A;
+  --green:#8CC79C; --green-soft:#24342A; --orange:#E57A45; --on-accent:#151A17; --frame:#0B0F0D; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;
+  padding-block:32px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1040px;margin:0 auto;display:grid;gap:64px}
+h1,h2,h3{font-family:var(--display);color:var(--green);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:clamp(2.2rem,5vw,3.4rem)}
+h2{font-size:clamp(1.6rem,3.4vw,2.2rem)}
+h3{font-size:1.2rem}
+p{margin:0;max-width:62ch}
+.lead{font-size:1.15rem;color:var(--muted)}
+.eyebrow{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--orange);font-weight:600}
+/* telefono */
+.phone{background:var(--frame);border-radius:30px;padding:9px;box-shadow:0 14px 40px rgba(20,30,25,.18);max-width:100%}
+.phone img,.phone video{display:block;width:100%;height:auto;border-radius:22px;background:#000}
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:48px;align-items:center}
+.hero .text{display:grid;gap:20px;min-width:0}
+.hero .phone{width:min(300px,100%);justify-self:center}
+.facts{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:4px 0 0;list-style:none}
+.facts li{background:var(--green-soft);color:var(--green);border-radius:999px;padding:6px 14px;font-size:.88rem;font-weight:500}
+.cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{display:inline-block;background:var(--orange);color:var(--on-accent);text-decoration:none;font-weight:600;border-radius:12px;padding:12px 20px}
+.btn:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+.small{font-size:.88rem;color:var(--muted)}
+/* sezioni */
+section{display:grid;gap:28px}
+.head{display:grid;gap:10px}
+.videos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+.feature{display:grid;gap:14px;align-content:start;min-width:0}
+.feature .phone{width:min(280px,100%);justify-self:center}
+.feature p{font-size:.95rem;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px 24px}
+.grid .phone{border-radius:24px;padding:7px}
+.grid .phone img{border-radius:18px}
+/* chiusura */
+.close{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:32px;display:grid;gap:16px}
+.mail{font-family:var(--body);font-weight:600;color:var(--green);user-select:all}
+.copy{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer;margin-left:8px}
+footer{max-width:1040px;margin:40px auto 0;color:var(--muted);font-size:.85rem}
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr;gap:32px}
+  .videos{grid-template-columns:1fr;gap:40px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:420px){.close{padding:22px}}
+@media (prefers-reduced-motion:reduce){video{display:none}.phone .poster-only{display:block!important}}
+.phone .poster-only{display:none}
+</style>
+
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div class="text">
+      <span class="eyebrow">App Android per geometri</span>
+      <h1>Studio Tecnico</h1>
+      <p class="lead">Gli strumenti di tutti i giorni di uno studio tecnico, in un'unica app sul telefono: vincoli sulle mappe della Toscana, poligonali, parcelle, detrazioni, IVA e i calcoli che servono in cantiere e in ufficio.</p>
+      <ul class="facts">
+        <li>Vincoli in Toscana</li><li>Poligonali e coordinate</li><li>Parcelle</li><li>Detrazioni e IVA</li><li>Dati solo sul telefono</li>
+      </ul>
+      <div class="cta">
+        <a class="btn" href="https://play.google.com/store/apps/details?id=it.geometra.studiotecnico" target="_blank" rel="noopener">Scarica da Google Play</a>
+        <span class="small">Prova gratuita di 15 giorni</span>
+      </div>
+    </div>
+    <div class="phone"><img src="media/home.jpg" alt="Pagina iniziale di Studio Tecnico con le tessere delle sezioni" width="540" height="1059"></div>
+  </header>
+
+  <section aria-labelledby="mappe">
+    <div class="head">
+      <span class="eyebrow">Mappe e verifica vincoli</span>
+      <h2 id="mappe">I vincoli di un terreno in pochi secondi</h2>
+      <p>La mappa usa i servizi ufficiali della Regione Toscana e delle Autorità di bacino. Tocchi il terreno e leggi i vincoli, con i link alle norme e alle carte ufficiali.</p>
+    </div>
+    <div class="videos">
+      <figure class="feature" style="margin:0">
+        <div class="phone">
+          <video src="media/vincoli-punto.mp4" poster="media/vincoli-punto.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Video: vincoli nel punto toccato"></video>
+          <img class="poster-only" src="media/vincoli-punto.jpg" alt="Vincoli nel punto toccato">
+        </div>
+        <h3>Vincoli nel punto</h3>
+        <p>Un tocco sulla particella mostra i vincoli presenti, per esempio il PAI dissesti, con disciplina di piano e relazione in PDF.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone">
+          <video src="media/vincoli-area.mp4" poster="media/vincoli-area.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Video: vincoli in un'area disegnata"></video>
+          <img class="poster-only" src="media/vincoli-area.jpg" alt="Vincoli nell'area disegnata">
+        </div>
+        <h3>Vincoli nell'area</h3>
+        <p>Disegni un rettangolo col dito e l'app controlla tutti gli strati: aree boscate, alluvioni PGRA, vincolo idrogeologico e gli altri.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone">
+          <video src="media/ortofoto.mp4" poster="media/ortofoto.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Video: confronto tra ortofoto di anni diversi"></video>
+          <img class="poster-only" src="media/ortofoto.jpg" alt="Confronto ortofoto">
+        </div>
+        <h3>Ortofoto dal 1954 a oggi</h3>
+        <p>La «macchina del tempo» confronta due anni con una barra da trascinare: utile per la legittimità di un fabbricato.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="strumenti">
+    <div class="head">
+      <span class="eyebrow">Tutto il resto</span>
+      <h2 id="strumenti">Gli strumenti dello studio, sempre in tasca</h2>
+    </div>
+    <div class="grid">
+      <figure class="feature" style="margin:0">
+        <div class="phone"><img src="media/scheda.jpg" alt="Nuova scheda cliente" loading="lazy" width="540" height="1059"></div>
+        <h3>Schede clienti</h3>
+        <p>Anagrafica e pratiche di ogni cliente, con provincia e comune dall'elenco ufficiale. La scheda si può anche dettare a voce.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone"><img src="media/calcoli.jpg" alt="Elenco dei Calcoli utili" loading="lazy" width="540" height="1059"></div>
+        <h3>Calcoli utili</h3>
+        <p>Altezza media dei locali, area da coordinate, IMU, prezzo-valore, usufrutto, importo da fattura, livellazione, tasse e CIPAG.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone"><img src="media/poligonali.jpg" alt="Calcolo poligonali" loading="lazy" width="540" height="1059"></div>
+        <h3>Calcolo poligonali</h3>
+        <p>Poligonali aperte e chiuse con compensazione, punti trigonometrici IGM e Catasto, export in PDF e DXF. Importa i file del vecchio POLIG per DOS.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone"><img src="media/coordinate.jpg" alt="Trasformazioni di coordinate" loading="lazy" width="540" height="1059"></div>
+        <h3>Trasformazioni di coordinate</h3>
+        <p>ETRF2000, WGS84, ED50, Roma40, UTM, Gauss-Boaga e catastali, per un punto, un elenco o un file, con la quota sul livello del mare.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone"><img src="media/aree.jpg" alt="Aree locali da planimetria" loading="lazy" width="540" height="1059"></div>
+        <h3>Aree locali da planimetria</h3>
+        <p>Da una planimetria catastale in PDF o da una foto: aree dalle quote scritte o tracciate a mano con la scala.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone"><img src="media/parcelle.jpg" alt="Parcelle geometri, opere private" loading="lazy" width="540" height="1059"></div>
+        <h3>Parcelle geometri</h3>
+        <p>Privati, pubblici, pratiche e rilievi: il compenso con il decreto parametri, CIPAG e bollo, e il preventivo in PDF.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone"><img src="media/detrazioni.jpg" alt="Detrazioni edilizie 2026-2027" loading="lazy" width="540" height="1059"></div>
+        <h3>Detrazioni edilizie</h3>
+        <p>Un percorso a domande per le spese 2026 e 2027, con le fonti indicate e il grado di affidabilità di ogni dato.</p>
+      </figure>
+      <figure class="feature" style="margin:0">
+        <div class="phone"><img src="media/iva.jpg" alt="IVA agevolata edilizia" loading="lazy" width="540" height="1059"></div>
+        <h3>IVA agevolata</h3>
+        <p>4%, 10% o 22%: si parte dal tipo di lavoro e si arriva all'aliquota, con i riferimenti dell'Agenzia delle Entrate.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section class="close" aria-labelledby="provala">
+    <h2 id="provala">Provala per 15 giorni</h2>
+    <p>Installala da Google Play e usala completa per 15 giorni. I dati restano sul tuo telefono e puoi farne il backup su Drive quando vuoi.</p>
+    <div class="cta">
+      <a class="btn" href="https://play.google.com/store/apps/details?id=it.geometra.studiotecnico" target="_blank" rel="noopener">Scarica da Google Play</a>
+    </div>
+    <p class="small">Domande o richieste: <span class="mail" id="mail">simonemorbidelli@gmail.com</span><button class="copy" id="copia" type="button">Copia</button></p>
+  </section>
+</main>
+<footer>Studio Tecnico è sviluppata dal Geom. Simone Morbidelli, Castelfranco Piandiscò (AR). Le informazioni normative dell'app sono un supporto e vanno sempre verificate sulle fonti ufficiali.</footer>
+<script>
+document.getElementById('copia').addEventListener('click',function(){
+  var b=this,t=document.getElementById('mail').textContent;
+  function ok(){b.textContent='Copiato'}
+  function sel(){var r=document.createRange();r.selectNodeContents(document.getElementById('mail'));var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selezionato'}
+  try{navigator.clipboard.writeText(t).then(ok,sel)}catch(e){sel()}
+});
+</script>
+
+</body>
+</html>
