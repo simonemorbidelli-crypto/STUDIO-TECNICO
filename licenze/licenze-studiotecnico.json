@@ -31,5 +31,14 @@
   "revocati": [],
   "tutti_sbloccati": false,
   "tutti_revocati": false,
-  "_sbloccati": "A17F-4C21 sbloccato per sempre dal 17/11/2026"
+  "_sbloccati": "A17F-4C21 sbloccato per sempre dal 17/11/2026",
+  "desktop": {
+    "7FDE-350B": {
+      "scadenza": "2026-12-31",
+      "computer": [
+        "0210-E7E7-421E"
+      ]
+    }
+  },
+  "_desktop": "Studio Tecnico per Windows (dal 0.1): codice licenza -> scadenza e massimo 3 codici computer. Solo codici, mai nomi."
 }
